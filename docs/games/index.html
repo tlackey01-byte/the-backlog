@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The Backlog</title>
+<link rel="stylesheet" href="../shared/base.css">
 </head>
 <body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -578,6 +579,18 @@
   }
 </style>
 
+<div id="app" style="display:none">
+<nav class="site-nav">
+  <a class="site-nav-brand" href="..">The Backlog</a>
+  <div class="site-nav-links">
+    <a class="site-nav-link" href="..">Home</a>
+    <a class="site-nav-link active" href=".">Games</a>
+    <span class="site-nav-link coming-soon">Books</span>
+    <span class="site-nav-link coming-soon">Movies</span>
+    <span class="site-nav-link coming-soon">TV</span>
+    <span class="site-nav-link coming-soon">Music</span>
+  </div>
+</nav>
 <div class="wrap">
 <div id="list-view">
   <header class="top">
@@ -712,6 +725,7 @@
     <span>Hours-to-beat data via HowLongToBeat. Genres via Steam &amp; community sources — treat as approximate. "Played" is real Steam playtime where imported, 0 for anything still in your backlog, and otherwise blank until you log it yourself — the greyed-out number is just a hint from the Main+Extra estimate, not a counted value.</span>
     <span id="build-note"></span>
   </footer>
+</div>
 </div>
 
 <script id="game-data" type="application/json">__GAME_DATA_JSON__</script>
@@ -1571,6 +1585,13 @@
   applyFilters();
   route();
 })();
+</script>
+
+<script type="module">
+  import { requireLogin } from "../shared/firebase-init.js";
+  requireLogin(document.body, function (user) {
+    document.getElementById("app").style.display = "";
+  });
 </script>
 
 </body>
