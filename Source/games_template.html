@@ -1,4 +1,12 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The Backlog</title>
+<link rel="stylesheet" href="../shared/base.css">
+</head>
+<body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -569,8 +577,42 @@
     margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border);
     color: var(--text-faint); font-size: 12px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
   }
+
+  /* ---- Remote-deletion banner ---- */
+  .remote-delete-banner {
+    display: none; align-items: center; justify-content: space-between; gap: 12px;
+    background: var(--dnf-ink); color: var(--dnf); border-bottom: 1px solid var(--border);
+    padding: 10px 20px; font-size: 13.5px; font-weight: 500;
+  }
+  .remote-delete-banner.visible { display: flex; }
+  .remote-delete-banner .actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .remote-delete-banner button {
+    font-family: var(--font-body); font-size: 12.5px; font-weight: 600; cursor: pointer;
+    border: none; background: transparent; color: inherit; padding: 4px 8px; border-radius: var(--radius-s);
+  }
+  .remote-delete-banner button:hover { background: rgba(0, 0, 0, 0.08); }
+  .remote-delete-banner .refresh-btn { text-decoration: underline; }
 </style>
 
+<div id="app" style="display:none">
+<div class="remote-delete-banner" id="remote-delete-banner">
+  <span id="remote-delete-text"></span>
+  <span class="actions">
+    <button type="button" class="refresh-btn" id="remote-delete-refresh">Refresh</button>
+    <button type="button" id="remote-delete-dismiss" aria-label="Dismiss">Dismiss</button>
+  </span>
+</div>
+<nav class="site-nav">
+  <a class="site-nav-brand" href="..">The Backlog</a>
+  <div class="site-nav-links">
+    <a class="site-nav-link" href="..">Home</a>
+    <a class="site-nav-link active" href=".">Games</a>
+    <span class="site-nav-link coming-soon">Books</span>
+    <span class="site-nav-link coming-soon">Movies</span>
+    <span class="site-nav-link coming-soon">TV</span>
+    <span class="site-nav-link coming-soon">Music</span>
+  </div>
+</nav>
 <div class="wrap">
 <div id="list-view">
   <header class="top">
@@ -578,8 +620,7 @@
     <h1>The Backlog</h1>
     <p class="sub">Every game owned or wishlisted across PlayStation and Steam, with HowLongToBeat hours so you can actually plan what's next.</p>
     <div class="sync-bar" id="sync-bar">
-      <span class="sync-status"><span class="sync-dot" id="sync-dot"></span><span id="sync-label">Checking cloud sync…</span></span>
-      <button class="btn" id="sync-save-btn" type="button" style="display:none;">Save to cloud</button>
+      <span class="sync-status"><span class="sync-dot" id="sync-dot"></span><span id="sync-label"></span></span>
       <button class="btn" id="export-btn" type="button">Export backup (.json)</button>
     </div>
   </header>
@@ -707,6 +748,7 @@
     <span id="build-note"></span>
   </footer>
 </div>
+</div>
 
 <script id="game-data" type="application/json">__GAME_DATA_JSON__</script>
 
@@ -716,17 +758,16 @@
 
   var RAW = JSON.parse(document.getElementById('game-data').textContent);
 
-  // ---- Play-progress persistence (per-browser, local to this artifact) ----
+  // ---- Play-progress / ownership / platform / played-hours overrides ----
+  // Read from localStorage for now; onSnapshot in a later chunk switches the read side
+  // over to Firestore too. See saveState() below for the write side, which already goes
+  // to Firestore.
   var PROGRESS_KEY = 'backlog-progress-v1';
   var progressOverrides = {};
   try {
     var savedProgress = localStorage.getItem(PROGRESS_KEY);
     if (savedProgress) progressOverrides = JSON.parse(savedProgress) || {};
   } catch (e) { progressOverrides = {}; }
-  function saveProgress() {
-    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(progressOverrides)); } catch (e) {}
-    markDirty();
-  }
 
   var PLAYED_KEY = 'backlog-played-v1';
   var playedOverrides = {};
@@ -734,10 +775,6 @@
     var savedPlayed = localStorage.getItem(PLAYED_KEY);
     if (savedPlayed) playedOverrides = JSON.parse(savedPlayed) || {};
   } catch (e) { playedOverrides = {}; }
-  function savePlayed() {
-    try { localStorage.setItem(PLAYED_KEY, JSON.stringify(playedOverrides)); } catch (e) {}
-    markDirty();
-  }
 
   var OWNED_KEY = 'backlog-owned-v1';
   var ownedOverrides = {};
@@ -745,10 +782,6 @@
     var savedOwned = localStorage.getItem(OWNED_KEY);
     if (savedOwned) ownedOverrides = JSON.parse(savedOwned) || {};
   } catch (e) { ownedOverrides = {}; }
-  function saveOwned() {
-    try { localStorage.setItem(OWNED_KEY, JSON.stringify(ownedOverrides)); } catch (e) {}
-    markDirty();
-  }
 
   var PLATFORM_KEY = 'backlog-platforms-v1';
   var platformOverrides = {};
@@ -756,12 +789,8 @@
     var savedPlat = localStorage.getItem(PLATFORM_KEY);
     if (savedPlat) platformOverrides = JSON.parse(savedPlat) || {};
   } catch (e) { platformOverrides = {}; }
-  function savePlatforms() {
-    try { localStorage.setItem(PLATFORM_KEY, JSON.stringify(platformOverrides)); } catch (e) {}
-    markDirty();
-  }
 
-  // Removed-from-backlog games (per-browser, same as the overrides above). Deleted names are
+  // Removed-from-backlog games (same source as the overrides above). Deleted names are
   // filtered out before GAMES is built, rather than spliced out later, so every id stays a
   // stable index into GAMES and every derived stat (counts, genre list, hours) is correct
   // without needing its own "skip deleted" check.
@@ -773,14 +802,43 @@
       (JSON.parse(savedDeleted) || []).forEach(function(n) { deletedNames[n] = true; });
     }
   } catch (e) { deletedNames = {}; }
+
+  // ---- Firestore persistence ----
+  // Every override change writes the *whole* state object back via setDoc -- never
+  // updateDoc() with dotted field-path strings, since game names can contain '.', which
+  // updateDoc would treat as a nested-map path separator and silently corrupt the write.
+  // window.__cloudSaveState is wired up by the login-gate module script once signed in;
+  // it's only absent in the brief window before that resolves, when nothing is editable
+  // yet since the UI itself stays hidden until then.
+  function buildStateObject() {
+    return {
+      owned: ownedOverrides,
+      progress: progressOverrides,
+      played: playedOverrides,
+      platforms: platformOverrides,
+      deleted: Object.keys(deletedNames),
+      totals: computeTotals()
+    };
+  }
+  function saveState() {
+    markDirty();
+    return window.__cloudSaveState ? window.__cloudSaveState(buildStateObject()) : Promise.resolve();
+  }
+  // Exposed so the login-gate module script (which owns the onSnapshot listener) can
+  // trigger a save -- e.g. to seed `totals` the very first time this doc is ever written.
+  window.saveState = saveState;
+
   function deleteGame(name) {
     deletedNames[name] = true;
-    try { localStorage.setItem(DELETED_KEY, JSON.stringify(Object.keys(deletedNames))); } catch (e) {}
     // Every count/genre/hours-range figure below is derived once at load time, so the
-    // simplest correct way to reflect a deletion everywhere is to reload from the (now
-    // filtered) localStorage state rather than trying to patch each derived value live.
-    location.hash = '';
-    location.reload();
+    // simplest correct way to reflect a deletion everywhere is to reload after the write
+    // lands, rather than trying to patch each derived value live. Waiting for saveState()
+    // to resolve (instead of reloading immediately) matters here specifically -- an
+    // in-flight Firestore write can get aborted by navigation if we don't wait for it.
+    saveState().then(function() {
+      location.hash = '';
+      location.reload();
+    });
   }
 
   // A backlog game hasn't been started, so it always shows 0 hours played unless the user
@@ -814,6 +872,9 @@
     };
   });
 
+  var gameByName = {};
+  GAMES.forEach(function(g) { gameByName[g.name] = g; });
+
   var PLATFORMS = [
     { key: 'PlayStation', label: 'PlayStation', short: 'PS', cls: 'ps', statLabel: 'On PlayStation', statId: 'stat-ps' },
     { key: 'Steam', label: 'Steam', short: 'Steam', cls: 'steam', statLabel: 'On Steam', statId: 'stat-steam' },
@@ -825,6 +886,137 @@
   var totalCount = GAMES.length;
   function ownedGamesList() { return GAMES.filter(function(g){ return g.owned; }); }
   function wishlistCountNow() { return totalCount - ownedGamesList().length; }
+  // Read by the homepage's "Games" card straight off the state doc, so it doesn't need to
+  // load the full catalog just to show a stat.
+  function computeTotals() {
+    var owned = ownedGamesList().length;
+    return { total: totalCount, owned: owned, wishlist: totalCount - owned };
+  }
+
+  // ---- Live cross-device sync ----
+  // Called by the login-gate module script's onSnapshot listener whenever the Firestore
+  // doc changes -- including this device's own writes echoing back, which is a safe no-op
+  // since every branch below only touches local state/DOM when a value actually differs
+  // from what's already showing.
+  //
+  // Deletions get special handling rather than a live DOM patch: GAMES' positional ids
+  // depend on deleted names being filtered out at load time (see the comment in
+  // deleteGame() above), so a name deleted on another device can't be safely spliced out
+  // of an already-rendered page without risking id drift for every other row. Instead, a
+  // dismissible banner tells the user to refresh when that happens -- see
+  // updateRemoteDeleteBanner() below.
+  function patchOwnedRow(g) {
+    Array.prototype.forEach.call(document.querySelectorAll('.status-select[data-id="' + g.id + '"]'), function(el) {
+      el.classList.remove('owned', 'wishlist');
+      el.classList.add(g.owned ? 'owned' : 'wishlist');
+      el.value = g.owned ? 'owned' : 'wishlist';
+    });
+  }
+  function patchProgressRow(g) {
+    var cls = progressClass(g.progress);
+    Array.prototype.forEach.call(document.querySelectorAll('.progress-select[data-id="' + g.id + '"]'), function(el) {
+      el.classList.remove('p-backlog', 'p-dnf', 'p-beaten', 'p-hundred');
+      el.classList.add(cls);
+      el.value = g.progress;
+    });
+  }
+  function patchPlayedRow(g) {
+    var hasVal = g.playedHours != null;
+    Array.prototype.forEach.call(document.querySelectorAll('.played-input[data-id="' + g.id + '"]'), function(el) {
+      el.classList.toggle('has-value', hasVal);
+      el.value = hasVal ? g.playedHours : '';
+    });
+  }
+  function patchPlatformRow(g) {
+    PLATFORMS.forEach(function(p) {
+      var active = g.platforms.indexOf(p.key) > -1;
+      Array.prototype.forEach.call(document.querySelectorAll('.plat-toggle[data-id="' + g.id + '"][data-plat="' + p.key + '"]'), function(el) {
+        el.classList.toggle('active', active);
+        el.setAttribute('aria-pressed', String(active));
+      });
+    });
+  }
+
+  // Names seen in a snapshot's `deleted` list that this device hasn't already accounted
+  // for (its own deletes mark deletedNames synchronously before writing, so those never
+  // end up here). Accumulates across snapshots until the user dismisses or refreshes.
+  var pendingRemoteDeletions = [];
+  function updateRemoteDeleteBanner() {
+    var banner = document.getElementById('remote-delete-banner');
+    var textEl = document.getElementById('remote-delete-text');
+    if (!banner || !textEl) return;
+    if (!pendingRemoteDeletions.length) {
+      banner.classList.remove('visible');
+      return;
+    }
+    textEl.textContent = pendingRemoteDeletions.length === 1
+      ? '"' + pendingRemoteDeletions[0] + '" was removed elsewhere — refresh to update the list.'
+      : pendingRemoteDeletions.length + ' games were removed elsewhere — refresh to update the list.';
+    banner.classList.add('visible');
+  }
+  var remoteDeleteRefreshBtn = document.getElementById('remote-delete-refresh');
+  var remoteDeleteDismissBtn = document.getElementById('remote-delete-dismiss');
+  if (remoteDeleteRefreshBtn) remoteDeleteRefreshBtn.addEventListener('click', function() {
+    location.reload();
+  });
+  if (remoteDeleteDismissBtn) remoteDeleteDismissBtn.addEventListener('click', function() {
+    pendingRemoteDeletions = [];
+    updateRemoteDeleteBanner();
+  });
+
+  function applyRemoteState(data) {
+    if (!data) return;
+    var statsChanged = false;
+
+    (data.deleted || []).forEach(function(name) {
+      if (deletedNames[name] || !gameByName[name]) return;
+      deletedNames[name] = true;
+      pendingRemoteDeletions.push(name);
+    });
+    if (pendingRemoteDeletions.length) updateRemoteDeleteBanner();
+
+    Object.keys(data.owned || {}).forEach(function(name) {
+      var g = gameByName[name];
+      if (!g || ownedOverrides[name] === data.owned[name]) return;
+      ownedOverrides[name] = g.owned = data.owned[name];
+      patchOwnedRow(g);
+      statsChanged = true;
+    });
+
+    Object.keys(data.progress || {}).forEach(function(name) {
+      var g = gameByName[name];
+      if (!g || progressOverrides[name] === data.progress[name]) return;
+      progressOverrides[name] = g.progress = data.progress[name];
+      g.playedHours = effectivePlayed(g.progress, g.playedHoursDefault, g.name);
+      patchProgressRow(g);
+      patchPlayedRow(g);
+      statsChanged = true;
+    });
+
+    Object.keys(data.played || {}).forEach(function(name) {
+      var g = gameByName[name];
+      if (!g || playedOverrides[name] === data.played[name]) return;
+      playedOverrides[name] = g.playedHours = data.played[name];
+      patchPlayedRow(g);
+      statsChanged = true;
+    });
+
+    Object.keys(data.platforms || {}).forEach(function(name) {
+      var g = gameByName[name];
+      var incoming = data.platforms[name] || [];
+      if (!g || JSON.stringify(platformOverrides[name] || []) === JSON.stringify(incoming)) return;
+      platformOverrides[name] = g.platforms = incoming.slice();
+      patchPlatformRow(g);
+      statsChanged = true;
+    });
+
+    if (statsChanged) {
+      refreshProgressStats();
+      refreshOwnershipStats();
+      applyFilters();
+    }
+  }
+  window.__applyRemoteState = applyRemoteState;
   function platformCountNow(key) { return ownedGamesList().filter(function(g){ return g.platforms.indexOf(key) > -1; }).length; }
   function countProgress(val) { return GAMES.filter(function(g){ return g.progress === val; }).length; }
   // Backlog hours is "how long left to beat this" (an estimate), so it uses Main+Extra directly —
@@ -1412,7 +1604,7 @@
     var val = sel.value;
     g.progress = val;
     progressOverrides[g.name] = val;
-    saveProgress();
+    saveState();
     var cls = progressClass(val);
     Array.prototype.forEach.call(document.querySelectorAll('.progress-select[data-id="' + id + '"]'), function(el) {
       el.classList.remove('p-backlog', 'p-dnf', 'p-beaten', 'p-hundred');
@@ -1452,7 +1644,7 @@
       val = parsed;
     }
     g.playedHours = val;
-    savePlayed();
+    saveState();
     var hasVal = val != null;
     Array.prototype.forEach.call(document.querySelectorAll('.played-input[data-id="' + id + '"]'), function(el) {
       el.classList.toggle('has-value', hasVal);
@@ -1474,7 +1666,7 @@
     var newOwned = sel.value === 'owned';
     g.owned = newOwned;
     ownedOverrides[g.name] = newOwned;
-    saveOwned();
+    saveState();
     Array.prototype.forEach.call(document.querySelectorAll('.status-select[data-id="' + id + '"]'), function(el) {
       el.classList.remove('owned', 'wishlist');
       el.classList.add(newOwned ? 'owned' : 'wishlist');
@@ -1499,7 +1691,7 @@
     if (idx > -1) { g.platforms.splice(idx, 1); nowActive = false; }
     else { g.platforms.push(plat); nowActive = true; }
     platformOverrides[g.name] = g.platforms.slice();
-    savePlatforms();
+    saveState();
     Array.prototype.forEach.call(document.querySelectorAll('.plat-toggle[data-id="' + id + '"][data-plat="' + plat + '"]'), function(el) {
       el.classList.toggle('active', nowActive);
       el.setAttribute('aria-pressed', String(nowActive));
@@ -1521,32 +1713,16 @@
     io.observe(sentinel);
   }
 
-  // ---- Cloud sync + backup export (durability beyond this one browser's localStorage) ----
-  var artifactCap = null, downloadsCap = null, capsReady = false;
-  var cloudDirty = false, cloudBusy = false, cloudUnavailable = false;
+  // ---- Backup export ----
+  // The sync-dot/sync-label pair (see markup above) is wired to live Firestore sync
+  // status in a later step of this migration; for now markDirty() is a no-op stub so
+  // saveState() (above) doesn't need to change once that wiring lands.
   var syncDotEl = document.getElementById('sync-dot');
   var syncLabelEl = document.getElementById('sync-label');
-  var syncBtn = document.getElementById('sync-save-btn');
   var exportBtn = document.getElementById('export-btn');
 
-  function setSyncUI(dotClass, label, showSaveBtn, saveBtnDisabled) {
-    syncDotEl.className = 'sync-dot' + (dotClass ? ' ' + dotClass : '');
-    syncLabelEl.textContent = label;
-    syncBtn.style.display = showSaveBtn ? '' : 'none';
-    syncBtn.disabled = !!saveBtnDisabled;
-  }
-
-  function updateSyncUI() {
-    if (cloudUnavailable) { setSyncUI('', 'Saved to this browser only', false, false); return; }
-    if (!capsReady) { setSyncUI('', 'Checking cloud sync…', false, false); return; }
-    if (cloudBusy) { setSyncUI('saving', 'Saving to cloud…', true, true); return; }
-    if (cloudDirty) { setSyncUI('dirty', 'Unsaved changes', true, false); return; }
-    setSyncUI('synced', 'Synced to cloud', true, true);
-  }
-
   function markDirty() {
-    cloudDirty = true;
-    updateSyncUI();
+    // TODO: wired to Firestore write-pending state in a later migration step.
   }
 
   // Fold current owned/platform/progress/played-hours state back into compact records
@@ -1562,99 +1738,58 @@
     });
   }
 
-  // Reconstructs "a complete document, doctype first" for claude.use('artifact').publish() —
-  // same wrapping build.py's build_standalone() does, from a cloned (not live) <body> so
-  // per-viewer UI state (open detail page, active filters, sort) resets to defaults for the
-  // next fresh load instead of getting baked in for everyone.
-  function buildStandaloneDoc() {
-    var bodyClone = document.body.cloneNode(true);
-    var lv = bodyClone.querySelector('#list-view');
-    if (lv) lv.style.display = '';
-    var dv = bodyClone.querySelector('#detail-view');
-    if (dv) { dv.style.display = 'none'; dv.innerHTML = ''; }
-    ['status-seg', 'progress-seg', 'platform-seg'].forEach(function(segId) {
-      var seg = bodyClone.querySelector('#' + segId);
-      if (!seg) return;
-      Array.prototype.forEach.call(seg.querySelectorAll('button'), function(b) {
-        b.classList.toggle('active', b.getAttribute('data-val') === 'all');
-      });
-    });
-    var ASC_KEYS = ['n', 'genre', 'status', 'progress', 'plat'];
-    Array.prototype.forEach.call(bodyClone.querySelectorAll('#thead-row th'), function(th) {
-      var key = th.getAttribute('data-sort');
-      th.classList.toggle('sorted', key === 'n');
-      var arrow = th.querySelector('.arrow');
-      if (arrow) arrow.textContent = ASC_KEYS.indexOf(key) > -1 ? '▲' : '▼';
-    });
-    var dataEl = bodyClone.querySelector('#game-data');
-    if (dataEl) dataEl.textContent = JSON.stringify(buildMergedRaw());
-    var titleEl = document.head.querySelector('title');
-    var titleHtml = titleEl ? titleEl.outerHTML : '<title>The Backlog</title>';
-    return '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n' +
-      '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
-      titleHtml + '\n</head>\n<body>\n' + bodyClone.innerHTML + '\n</body>\n</html>\n';
-  }
-
-  function saveToCloud() {
-    if (!artifactCap || cloudBusy) return;
-    cloudBusy = true;
-    updateSyncUI();
-    artifactCap.publish(buildStandaloneDoc()).then(function() {
-      cloudDirty = false;
-      cloudBusy = false;
-      updateSyncUI();
-    }, function(err) {
-      cloudBusy = false;
-      var code = err && err.code;
-      if (code === 'not_writer' || code === 'not_granted' || code === 'not_declared' ||
-          code === 'capability_disabled' || code === 'capability_removed') {
-        cloudUnavailable = true;
-        updateSyncUI();
-        return;
-      }
-      if (code === 'conflict') { return; } // a newer version is already live; this view is reloading to it
-      setSyncUI('error', code === 'rate_limited' ? 'Too many saves — wait a moment' : 'Save failed — try again', true, false);
-    });
-  }
-  syncBtn.addEventListener('click', saveToCloud);
-
   function exportBackup() {
     var payload = JSON.stringify({ exportedAt: new Date().toISOString(), games: buildMergedRaw() }, null, 2);
     var filename = 'backlog-backup-' + new Date().toISOString().slice(0, 10) + '.json';
-    if (!downloadsCap) {
-      // Outside the claude.ai viewer sandbox (e.g. the standalone local/vault file), a plain
-      // browser download works fine and needs no capability.
-      try {
-        var blob = new Blob([payload], { type: 'application/json' });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
-      } catch (e) {}
-      return;
-    }
-    downloadsCap.save({ filename: filename, data: payload }).catch(function() {});
+    try {
+      var blob = new Blob([payload], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+    } catch (e) {}
   }
   exportBtn.addEventListener('click', exportBackup);
-
-  if (window.claude && typeof window.claude.use === 'function') {
-    window.claude.use('artifact').then(function(cap) {
-      artifactCap = cap;
-      capsReady = true;
-      if (!cap) cloudUnavailable = true;
-      updateSyncUI();
-    });
-    window.claude.use('downloads').then(function(cap) { downloadsCap = cap; });
-  } else {
-    cloudUnavailable = true;
-    updateSyncUI();
-  }
-
   applyFilters();
   route();
 })();
 </script>
+
+<script type="module">
+  import { requireLogin, db, doc, setDoc, onSnapshot } from "../shared/firebase-init.js";
+  requireLogin(document.body, function (user) {
+    document.getElementById("app").style.display = "";
+    var stateRef = doc(db, "users", user.uid, "state", "games");
+    // Called by saveState() in the classic script above, which owns the state shape.
+    // Always a full overwrite (see the dotted-key comment near buildStateObject()).
+    window.__cloudSaveState = function (stateObj) {
+      var payload = Object.assign({}, stateObj, { updatedAt: new Date().toISOString() });
+      return setDoc(stateRef, payload);
+    };
+
+    // Live cross-device sync: every snapshot (this device's own writes echoing back
+    // included) gets diffed and patched into the DOM by applyRemoteState(), never a full
+    // reload. Also seeds `totals` (and bootstraps the doc entirely, for a first-ever user)
+    // exactly once per page load, and only when it's actually missing -- never on every
+    // load, since the read side here still only reflects what this snapshot brings in, and
+    // an unconditional write could otherwise race a device that hasn't caught up yet.
+    var seededTotals = false;
+    onSnapshot(stateRef, function (snap) {
+      var data = snap.data();
+      if (window.__applyRemoteState) window.__applyRemoteState(data);
+      if (!seededTotals) {
+        seededTotals = true;
+        if (!data || data.totals == null) {
+          if (window.saveState) window.saveState();
+        }
+      }
+    });
+  });
+</script>
+
+</body>
+</html>
