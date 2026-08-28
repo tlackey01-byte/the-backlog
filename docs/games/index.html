@@ -1,0 +1,1577 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Backlog</title>
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #eef1f6;
+    --surface: #ffffff;
+    --surface-2: #f6f8fb;
+    --surface-3: #eaeef4;
+    --border: #dbe0ea;
+    --border-strong: #c4cbd8;
+    --text: #1a1d24;
+    --text-muted: #5b6072;
+    --text-faint: #8a90a1;
+    --accent: #b8701a;
+    --accent-strong: #96590f;
+    --accent-ink: #fff4e5;
+    --owned: #21815c;
+    --owned-ink: #e5f5ee;
+    --wishlist: #6a5fc4;
+    --wishlist-ink: #efedfc;
+    --backlog: #5b6072;
+    --backlog-ink: #eaecf1;
+    --beaten: #2f6fb0;
+    --beaten-ink: #e6f0fa;
+    --hundred: #b23a72;
+    --hundred-ink: #fbe8f1;
+    --dnf: #a1481f;
+    --dnf-ink: #fbeae1;
+    --shadow: 0 1px 2px rgba(20, 22, 30, 0.06), 0 8px 24px -12px rgba(20, 22, 30, 0.12);
+    --radius-s: 6px;
+    --radius-m: 10px;
+    --radius-l: 16px;
+    --font-display: "Big Shoulders Display", "Arial Narrow", sans-serif;
+    --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", "Consolas", monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14161c;
+      --surface: #1b1e27;
+      --surface-2: #21242f;
+      --surface-3: #292d3a;
+      --border: #2c303d;
+      --border-strong: #3a3f4f;
+      --text: #eef0f4;
+      --text-muted: #a2a8bc;
+      --text-faint: #6b7086;
+      --accent: #e8a23d;
+      --accent-strong: #f3b862;
+      --accent-ink: #3a2a0f;
+      --owned: #5fc79a;
+      --owned-ink: #0e2a20;
+      --wishlist: #a79bf0;
+      --wishlist-ink: #221f3a;
+      --backlog: #a2a8bc;
+      --backlog-ink: #262a35;
+      --beaten: #6fa8e0;
+      --beaten-ink: #142943;
+      --hundred: #e881b3;
+      --hundred-ink: #3a1a2a;
+      --dnf: #e08a5a;
+      --dnf-ink: #3a2214;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14161c;
+    --surface: #1b1e27;
+    --surface-2: #21242f;
+    --surface-3: #292d3a;
+    --border: #2c303d;
+    --border-strong: #3a3f4f;
+    --text: #eef0f4;
+    --text-muted: #a2a8bc;
+    --text-faint: #6b7086;
+    --accent: #e8a23d;
+    --accent-strong: #f3b862;
+    --accent-ink: #3a2a0f;
+    --owned: #5fc79a;
+    --owned-ink: #0e2a20;
+    --wishlist: #a79bf0;
+    --wishlist-ink: #221f3a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 28px 20px 80px; }
+
+  /* ---------- Header ---------- */
+  header.top { display: flex; flex-direction: column; gap: 4px; margin-bottom: 22px; }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(38px, 6vw, 58px);
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+    line-height: 0.98;
+  }
+  .sub { color: var(--text-muted); font-size: 14.5px; max-width: 62ch; }
+
+  /* ---------- Sync / backup bar ---------- */
+  .sync-bar { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  .sync-status { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-muted); }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); flex: none; }
+  .sync-dot.synced { background: var(--owned); }
+  .sync-dot.dirty { background: var(--accent); }
+  .sync-dot.saving { background: var(--accent); animation: sync-pulse 1s ease-in-out infinite; }
+  .sync-dot.error { background: var(--dnf); }
+  @keyframes sync-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+  .sync-bar .btn { padding: 6px 11px; font-size: 12.5px; }
+  .sync-bar .btn:disabled { opacity: .5; cursor: default; }
+
+  /* ---------- Stat strip ---------- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-l);
+    overflow: hidden;
+    margin: 22px 0;
+    box-shadow: var(--shadow);
+  }
+  .stat {
+    background: var(--surface);
+    padding: 16px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .stat .num {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 30px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .stat .label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+  }
+  .stat.accent-owned .num { color: var(--owned); }
+  .stat.accent-wish .num { color: var(--wishlist); }
+  .stat.accent-hours .num { color: var(--accent); }
+  .stat.accent-beaten .num { color: var(--beaten); }
+  .stat.accent-hundred .num { color: var(--hundred); }
+  .stat.accent-dnf .num { color: var(--dnf); }
+
+  /* ---------- Toolbar ---------- */
+  .toolbar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-l);
+    padding: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+    box-shadow: var(--shadow);
+    position: relative;
+    z-index: 5;
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label {
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-faint);
+  }
+  .search-field { flex: 1 1 220px; min-width: 180px; }
+  .search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .search-box svg { position: absolute; left: 10px; width: 15px; height: 15px; color: var(--text-faint); pointer-events: none; }
+  input[type="search"], input[type="text"], input[type="number"] {
+    font-family: var(--font-body);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: var(--radius-s);
+    padding: 8px 10px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  input[type="search"] { padding-left: 32px; width: 100%; }
+  input[type="search"]:focus, input[type="text"]:focus, input[type="number"]:focus, select:focus, button:focus-visible {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+
+  .segmented {
+    display: inline-flex;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    padding: 2px;
+    gap: 2px;
+  }
+  .segmented button {
+    font-family: var(--font-body);
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s ease, color .15s ease;
+  }
+  .segmented button:hover { color: var(--text); }
+  .segmented button.active { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+  select {
+    font-family: var(--font-body);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: var(--radius-s);
+    padding: 8px 10px;
+    font-size: 13.5px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .btn {
+    font-family: var(--font-body);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: var(--radius-s);
+    padding: 8px 12px;
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background .15s ease, border-color .15s ease;
+  }
+  .btn:hover { background: var(--surface-3); border-color: var(--border-strong); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .btn.primary:hover { background: var(--accent-strong); }
+  .btn .count-badge {
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--accent);
+    border-radius: 20px;
+    padding: 1px 7px;
+    font-size: 11.5px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+  }
+  .clear-link {
+    background: none; border: none; color: var(--text-faint); font-size: 13px;
+    cursor: pointer; text-decoration: underline; text-underline-offset: 2px; padding: 8px 4px;
+  }
+  .clear-link:hover { color: var(--text); }
+
+  .hours-range { display: flex; align-items: center; gap: 8px; }
+  .hours-range input[type="number"] { width: 60px; text-align: right; font-family: var(--font-mono); }
+  .hours-range .to { color: var(--text-faint); font-size: 12px; }
+
+  /* ---------- Genre popover ---------- */
+  .popover-wrap { position: relative; }
+  .popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    width: 320px;
+    max-height: 380px;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-m);
+    box-shadow: var(--shadow);
+    display: none;
+    flex-direction: column;
+    z-index: 20;
+  }
+  .popover.open { display: flex; }
+  .popover-search { padding: 10px; border-bottom: 1px solid var(--border); }
+  .popover-list { overflow-y: auto; padding: 6px; flex: 1; }
+  .genre-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px; border-radius: var(--radius-s); cursor: pointer; font-size: 13.5px;
+  }
+  .genre-row:hover { background: var(--surface-2); }
+  .genre-row input { accent-color: var(--accent); width: 15px; height: 15px; flex-shrink: 0; }
+  .genre-row .gname { flex: 1; }
+  .genre-row .gcount { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-faint); }
+  .popover-footer { padding: 8px 10px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; }
+
+  .chips-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--accent-ink); color: var(--accent-strong);
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    border-radius: 20px; padding: 4px 6px 4px 12px; font-size: 12.5px; font-weight: 600;
+  }
+  .chip button {
+    background: none; border: none; color: inherit; cursor: pointer; font-size: 14px;
+    line-height: 1; padding: 2px; opacity: .7; display: flex;
+  }
+  .chip button:hover { opacity: 1; }
+
+  /* ---------- Results meta ---------- */
+  .results-meta {
+    display: flex; justify-content: space-between; align-items: center;
+    margin: 18px 2px 10px; color: var(--text-muted); font-size: 13px; flex-wrap: wrap; gap: 8px;
+  }
+  .results-meta .count strong { color: var(--text); font-family: var(--font-mono); }
+
+  /* ---------- Table ---------- */
+  .table-shell {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-l);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 760px; }
+  thead th {
+    position: sticky; top: 0; z-index: 2;
+    background: var(--surface-2);
+    text-align: left;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-faint);
+    font-weight: 700;
+    padding: 13px 14px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  thead th:hover { color: var(--text); }
+  thead th.num { text-align: right; }
+  thead th .arrow { display: inline-block; margin-left: 3px; opacity: 0; font-size: 10px; }
+  thead th.sorted .arrow { opacity: 1; color: var(--accent); }
+  thead th.sorted { color: var(--text); }
+
+  tbody td {
+    padding: 13px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 15px;
+    vertical-align: middle;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--surface-2); }
+  td.num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-muted); }
+  td.num.basis { color: var(--text); font-weight: 600; }
+
+  .played-input {
+    width: 62px;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    text-align: right;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-s);
+    color: var(--text-faint);
+    padding: 6px 7px;
+    outline: none;
+    font-variant-numeric: tabular-nums;
+    transition: border-color .15s ease, background .15s ease, color .15s ease;
+  }
+  .played-input.has-value { color: var(--beaten); font-weight: 700; }
+  .played-input:hover { border-color: var(--border); background: var(--surface-2); }
+  .played-input:focus { border-color: var(--accent); background: var(--surface-2); color: var(--text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+  .played-input::-webkit-inner-spin-button, .played-input::-webkit-outer-spin-button { opacity: 0.35; }
+  .card-meta .played-input { width: 50px; padding: 2px 4px; font-size: 12.5px; }
+  td.name-cell { font-weight: 600; max-width: 340px; }
+  td.name-cell .gtags { font-weight: 400; color: var(--text-faint); font-size: 12.5px; margin-top: 2px; white-space: normal; }
+
+  .game-link {
+    display: block; width: 100%; background: none; border: none; padding: 0; margin: 0; text-align: left;
+    font: inherit; color: var(--text); cursor: pointer; text-decoration-color: transparent;
+    text-underline-offset: 3px; transition: color .15s ease, text-decoration-color .15s ease;
+  }
+  .game-link:hover { color: var(--accent); text-decoration: underline; text-decoration-color: var(--accent); }
+  .game-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+  /* ---------- Cover art ---------- */
+  .cover-link { display: inline-block; width: auto; flex-shrink: 0; border-radius: 8px; }
+  .cover-link:hover { text-decoration: none; }
+  .cover-link:focus-visible { outline-offset: 3px; }
+  .cover-thumb {
+    display: block; object-fit: cover; background: var(--surface-3);
+    border: 1px solid var(--border); box-sizing: border-box;
+  }
+  .cover-placeholder {
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-faint); font-family: var(--font-display); font-weight: 700;
+    background: var(--surface-3);
+  }
+  .cover-th { width: 60px; padding: 11px 0 11px 14px !important; }
+  td.cover-cell { padding: 6px 0 6px 14px; }
+
+  /* Fixed box per size tier, taller than wide (roughly matches box-art proportions).
+     object-fit: cover fills the box completely — fine now that most covers are portrait
+     box art close to this ratio; older landscape capsule images crop more noticeably. */
+  .cover-row { width: 51px; height: 67px; border-radius: 6px; }
+  .cover-row.cover-placeholder { font-size: 20px; }
+  .cover-card { width: 56px; height: 74px; border-radius: 8px; }
+  .cover-card.cover-placeholder { font-size: 22px; }
+  .cover-hero { width: clamp(128px, 28vw, 192px); height: clamp(168px, 37vw, 253px); border-radius: var(--radius-m); box-shadow: var(--shadow); }
+  .cover-hero.cover-placeholder { font-size: clamp(45px, 9vw, 69px); }
+
+  /* ---------- Detail view ---------- */
+  .detail-hero { display: flex; align-items: flex-start; gap: 22px; margin-bottom: 4px; }
+  .detail-hero-text { min-width: 0; flex: 1; }
+  .detail-hero-text .detail-title { margin-bottom: 12px; }
+  @media (max-width: 480px) {
+    .detail-hero { flex-direction: column; }
+  }
+  .detail-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+  .detail-back {
+    background: none; border: none; color: var(--text-muted); font-size: 13.5px; font-weight: 500;
+    cursor: pointer; padding: 6px 0; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .detail-back:hover { color: var(--accent); }
+  .detail-delete {
+    background: var(--dnf-ink); border: 1px solid color-mix(in srgb, var(--dnf) 35%, transparent);
+    color: var(--dnf); font-family: var(--font-body); font-size: 12.5px; font-weight: 600;
+    border-radius: var(--radius-s); padding: 7px 12px; cursor: pointer;
+    transition: background .15s ease, color .15s ease;
+  }
+  .detail-delete:hover { background: var(--dnf); color: var(--dnf-ink); }
+  .detail-eyebrow { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+  .detail-eyebrow .g-chip {
+    font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--accent); font-weight: 600;
+  }
+  .detail-title { font-family: var(--font-display); font-weight: 800; font-size: clamp(32px, 5.5vw, 50px);
+    letter-spacing: -0.01em; margin: 0 0 14px; text-wrap: balance; line-height: 1.0; }
+  .detail-badges { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 26px; }
+  .detail-fields { display: flex; gap: 28px; flex-wrap: wrap; margin-bottom: 28px; }
+  .detail-fields .field label { margin-bottom: 8px; display: block; }
+  .detail-fields .progress-select, .detail-fields .status-select { font-size: 13.5px; padding: 7px 28px 7px 14px; }
+  .detail-fields .plat-toggle { font-size: 12.5px; padding: 6px 12px; }
+  .detail-fields .played-input { width: 90px; font-size: 15px; padding: 8px 10px; border: 1px solid var(--border); background: var(--surface-2); }
+  .detail-fields .played-input:hover { background: var(--surface-3); }
+  .detail-hint { color: var(--text-faint); font-size: 12.5px; margin: -18px 0 28px; }
+  .detail-hint b { color: var(--text-muted); font-weight: 600; }
+  .detail-stats { margin: 0 0 8px; }
+  .detail-note { color: var(--text-faint); font-size: 12.5px; margin-top: 14px; }
+
+  .progress-select, .status-select {
+    font-family: var(--font-body);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 20px;
+    padding: 4px 24px 4px 11px;
+    font-size: 12.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    cursor: pointer;
+    outline: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: right 12px top 55%, right 8px top 55%;
+    background-size: 4px 4px, 4px 4px;
+    background-repeat: no-repeat;
+  }
+  .progress-select.p-backlog { background-color: var(--backlog-ink); color: var(--backlog); }
+  .progress-select.p-beaten { background-color: var(--beaten-ink); color: var(--beaten); }
+  .progress-select.p-hundred { background-color: var(--hundred-ink); color: var(--hundred); }
+  .progress-select.p-dnf { background-color: var(--dnf-ink); color: var(--dnf); }
+  .status-select.owned { background-color: var(--owned-ink); color: var(--owned); }
+  .status-select.wishlist { background-color: var(--surface-3); color: var(--text-faint); }
+  .progress-select:focus, .status-select:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+
+  .plat-toggle-group { display: inline-flex; gap: 4px; }
+  .plat-toggle {
+    font-family: var(--font-body);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-faint);
+    font-size: 12px; font-weight: 700; letter-spacing: .02em;
+    padding: 3px 8px; border-radius: 5px;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .plat-toggle:hover { border-color: var(--border-strong); color: var(--text-muted); }
+  .plat-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .plat-toggle.ps.active { background: color-mix(in srgb, #3c7dd9 18%, transparent); color: #3c7dd9; border-color: transparent; }
+  .plat-toggle.steam.active { background: color-mix(in srgb, var(--text-muted) 18%, transparent); color: var(--text-muted); border-color: transparent; }
+  .plat-toggle.nintendo.active { background: color-mix(in srgb, #c23a4d 18%, transparent); color: #c23a4d; border-color: transparent; }
+  .plat-toggle.emu.active { background: color-mix(in srgb, #1a8a8a 18%, transparent); color: #1a8a8a; border-color: transparent; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .plat-toggle.ps.active { color: #7fb0f2; }
+    :root:not([data-theme="light"]) .plat-toggle.nintendo.active { color: #e8798a; }
+    :root:not([data-theme="light"]) .plat-toggle.emu.active { color: #5fd4d4; }
+  }
+  :root[data-theme="dark"] .plat-toggle.ps.active { color: #7fb0f2; }
+  :root[data-theme="dark"] .plat-toggle.nintendo.active { color: #e8798a; }
+  :root[data-theme="dark"] .plat-toggle.emu.active { color: #5fd4d4; }
+
+  /* Toolbar's platform filter buttons double as multi-select toggles (not exclusive like other segmented controls) */
+  #platform-seg button.plat-active { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+  .empty-state { padding: 60px 20px; text-align: center; color: var(--text-muted); }
+  .empty-state .big { font-family: var(--font-display); font-size: 26px; color: var(--text); margin-bottom: 6px; font-weight: 700; }
+
+  .sentinel { height: 1px; }
+  .load-more-row td { text-align: center; padding: 16px; color: var(--text-faint); font-size: 12.5px; }
+
+  /* ---------- Mobile cards ---------- */
+  .cards { display: none; }
+  @media (max-width: 720px) {
+    .table-shell { display: none; }
+    .cards { display: flex; flex-direction: column; gap: 10px; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-m);
+      padding: 14px; box-shadow: var(--shadow);
+    }
+    .card-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+    .card-top-text { flex: 1; min-width: 0; }
+    .card-title { font-weight: 700; font-size: 14.5px; }
+    .card-tags { color: var(--text-faint); font-size: 11.5px; margin-top: 3px; }
+    .card-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--text-muted); margin-top: 10px; }
+    .card-meta b { color: var(--text); font-family: var(--font-mono); font-weight: 600; }
+  }
+
+  footer.foot {
+    margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border);
+    color: var(--text-faint); font-size: 12px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  }
+</style>
+
+<div class="wrap">
+<div id="list-view">
+  <header class="top">
+    <span class="eyebrow" id="eyebrow-count">1,921 titles tracked</span>
+    <h1>The Backlog</h1>
+    <p class="sub">Every game owned or wishlisted across PlayStation and Steam, with HowLongToBeat hours so you can actually plan what's next.</p>
+    <div class="sync-bar" id="sync-bar">
+      <span class="sync-status"><span class="sync-dot" id="sync-dot"></span><span id="sync-label"></span></span>
+      <button class="btn" id="export-btn" type="button">Export backup (.json)</button>
+    </div>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="toolbar">
+    <div class="field search-field">
+      <label for="search">Search</label>
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input type="search" id="search" placeholder="Search by title…" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Ownership</label>
+      <div class="segmented" id="status-seg">
+        <button data-val="all" class="active">All</button>
+        <button data-val="owned">Owned</button>
+        <button data-val="wishlist">Wishlist</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Progress</label>
+      <div class="segmented" id="progress-seg">
+        <button data-val="all" class="active">Any</button>
+        <button data-val="backlog">Backlog</button>
+        <button data-val="dnf">DNF</button>
+        <button data-val="beaten">Beaten</button>
+        <button data-val="100">100%</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Platform owned on</label>
+      <div class="segmented" id="platform-seg">
+        <button data-val="all" class="active">Any</button>
+        <button data-val="PlayStation">PlayStation</button>
+        <button data-val="Steam">Steam</button>
+        <button data-val="Nintendo">Nintendo</button>
+        <button data-val="Emulation">Emulation</button>
+      </div>
+    </div>
+
+    <div class="field popover-wrap" id="genre-wrap">
+      <label>Genre</label>
+      <button class="btn" id="genre-btn">Any genre <span class="count-badge" id="genre-count" style="display:none">0</span></button>
+      <div class="popover" id="genre-popover">
+        <div class="popover-search">
+          <input type="text" id="genre-search" placeholder="Filter genres…">
+        </div>
+        <div class="popover-list" id="genre-list"></div>
+        <div class="popover-footer">
+          <button class="clear-link" id="genre-clear-btn">Clear</button>
+          <button class="btn primary" id="genre-apply-btn" style="padding:5px 12px;font-size:12.5px;">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Hours basis</label>
+      <select id="hours-basis">
+        <option value="m">Main Story</option>
+        <option value="e" selected>Main + Extra</option>
+        <option value="c">Completionist</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Hours to beat</label>
+      <div class="hours-range">
+        <input type="number" id="hours-min" min="0" placeholder="0">
+        <span class="to">–</span>
+        <input type="number" id="hours-max" min="0" placeholder="max">
+        <span class="to" id="hours-cap"></span>
+      </div>
+    </div>
+
+    <button class="clear-link" id="clear-all">Reset filters</button>
+  </div>
+
+  <div class="chips-row" id="active-chips"></div>
+
+  <div class="results-meta">
+    <span class="count"><strong id="result-count">0</strong> games match</span>
+    <span id="sort-desc">Sorted by title</span>
+  </div>
+
+  <div class="table-shell">
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr id="thead-row">
+            <th class="cover-th"></th>
+            <th data-sort="n" class="sorted">Title <span class="arrow">▲</span></th>
+            <th data-sort="genre">Genre <span class="arrow">▲</span></th>
+            <th data-sort="status">Owned <span class="arrow">▲</span></th>
+            <th data-sort="progress">Progress <span class="arrow">▲</span></th>
+            <th data-sort="plat">Platform <span class="arrow">▲</span></th>
+            <th data-sort="played" class="num">Played <span class="arrow">▼</span></th>
+            <th data-sort="m" class="num">Main <span class="arrow">▼</span></th>
+            <th data-sort="e" class="num">+Extra <span class="arrow">▼</span></th>
+            <th data-sort="c" class="num">Complete <span class="arrow">▼</span></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="empty-state" id="empty-state" style="display:none">
+      <div class="big">No games match those filters</div>
+      <div>Try widening the hours range or clearing a genre.</div>
+    </div>
+  </div>
+
+  <div class="cards" id="cards"></div>
+  <div class="sentinel" id="sentinel"></div>
+</div>
+
+  <div id="detail-view" style="display:none"></div>
+
+  <footer class="foot">
+    <span>Hours-to-beat data via HowLongToBeat. Genres via Steam &amp; community sources — treat as approximate. "Played" is real Steam playtime where imported, 0 for anything still in your backlog, and otherwise blank until you log it yourself — the greyed-out number is just a hint from the Main+Extra estimate, not a counted value.</span>
+    <span id="build-note"></span>
+  </footer>
+</div>
+
+<script id="game-data" type="application/json">__GAME_DATA_JSON__</script>
+
+<script>
+(function() {
+  "use strict";
+
+  var RAW = JSON.parse(document.getElementById('game-data').textContent);
+
+  // ---- Play-progress persistence (per-browser, local to this artifact) ----
+  var PROGRESS_KEY = 'backlog-progress-v1';
+  var progressOverrides = {};
+  try {
+    var savedProgress = localStorage.getItem(PROGRESS_KEY);
+    if (savedProgress) progressOverrides = JSON.parse(savedProgress) || {};
+  } catch (e) { progressOverrides = {}; }
+  function saveProgress() {
+    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(progressOverrides)); } catch (e) {}
+    markDirty();
+  }
+
+  var PLAYED_KEY = 'backlog-played-v1';
+  var playedOverrides = {};
+  try {
+    var savedPlayed = localStorage.getItem(PLAYED_KEY);
+    if (savedPlayed) playedOverrides = JSON.parse(savedPlayed) || {};
+  } catch (e) { playedOverrides = {}; }
+  function savePlayed() {
+    try { localStorage.setItem(PLAYED_KEY, JSON.stringify(playedOverrides)); } catch (e) {}
+    markDirty();
+  }
+
+  var OWNED_KEY = 'backlog-owned-v1';
+  var ownedOverrides = {};
+  try {
+    var savedOwned = localStorage.getItem(OWNED_KEY);
+    if (savedOwned) ownedOverrides = JSON.parse(savedOwned) || {};
+  } catch (e) { ownedOverrides = {}; }
+  function saveOwned() {
+    try { localStorage.setItem(OWNED_KEY, JSON.stringify(ownedOverrides)); } catch (e) {}
+    markDirty();
+  }
+
+  var PLATFORM_KEY = 'backlog-platforms-v1';
+  var platformOverrides = {};
+  try {
+    var savedPlat = localStorage.getItem(PLATFORM_KEY);
+    if (savedPlat) platformOverrides = JSON.parse(savedPlat) || {};
+  } catch (e) { platformOverrides = {}; }
+  function savePlatforms() {
+    try { localStorage.setItem(PLATFORM_KEY, JSON.stringify(platformOverrides)); } catch (e) {}
+    markDirty();
+  }
+
+  // Removed-from-backlog games (per-browser, same as the overrides above). Deleted names are
+  // filtered out before GAMES is built, rather than spliced out later, so every id stays a
+  // stable index into GAMES and every derived stat (counts, genre list, hours) is correct
+  // without needing its own "skip deleted" check.
+  var DELETED_KEY = 'backlog-deleted-v1';
+  var deletedNames = {};
+  try {
+    var savedDeleted = localStorage.getItem(DELETED_KEY);
+    if (savedDeleted) {
+      (JSON.parse(savedDeleted) || []).forEach(function(n) { deletedNames[n] = true; });
+    }
+  } catch (e) { deletedNames = {}; }
+  function deleteGame(name) {
+    deletedNames[name] = true;
+    try { localStorage.setItem(DELETED_KEY, JSON.stringify(Object.keys(deletedNames))); } catch (e) {}
+    // Every count/genre/hours-range figure below is derived once at load time, so the
+    // simplest correct way to reflect a deletion everywhere is to reload from the (now
+    // filtered) localStorage state rather than trying to patch each derived value live.
+    location.hash = '';
+    location.reload();
+  }
+
+  // A backlog game hasn't been started, so it always shows 0 hours played unless the user
+  // explicitly overrides it. Non-backlog games fall back to their imported/estimated default.
+  function effectivePlayed(progress, importedDefault, name) {
+    if (Object.prototype.hasOwnProperty.call(playedOverrides, name)) return playedOverrides[name];
+    return progress === 'backlog' ? 0 : importedDefault;
+  }
+
+  // Expand compact records: n,m,e,c,o,p,g,pr(default progress),ph(real played hours)
+  var GAMES = RAW.filter(function(r) {
+    return !deletedNames[r.n];
+  }).map(function(r, i) {
+    var owned = Object.prototype.hasOwnProperty.call(ownedOverrides, r.n) ? ownedOverrides[r.n] : !!r.o;
+    var platforms = Object.prototype.hasOwnProperty.call(platformOverrides, r.n) ? platformOverrides[r.n] : (r.p || []);
+    var progress = progressOverrides[r.n] || r.pr || 'backlog';
+    var importedDefault = r.ph != null ? r.ph : null;
+    return {
+      id: i,
+      name: r.n,
+      main: r.m,
+      extra: r.e,
+      completionist: r.c,
+      owned: owned,
+      platforms: platforms,
+      genres: r.g || [],
+      progress: progress,
+      playedHoursDefault: importedDefault,
+      playedHours: effectivePlayed(progress, importedDefault, r.n),
+      cover: r.cv || null
+    };
+  });
+
+  var PLATFORMS = [
+    { key: 'PlayStation', label: 'PlayStation', short: 'PS', cls: 'ps', statLabel: 'On PlayStation', statId: 'stat-ps' },
+    { key: 'Steam', label: 'Steam', short: 'Steam', cls: 'steam', statLabel: 'On Steam', statId: 'stat-steam' },
+    { key: 'Nintendo', label: 'Nintendo', short: 'Nintendo', cls: 'nintendo', statLabel: 'On Nintendo', statId: 'stat-nintendo' },
+    { key: 'Emulation', label: 'Emulation', short: 'Emulation', cls: 'emu', statLabel: 'On Emulation', statId: 'stat-emu' }
+  ];
+
+  // ---- Derived stats (recomputed live since ownership/platform are now editable) ----
+  var totalCount = GAMES.length;
+  function ownedGamesList() { return GAMES.filter(function(g){ return g.owned; }); }
+  function wishlistCountNow() { return totalCount - ownedGamesList().length; }
+  function platformCountNow(key) { return ownedGamesList().filter(function(g){ return g.platforms.indexOf(key) > -1; }).length; }
+  function countProgress(val) { return GAMES.filter(function(g){ return g.progress === val; }).length; }
+  // Backlog hours is "how long left to beat this" (an estimate), so it uses Main+Extra directly —
+  // a backlog game always reads 0 played, so it can't be pulled from playedHours.
+  // Progress applies to wishlist games too now — "backlog" just means "haven't started",
+  // whether or not you own it yet.
+  function backlogHours() {
+    return GAMES.reduce(function(sum, g){ return sum + (g.progress === 'backlog' ? (g.extra || g.main || 0) : 0); }, 0);
+  }
+  // Time Played sums the actual playedHours attribute shown in the Played column/field for
+  // every game — never an estimate standing in for it. A game with no known played time (null)
+  // contributes 0, so this total always matches exactly what's displayed as "Played" everywhere.
+  function timePlayed() {
+    return GAMES.reduce(function(sum, g){ return sum + (g.playedHours != null ? g.playedHours : 0); }, 0);
+  }
+
+  function fmtHours(n) {
+    if (n == null) return '—';
+    var r = Math.round(n * 10) / 10;
+    return (r % 1 === 0 ? r.toFixed(0) : r.toFixed(1));
+  }
+  function fmtInt(n) { return n.toLocaleString('en-US'); }
+
+  var statsEl = document.getElementById('stats');
+  function buildStats() {
+    var stats = [
+      { num: fmtInt(totalCount), label: 'Total titles', cls: '' },
+      { num: fmtInt(ownedGamesList().length), label: 'Owned', cls: 'accent-owned', id: 'stat-owned' },
+      { num: fmtInt(wishlistCountNow()), label: 'Wishlist', cls: 'accent-wish', id: 'stat-wishlist' },
+      { num: fmtInt(countProgress('beaten')), label: 'Beaten', cls: 'accent-beaten', id: 'stat-beaten' },
+      { num: fmtInt(countProgress('100')), label: '100%’d', cls: 'accent-hundred', id: 'stat-hundred' },
+      { num: fmtInt(countProgress('dnf')), label: 'DNF', cls: 'accent-dnf', id: 'stat-dnf' }
+    ];
+    PLATFORMS.forEach(function(p) {
+      stats.push({ num: fmtInt(platformCountNow(p.key)), label: p.statLabel, cls: '', id: p.statId });
+    });
+    stats.push({ num: fmtInt(Math.round(backlogHours())) + 'h', label: 'Backlog hours', cls: 'accent-hours', id: 'stat-backlog-hours' });
+    stats.push({ num: fmtInt(Math.round(timePlayed())) + 'h', label: 'Time Played', cls: 'accent-beaten', id: 'stat-played-hours' });
+    return stats;
+  }
+  function renderStats() {
+    statsEl.innerHTML = buildStats().map(function(s) {
+      return '<div class="stat ' + s.cls + '"><span class="num" ' + (s.id ? 'id="' + s.id + '-num"' : '') + '>' + s.num + '</span><span class="label">' + s.label + '</span></div>';
+    }).join('');
+  }
+  renderStats();
+  function refreshProgressStats() {
+    var beatenEl = document.getElementById('stat-beaten-num');
+    var hundredEl = document.getElementById('stat-hundred-num');
+    var dnfEl = document.getElementById('stat-dnf-num');
+    var backlogHoursEl = document.getElementById('stat-backlog-hours-num');
+    var playedHoursEl = document.getElementById('stat-played-hours-num');
+    if (beatenEl) beatenEl.textContent = fmtInt(countProgress('beaten'));
+    if (hundredEl) hundredEl.textContent = fmtInt(countProgress('100'));
+    if (dnfEl) dnfEl.textContent = fmtInt(countProgress('dnf'));
+    if (backlogHoursEl) backlogHoursEl.textContent = fmtInt(Math.round(backlogHours())) + 'h';
+    if (playedHoursEl) playedHoursEl.textContent = fmtInt(Math.round(timePlayed())) + 'h';
+  }
+  function refreshOwnershipStats() {
+    var ownedEl = document.getElementById('stat-owned-num');
+    var wishlistEl = document.getElementById('stat-wishlist-num');
+    if (ownedEl) ownedEl.textContent = fmtInt(ownedGamesList().length);
+    if (wishlistEl) wishlistEl.textContent = fmtInt(wishlistCountNow());
+    PLATFORMS.forEach(function(p) {
+      var el = document.getElementById(p.statId + '-num');
+      if (el) el.textContent = fmtInt(platformCountNow(p.key));
+    });
+  }
+  document.getElementById('eyebrow-count').textContent = fmtInt(totalCount) + ' titles tracked';
+
+  // ---- Genre index ----
+  var genreCounts = {};
+  GAMES.forEach(function(g) {
+    g.genres.forEach(function(tag) {
+      genreCounts[tag] = (genreCounts[tag] || 0) + 1;
+    });
+  });
+  var genreList = Object.keys(genreCounts).sort(function(a, b) {
+    return genreCounts[b] - genreCounts[a] || a.localeCompare(b);
+  });
+
+  // ---- State ----
+  var state = {
+    q: '',
+    status: 'all',
+    platforms: [],
+    progress: 'all',
+    genres: [],
+    hoursBasis: 'e',
+    hoursMin: null,
+    hoursMax: null,
+    sortKey: 'n',
+    sortDir: 'asc'
+  };
+  var maxHoursByBasis = { m: 0, e: 0, c: 0 };
+  GAMES.forEach(function(g) {
+    ['m','e','c'].forEach(function(k){
+      var v = k === 'm' ? g.main : k === 'e' ? g.extra : g.completionist;
+      if (v != null && v > maxHoursByBasis[k]) maxHoursByBasis[k] = v;
+    });
+  });
+
+  var PROGRESS_LABEL = { backlog: 'Backlog', dnf: 'DNF', beaten: 'Beaten', '100': '100%' };
+  var PROGRESS_RANK = { backlog: 0, dnf: 1, beaten: 2, '100': 3 };
+
+  var renderBatchSize = 60;
+  var renderedCount = 0;
+  var currentFiltered = [];
+
+  // ---- Genre popover ----
+  var genrePopover = document.getElementById('genre-popover');
+  var genreListEl = document.getElementById('genre-list');
+  var pendingGenres = [];
+
+  function renderGenrePopoverList(filterText) {
+    var ft = (filterText || '').toLowerCase();
+    var items = genreList.filter(function(g) { return g.toLowerCase().indexOf(ft) > -1; });
+    genreListEl.innerHTML = items.map(function(g) {
+      var checked = pendingGenres.indexOf(g) > -1 ? 'checked' : '';
+      var safe = g.replace(/"/g, '&quot;');
+      return '<label class="genre-row"><input type="checkbox" value="' + safe + '" ' + checked + '>' +
+        '<span class="gname">' + g + '</span><span class="gcount">' + genreCounts[g] + '</span></label>';
+    }).join('') || '<div style="padding:14px;color:var(--text-faint);font-size:13px;">No matching genres</div>';
+  }
+
+  document.getElementById('genre-btn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    pendingGenres = state.genres.slice();
+    document.getElementById('genre-search').value = '';
+    renderGenrePopoverList('');
+    genrePopover.classList.toggle('open');
+  });
+  document.addEventListener('click', function(e) {
+    if (!genrePopover.contains(e.target) && e.target.id !== 'genre-btn') {
+      genrePopover.classList.remove('open');
+    }
+  });
+  genreListEl.addEventListener('change', function(e) {
+    if (e.target.tagName !== 'INPUT') return;
+    var v = e.target.value;
+    var idx = pendingGenres.indexOf(v);
+    if (e.target.checked && idx === -1) pendingGenres.push(v);
+    if (!e.target.checked && idx > -1) pendingGenres.splice(idx, 1);
+  });
+  document.getElementById('genre-search').addEventListener('input', function(e) {
+    renderGenrePopoverList(e.target.value);
+  });
+  document.getElementById('genre-clear-btn').addEventListener('click', function() {
+    pendingGenres = [];
+    renderGenrePopoverList(document.getElementById('genre-search').value);
+  });
+  document.getElementById('genre-apply-btn').addEventListener('click', function() {
+    state.genres = pendingGenres.slice();
+    genrePopover.classList.remove('open');
+    updateGenreButton();
+    renderChips();
+    applyFilters();
+  });
+  function updateGenreButton() {
+    var badge = document.getElementById('genre-count');
+    var btn = document.getElementById('genre-btn');
+    if (state.genres.length) {
+      badge.style.display = '';
+      badge.textContent = state.genres.length;
+      btn.firstChild.textContent = 'Genre ';
+    } else {
+      badge.style.display = 'none';
+      btn.firstChild.textContent = 'Any genre ';
+    }
+  }
+
+  // ---- Segmented controls ----
+  function bindSegmented(id, onChange) {
+    var el = document.getElementById(id);
+    el.addEventListener('click', function(e) {
+      var btn = e.target.closest('button');
+      if (!btn) return;
+      Array.prototype.forEach.call(el.children, function(c) { c.classList.remove('active'); });
+      btn.classList.add('active');
+      onChange(btn.getAttribute('data-val'));
+    });
+  }
+  bindSegmented('status-seg', function(v) { state.status = v; renderChips(); applyFilters(); });
+  bindSegmented('progress-seg', function(v) { state.progress = v; renderChips(); applyFilters(); });
+
+  // Platform filter is multi-select (OR across whichever platforms are toggled on), unlike the
+  // other segmented controls above which only ever have one active option at a time.
+  function renderPlatformSeg() {
+    var el = document.getElementById('platform-seg');
+    Array.prototype.forEach.call(el.children, function(btn) {
+      var val = btn.getAttribute('data-val');
+      var isAny = val === 'all';
+      btn.classList.toggle('active', isAny ? state.platforms.length === 0 : false);
+      btn.classList.toggle('plat-active', !isAny && state.platforms.indexOf(val) > -1);
+    });
+  }
+  document.getElementById('platform-seg').addEventListener('click', function(e) {
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    var val = btn.getAttribute('data-val');
+    if (val === 'all') {
+      state.platforms = [];
+    } else {
+      var idx = state.platforms.indexOf(val);
+      if (idx > -1) state.platforms.splice(idx, 1);
+      else state.platforms.push(val);
+    }
+    renderPlatformSeg();
+    renderChips();
+    applyFilters();
+  });
+  renderPlatformSeg();
+
+  // ---- Search ----
+  var searchDebounce;
+  document.getElementById('search').addEventListener('input', function(e) {
+    clearTimeout(searchDebounce);
+    var val = e.target.value;
+    searchDebounce = setTimeout(function() {
+      state.q = val.trim().toLowerCase();
+      applyFilters();
+    }, 120);
+  });
+
+  // ---- Hours ----
+  var hoursBasisEl = document.getElementById('hours-basis');
+  var hoursMinEl = document.getElementById('hours-min');
+  var hoursMaxEl = document.getElementById('hours-max');
+  var hoursCapEl = document.getElementById('hours-cap');
+
+  function refreshHoursCap() {
+    var cap = maxHoursByBasis[state.hoursBasis];
+    hoursCapEl.textContent = 'of ~' + fmtHours(cap) + 'h max';
+    hoursMinEl.placeholder = '0';
+    hoursMaxEl.placeholder = fmtHours(cap);
+  }
+  hoursBasisEl.addEventListener('change', function(e) {
+    state.hoursBasis = e.target.value;
+    refreshHoursCap();
+    renderChips();
+    applyFilters();
+  });
+  var hoursDebounce;
+  function onHoursInput() {
+    clearTimeout(hoursDebounce);
+    hoursDebounce = setTimeout(function() {
+      var minV = hoursMinEl.value === '' ? null : parseFloat(hoursMinEl.value);
+      var maxV = hoursMaxEl.value === '' ? null : parseFloat(hoursMaxEl.value);
+      state.hoursMin = (minV != null && !isNaN(minV)) ? minV : null;
+      state.hoursMax = (maxV != null && !isNaN(maxV)) ? maxV : null;
+      renderChips();
+      applyFilters();
+    }, 250);
+  }
+  hoursMinEl.addEventListener('input', onHoursInput);
+  hoursMaxEl.addEventListener('input', onHoursInput);
+  refreshHoursCap();
+
+  // ---- Sorting ----
+  var theadRow = document.getElementById('thead-row');
+  theadRow.addEventListener('click', function(e) {
+    var th = e.target.closest('th');
+    if (!th) return;
+    var key = th.getAttribute('data-sort');
+    if (!key) return;
+    if (state.sortKey === key) {
+      state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      state.sortKey = key;
+      state.sortDir = (key === 'n' || key === 'genre' || key === 'status' || key === 'progress' || key === 'plat') ? 'asc' : 'desc';
+    }
+    var ASC_KEYS = ['n', 'genre', 'status', 'progress', 'plat'];
+    Array.prototype.forEach.call(theadRow.children, function(c) {
+      c.classList.remove('sorted');
+      var arrow = c.querySelector('.arrow');
+      if (arrow) arrow.textContent = ASC_KEYS.indexOf(c.getAttribute('data-sort')) > -1 ? '▲' : '▼';
+    });
+    th.classList.add('sorted');
+    var arrow = th.querySelector('.arrow');
+    if (arrow) arrow.textContent = state.sortDir === 'asc' ? '▲' : '▼';
+    updateSortDesc();
+    applyFilters();
+  });
+  var sortLabels = { n: 'title', genre: 'genre', status: 'ownership', progress: 'progress', plat: 'platform', played: 'hours played', m: 'main story hours', e: 'main+extra hours', c: 'completionist hours' };
+  function updateSortDesc() {
+    document.getElementById('sort-desc').textContent = 'Sorted by ' + sortLabels[state.sortKey] + ' (' + (state.sortDir === 'asc' ? 'ascending' : 'descending') + ')';
+  }
+  updateSortDesc();
+
+  // ---- Active filter chips ----
+  var chipsEl = document.getElementById('active-chips');
+  function renderChips() {
+    var chips = [];
+    if (state.status !== 'all') chips.push({ label: (state.status === 'owned' ? 'Owned' : 'Wishlist'), clear: function(){ state.status='all'; setSeg('status-seg','all'); } });
+    if (state.progress !== 'all') chips.push({ label: 'Progress: ' + PROGRESS_LABEL[state.progress], clear: function(){ state.progress='all'; setSeg('progress-seg','all'); } });
+    state.platforms.forEach(function(p) {
+      chips.push({ label: 'Platform: ' + p, clear: function(){
+        state.platforms = state.platforms.filter(function(x){ return x !== p; });
+        renderPlatformSeg();
+      }});
+    });
+    state.genres.forEach(function(g) {
+      chips.push({ label: g, clear: function(){
+        state.genres = state.genres.filter(function(x){ return x !== g; });
+        updateGenreButton();
+      }});
+    });
+    if (state.hoursMin != null || state.hoursMax != null) {
+      var basisName = { m: 'Main', e: 'Main+Extra', c: 'Completionist' }[state.hoursBasis];
+      chips.push({ label: basisName + ': ' + (state.hoursMin != null ? state.hoursMin : 0) + '–' + (state.hoursMax != null ? state.hoursMax : '∞') + 'h', clear: function(){
+        state.hoursMin = null; state.hoursMax = null; hoursMinEl.value = ''; hoursMaxEl.value = '';
+      }});
+    }
+    if (state.q) chips.push({ label: '"' + state.q + '"', clear: function(){ state.q=''; document.getElementById('search').value=''; } });
+
+    chipsEl.innerHTML = chips.map(function(c, i) {
+      return '<span class="chip" data-i="' + i + '">' + c.label + '<button aria-label="Remove filter">✕</button></span>';
+    }).join('');
+    Array.prototype.forEach.call(chipsEl.querySelectorAll('.chip'), function(el, i) {
+      el.querySelector('button').addEventListener('click', function() {
+        chips[i].clear();
+        renderChips();
+        applyFilters();
+      });
+    });
+  }
+  function setSeg(id, val) {
+    var el = document.getElementById(id);
+    Array.prototype.forEach.call(el.children, function(c) {
+      c.classList.toggle('active', c.getAttribute('data-val') === val);
+    });
+  }
+
+  document.getElementById('clear-all').addEventListener('click', function() {
+    state.q = ''; state.status = 'all'; state.platforms = []; state.progress = 'all'; state.genres = [];
+    state.hoursMin = null; state.hoursMax = null;
+    document.getElementById('search').value = '';
+    hoursMinEl.value = ''; hoursMaxEl.value = '';
+    setSeg('status-seg','all'); renderPlatformSeg(); setSeg('progress-seg','all');
+    updateGenreButton();
+    renderChips();
+    applyFilters();
+  });
+
+  // ---- Filtering + sorting ----
+  function hoursVal(g, basis) {
+    return basis === 'm' ? g.main : basis === 'e' ? g.extra : g.completionist;
+  }
+
+  function computeFiltered() {
+    var basis = state.hoursBasis;
+    var useHoursFilter = state.hoursMin != null || state.hoursMax != null;
+    var list = GAMES.filter(function(g) {
+      if (state.q && g.name.toLowerCase().indexOf(state.q) === -1) return false;
+      if (state.status === 'owned' && !g.owned) return false;
+      if (state.status === 'wishlist' && g.owned) return false;
+      if (state.progress !== 'all' && g.progress !== state.progress) return false;
+      if (state.platforms.length && !state.platforms.some(function(p){ return g.platforms.indexOf(p) > -1; })) return false;
+      if (state.genres.length) {
+        var has = g.genres.some(function(gt) { return state.genres.indexOf(gt) > -1; });
+        if (!has) return false;
+      }
+      if (useHoursFilter) {
+        var v = hoursVal(g, basis);
+        if (v == null) return false;
+        if (state.hoursMin != null && v < state.hoursMin) return false;
+        if (state.hoursMax != null && v > state.hoursMax) return false;
+      }
+      return true;
+    });
+
+    var key = state.sortKey, dir = state.sortDir === 'asc' ? 1 : -1;
+    list.sort(function(a, b) {
+      var av, bv;
+      if (key === 'n') { av = a.name.toLowerCase(); bv = b.name.toLowerCase(); }
+      else if (key === 'genre') { av = (a.genres[0]||'').toLowerCase(); bv = (b.genres[0]||'').toLowerCase(); }
+      else if (key === 'status') { av = a.owned ? 1 : 0; bv = b.owned ? 1 : 0; }
+      else if (key === 'progress') { av = a.progress ? PROGRESS_RANK[a.progress] : -1; bv = b.progress ? PROGRESS_RANK[b.progress] : -1; }
+      else if (key === 'plat') { av = a.platforms.join(); bv = b.platforms.join(); }
+      else if (key === 'played') { av = a.playedHours == null ? -1 : a.playedHours; bv = b.playedHours == null ? -1 : b.playedHours; }
+      else {
+        av = key === 'm' ? a.main : key === 'e' ? a.extra : a.completionist;
+        bv = key === 'm' ? b.main : key === 'e' ? b.extra : b.completionist;
+        av = av == null ? -1 : av; bv = bv == null ? -1 : bv;
+      }
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return a.name.localeCompare(b.name);
+    });
+    return list;
+  }
+
+  var tbody = document.getElementById('tbody');
+  var cardsEl = document.getElementById('cards');
+  var emptyState = document.getElementById('empty-state');
+  var resultCountEl = document.getElementById('result-count');
+  var listViewEl = document.getElementById('list-view');
+  var detailViewEl = document.getElementById('detail-view');
+
+  function escHtml(s) {
+    return s.replace(/[&<>]/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; });
+  }
+  function coverThumb(g, cls) {
+    if (g.cover) {
+      return '<img class="cover-thumb ' + cls + '" src="' + g.cover + '" alt="" loading="lazy">';
+    }
+    var initial = g.name.replace(/[™®©]/g, '').trim().charAt(0).toUpperCase() || '?';
+    return '<span class="cover-thumb cover-placeholder ' + cls + '">' + escHtml(initial) + '</span>';
+  }
+  function platformControl(g) {
+    return '<span class="plat-toggle-group">' +
+      PLATFORMS.map(function(p) {
+        var has = g.platforms.indexOf(p.key) > -1;
+        return '<button type="button" class="plat-toggle ' + p.cls + (has ? ' active' : '') + '" data-id="' + g.id + '" data-plat="' + p.key + '" aria-pressed="' + has + '" aria-label="Owned on ' + p.label + '">' + p.short + '</button>';
+      }).join('') +
+    '</span>';
+  }
+  function ownedControl(g) {
+    return '<select class="status-select ' + (g.owned ? 'owned' : 'wishlist') + '" data-id="' + g.id + '" aria-label="Ownership for ' + escHtml(g.name) + '">' +
+      '<option value="wishlist"' + (!g.owned ? ' selected' : '') + '>Wishlist</option>' +
+      '<option value="owned"' + (g.owned ? ' selected' : '') + '>Owned</option>' +
+      '</select>';
+  }
+  function progressClass(p) { return p === 'beaten' ? 'p-beaten' : p === '100' ? 'p-hundred' : p === 'dnf' ? 'p-dnf' : 'p-backlog'; }
+  function progressControl(g) {
+    return '<select class="progress-select ' + progressClass(g.progress) + '" data-id="' + g.id + '" aria-label="Progress for ' + escHtml(g.name) + '">' +
+      '<option value="backlog"' + (g.progress === 'backlog' ? ' selected' : '') + '>Backlog</option>' +
+      '<option value="dnf"' + (g.progress === 'dnf' ? ' selected' : '') + '>DNF</option>' +
+      '<option value="beaten"' + (g.progress === 'beaten' ? ' selected' : '') + '>Beaten</option>' +
+      '<option value="100"' + (g.progress === '100' ? ' selected' : '') + '>100%</option>' +
+      '</select>';
+  }
+  function playedControl(g) {
+    var hasVal = g.playedHours != null;
+    var placeholder = g.playedHoursDefault != null ? fmtHours(g.playedHoursDefault) : (fmtHours(g.extra || g.main) !== '—' ? fmtHours(g.extra || g.main) : '0');
+    return '<input type="number" class="played-input' + (hasVal ? ' has-value' : '') + '" data-id="' + g.id + '" ' +
+      'min="0" step="0.5" inputmode="decimal" placeholder="' + placeholder + '" ' +
+      'value="' + (hasVal ? g.playedHours : '') + '" ' +
+      'aria-label="Hours played for ' + escHtml(g.name) + '">';
+  }
+
+  function rowHtml(g) {
+    var basis = state.hoursBasis;
+    var tagStr = g.genres.slice(0, 3).join(' · ') || '—';
+    return '<tr>' +
+      '<td class="cover-cell"><button class="game-link cover-link" data-open="' + g.id + '" aria-label="' + escHtml(g.name) + '">' + coverThumb(g, 'cover-row') + '</button></td>' +
+      '<td class="name-cell"><button class="game-link" data-open="' + g.id + '">' + escHtml(g.name) + '</button></td>' +
+      '<td style="color:var(--text-muted);font-size:12.5px;">' + escHtml(tagStr) + '</td>' +
+      '<td>' + ownedControl(g) + '</td>' +
+      '<td>' + progressControl(g) + '</td>' +
+      '<td>' + platformControl(g) + '</td>' +
+      '<td class="num">' + playedControl(g) + '</td>' +
+      '<td class="num ' + (basis === 'm' ? 'basis' : '') + '">' + fmtHours(g.main) + '</td>' +
+      '<td class="num ' + (basis === 'e' ? 'basis' : '') + '">' + fmtHours(g.extra) + '</td>' +
+      '<td class="num ' + (basis === 'c' ? 'basis' : '') + '">' + fmtHours(g.completionist) + '</td>' +
+      '</tr>';
+  }
+  function cardHtml(g) {
+    var tagStr = g.genres.slice(0, 4).join(' · ') || 'Genre unknown';
+    return '<div class="card">' +
+      '<div class="card-top">' +
+        '<button class="game-link cover-link" data-open="' + g.id + '" aria-label="' + escHtml(g.name) + '">' + coverThumb(g, 'cover-card') + '</button>' +
+        '<div class="card-top-text"><button class="game-link card-title" data-open="' + g.id + '">' + escHtml(g.name) + '</button><div class="card-tags">' + escHtml(tagStr) + '</div></div>' +
+        ownedControl(g) +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' + platformControl(g) + progressControl(g) + '</div>' +
+      '<div class="card-meta">' +
+        '<span style="display:flex;align-items:center;gap:5px;">Played ' + playedControl(g) + 'h</span>' +
+        '<span>Main <b>' + fmtHours(g.main) + 'h</b></span>' +
+        '<span>+Extra <b>' + fmtHours(g.extra) + 'h</b></span>' +
+        '<span>Complete <b>' + fmtHours(g.completionist) + 'h</b></span>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderDetail(g) {
+    var tagsHtml = g.genres.length
+      ? g.genres.map(function(t) { return '<span class="g-chip">' + escHtml(t) + '</span>'; }).join('')
+      : '<span class="g-chip" style="color:var(--text-faint);">Genre unknown</span>';
+
+    var fieldsHtml = '<div class="detail-fields">' +
+        '<div class="field"><label>Progress</label>' + progressControl(g) + '</div>' +
+        '<div class="field"><label>Hours Played</label>' + playedControl(g) + '</div>' +
+      '</div>';
+
+    var statTiles = [
+      { num: fmtHours(g.main) + 'h', label: 'Main Story' },
+      { num: fmtHours(g.extra) + 'h', label: 'Main + Extra' },
+      { num: fmtHours(g.completionist) + 'h', label: 'Completionist' }
+    ].map(function(s) {
+      return '<div class="stat"><span class="num">' + s.num + '</span><span class="label">' + s.label + '</span></div>';
+    }).join('');
+
+    detailViewEl.innerHTML =
+      '<div class="detail-topbar">' +
+        '<button class="detail-back" id="detail-back-btn">&larr; Back to list</button>' +
+        '<button class="detail-delete" id="detail-delete-btn" data-id="' + g.id + '">Remove from Backlog</button>' +
+      '</div>' +
+      '<div class="detail-hero">' +
+        coverThumb(g, 'cover-hero') +
+        '<div class="detail-hero-text">' +
+          '<div class="detail-eyebrow">' + tagsHtml + '</div>' +
+          '<h1 class="detail-title">' + escHtml(g.name) + '</h1>' +
+          '<div class="detail-badges">' +
+            ownedControl(g) +
+            platformControl(g) +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      fieldsHtml +
+      '<div class="stats detail-stats">' + statTiles + '</div>' +
+      '<div class="detail-note">Main / Main+Extra / Completionist are HowLongToBeat estimates. Played is real Steam playtime where imported, 0 while it\'s in your backlog, and otherwise blank (the greyed number is just a hint, not counted) until you log it yourself — edit it above any time.</div>';
+  }
+
+  function getGameFromHash() {
+    var m = /^#game-(\d+)$/.exec(location.hash);
+    if (!m) return null;
+    return GAMES[parseInt(m[1], 10)] || null;
+  }
+  function route() {
+    var g = getGameFromHash();
+    if (g) {
+      renderDetail(g);
+      listViewEl.style.display = 'none';
+      detailViewEl.style.display = '';
+      window.scrollTo(0, 0);
+    } else {
+      detailViewEl.style.display = 'none';
+      listViewEl.style.display = '';
+    }
+  }
+  window.addEventListener('hashchange', route);
+  document.addEventListener('click', function(e) {
+    var openBtn = e.target.closest('[data-open]');
+    if (openBtn) {
+      location.hash = 'game-' + openBtn.getAttribute('data-open');
+      return;
+    }
+    if (e.target.closest('#detail-back-btn')) {
+      location.hash = '';
+      return;
+    }
+    var deleteBtn = e.target.closest('#detail-delete-btn');
+    if (deleteBtn) {
+      var id = parseInt(deleteBtn.getAttribute('data-id'), 10);
+      var g = GAMES[id];
+      if (!g) return;
+      if (window.confirm('Remove "' + g.name + '" from the backlog? This can\'t be undone from here.')) {
+        deleteGame(g.name);
+      }
+    }
+  });
+
+  function renderNextBatch() {
+    var slice = currentFiltered.slice(renderedCount, renderedCount + renderBatchSize);
+    if (!slice.length) return;
+    var rowsHtml = '', cardsHtmlStr = '';
+    slice.forEach(function(g) {
+      rowsHtml += rowHtml(g);
+      cardsHtmlStr += cardHtml(g);
+    });
+    tbody.insertAdjacentHTML('beforeend', rowsHtml);
+    cardsEl.insertAdjacentHTML('beforeend', cardsHtmlStr);
+    renderedCount += slice.length;
+  }
+
+  function applyFilters() {
+    currentFiltered = computeFiltered();
+    renderedCount = 0;
+    tbody.innerHTML = '';
+    cardsEl.innerHTML = '';
+    resultCountEl.textContent = fmtInt(currentFiltered.length);
+    emptyState.style.display = currentFiltered.length ? 'none' : 'block';
+    document.querySelector('.table-scroll').style.display = currentFiltered.length ? '' : 'none';
+    renderNextBatch();
+  }
+
+  // ---- Editing progress inline (table + cards stay in sync; saved to this browser) ----
+  function onProgressChange(e) {
+    var sel = e.target.closest('.progress-select');
+    if (!sel) return;
+    var id = parseInt(sel.getAttribute('data-id'), 10);
+    var g = GAMES[id];
+    if (!g) return;
+    var val = sel.value;
+    g.progress = val;
+    progressOverrides[g.name] = val;
+    saveProgress();
+    var cls = progressClass(val);
+    Array.prototype.forEach.call(document.querySelectorAll('.progress-select[data-id="' + id + '"]'), function(el) {
+      el.classList.remove('p-backlog', 'p-dnf', 'p-beaten', 'p-hundred');
+      el.classList.add(cls);
+      if (el !== sel) el.value = val;
+    });
+    // Backlog always reads as 0h played (unless manually overridden); leaving backlog
+    // restores whatever default/override applied before.
+    g.playedHours = effectivePlayed(g.progress, g.playedHoursDefault, g.name);
+    var playedHasVal = g.playedHours != null;
+    Array.prototype.forEach.call(document.querySelectorAll('.played-input[data-id="' + id + '"]'), function(el) {
+      el.classList.toggle('has-value', playedHasVal);
+      el.value = playedHasVal ? g.playedHours : '';
+    });
+    refreshProgressStats();
+    if (state.progress !== 'all' || state.sortKey === 'progress') {
+      applyFilters();
+    }
+  }
+  document.addEventListener('change', onProgressChange);
+
+  function onPlayedChange(e) {
+    var inp = e.target.closest('.played-input');
+    if (!inp) return;
+    var id = parseInt(inp.getAttribute('data-id'), 10);
+    var g = GAMES[id];
+    if (!g) return;
+    var raw = inp.value.trim();
+    var val;
+    if (raw === '') {
+      delete playedOverrides[g.name];
+      val = g.progress === 'backlog' ? 0 : g.playedHoursDefault;
+    } else {
+      var parsed = parseFloat(raw);
+      if (isNaN(parsed) || parsed < 0) { inp.value = g.playedHours != null ? g.playedHours : ''; return; }
+      playedOverrides[g.name] = parsed;
+      val = parsed;
+    }
+    g.playedHours = val;
+    savePlayed();
+    var hasVal = val != null;
+    Array.prototype.forEach.call(document.querySelectorAll('.played-input[data-id="' + id + '"]'), function(el) {
+      el.classList.toggle('has-value', hasVal);
+      if (el !== inp) el.value = hasVal ? val : '';
+    });
+    refreshProgressStats();
+    if (state.sortKey === 'played') {
+      applyFilters();
+    }
+  }
+  document.addEventListener('change', onPlayedChange);
+
+  function onOwnedChange(e) {
+    var sel = e.target.closest('.status-select');
+    if (!sel) return;
+    var id = parseInt(sel.getAttribute('data-id'), 10);
+    var g = GAMES[id];
+    if (!g) return;
+    var newOwned = sel.value === 'owned';
+    g.owned = newOwned;
+    ownedOverrides[g.name] = newOwned;
+    saveOwned();
+    Array.prototype.forEach.call(document.querySelectorAll('.status-select[data-id="' + id + '"]'), function(el) {
+      el.classList.remove('owned', 'wishlist');
+      el.classList.add(newOwned ? 'owned' : 'wishlist');
+      if (el !== sel) el.value = sel.value;
+    });
+    refreshOwnershipStats();
+    if (state.status !== 'all' || state.platforms.length || state.sortKey === 'status') {
+      applyFilters();
+    }
+  }
+  document.addEventListener('change', onOwnedChange);
+
+  function onPlatformToggle(e) {
+    var btn = e.target.closest('.plat-toggle');
+    if (!btn) return;
+    var id = parseInt(btn.getAttribute('data-id'), 10);
+    var g = GAMES[id];
+    if (!g) return;
+    var plat = btn.getAttribute('data-plat');
+    var idx = g.platforms.indexOf(plat);
+    var nowActive;
+    if (idx > -1) { g.platforms.splice(idx, 1); nowActive = false; }
+    else { g.platforms.push(plat); nowActive = true; }
+    platformOverrides[g.name] = g.platforms.slice();
+    savePlatforms();
+    Array.prototype.forEach.call(document.querySelectorAll('.plat-toggle[data-id="' + id + '"][data-plat="' + plat + '"]'), function(el) {
+      el.classList.toggle('active', nowActive);
+      el.setAttribute('aria-pressed', String(nowActive));
+    });
+    refreshOwnershipStats();
+    if (state.platforms.length || state.sortKey === 'plat') {
+      applyFilters();
+    }
+  }
+  document.addEventListener('click', onPlatformToggle);
+
+  var sentinel = document.getElementById('sentinel');
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function(entries) {
+      if (entries[0].isIntersecting && renderedCount < currentFiltered.length) {
+        renderNextBatch();
+      }
+    }, { rootMargin: '400px' });
+    io.observe(sentinel);
+  }
+
+  // ---- Backup export ----
+  // The sync-dot/sync-label pair (see markup above) is wired to live Firestore sync
+  // status in a later step of this migration; for now markDirty() is a no-op stub so the
+  // existing edit handlers that call it don't need to change yet.
+  var syncDotEl = document.getElementById('sync-dot');
+  var syncLabelEl = document.getElementById('sync-label');
+  var exportBtn = document.getElementById('export-btn');
+
+  function markDirty() {
+    // TODO: wired to Firestore write-pending state in a later migration step.
+  }
+
+  // Fold current owned/platform/progress/played-hours state back into compact records
+  // (same shape build.py produces from master_games_final.json).
+  function buildMergedRaw() {
+    return GAMES.map(function(g) {
+      var rec = { n: g.name, m: g.main, e: g.extra, c: g.completionist, o: g.owned, p: g.platforms, g: g.genres };
+      if (g.progress && g.progress !== 'backlog') rec.pr = g.progress;
+      var ph = Object.prototype.hasOwnProperty.call(playedOverrides, g.name) ? playedOverrides[g.name] : g.playedHoursDefault;
+      if (ph != null) rec.ph = ph;
+      if (g.cover) rec.cv = g.cover;
+      return rec;
+    });
+  }
+
+  function exportBackup() {
+    var payload = JSON.stringify({ exportedAt: new Date().toISOString(), games: buildMergedRaw() }, null, 2);
+    var filename = 'backlog-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    try {
+      var blob = new Blob([payload], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+    } catch (e) {}
+  }
+  exportBtn.addEventListener('click', exportBackup);
+  applyFilters();
+  route();
+})();
+</script>
+
+</body>
+</html>
