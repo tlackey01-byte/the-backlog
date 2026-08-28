@@ -577,9 +577,31 @@
     margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border);
     color: var(--text-faint); font-size: 12px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
   }
+
+  /* ---- Remote-deletion banner ---- */
+  .remote-delete-banner {
+    display: none; align-items: center; justify-content: space-between; gap: 12px;
+    background: var(--dnf-ink); color: var(--dnf); border-bottom: 1px solid var(--border);
+    padding: 10px 20px; font-size: 13.5px; font-weight: 500;
+  }
+  .remote-delete-banner.visible { display: flex; }
+  .remote-delete-banner .actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .remote-delete-banner button {
+    font-family: var(--font-body); font-size: 12.5px; font-weight: 600; cursor: pointer;
+    border: none; background: transparent; color: inherit; padding: 4px 8px; border-radius: var(--radius-s);
+  }
+  .remote-delete-banner button:hover { background: rgba(0, 0, 0, 0.08); }
+  .remote-delete-banner .refresh-btn { text-decoration: underline; }
 </style>
 
 <div id="app" style="display:none">
+<div class="remote-delete-banner" id="remote-delete-banner">
+  <span id="remote-delete-text"></span>
+  <span class="actions">
+    <button type="button" class="refresh-btn" id="remote-delete-refresh">Refresh</button>
+    <button type="button" id="remote-delete-dismiss" aria-label="Dismiss">Dismiss</button>
+  </span>
+</div>
 <nav class="site-nav">
   <a class="site-nav-brand" href="..">The Backlog</a>
   <div class="site-nav-links">
@@ -877,11 +899,12 @@
   // since every branch below only touches local state/DOM when a value actually differs
   // from what's already showing.
   //
-  // Deletions aren't diffed here: GAMES' positional ids depend on deleted names being
-  // filtered out at load time (see the comment in deleteGame() above), so a name deleted
-  // on another device can't be safely spliced out of an already-rendered page without
-  // risking id drift for every other row. That's handled separately (a non-disruptive
-  // "refresh to update" banner), not attempted here.
+  // Deletions get special handling rather than a live DOM patch: GAMES' positional ids
+  // depend on deleted names being filtered out at load time (see the comment in
+  // deleteGame() above), so a name deleted on another device can't be safely spliced out
+  // of an already-rendered page without risking id drift for every other row. Instead, a
+  // dismissible banner tells the user to refresh when that happens -- see
+  // updateRemoteDeleteBanner() below.
   function patchOwnedRow(g) {
     Array.prototype.forEach.call(document.querySelectorAll('.status-select[data-id="' + g.id + '"]'), function(el) {
       el.classList.remove('owned', 'wishlist');
@@ -914,9 +937,43 @@
     });
   }
 
+  // Names seen in a snapshot's `deleted` list that this device hasn't already accounted
+  // for (its own deletes mark deletedNames synchronously before writing, so those never
+  // end up here). Accumulates across snapshots until the user dismisses or refreshes.
+  var pendingRemoteDeletions = [];
+  function updateRemoteDeleteBanner() {
+    var banner = document.getElementById('remote-delete-banner');
+    var textEl = document.getElementById('remote-delete-text');
+    if (!banner || !textEl) return;
+    if (!pendingRemoteDeletions.length) {
+      banner.classList.remove('visible');
+      return;
+    }
+    textEl.textContent = pendingRemoteDeletions.length === 1
+      ? '"' + pendingRemoteDeletions[0] + '" was removed elsewhere — refresh to update the list.'
+      : pendingRemoteDeletions.length + ' games were removed elsewhere — refresh to update the list.';
+    banner.classList.add('visible');
+  }
+  var remoteDeleteRefreshBtn = document.getElementById('remote-delete-refresh');
+  var remoteDeleteDismissBtn = document.getElementById('remote-delete-dismiss');
+  if (remoteDeleteRefreshBtn) remoteDeleteRefreshBtn.addEventListener('click', function() {
+    location.reload();
+  });
+  if (remoteDeleteDismissBtn) remoteDeleteDismissBtn.addEventListener('click', function() {
+    pendingRemoteDeletions = [];
+    updateRemoteDeleteBanner();
+  });
+
   function applyRemoteState(data) {
     if (!data) return;
     var statsChanged = false;
+
+    (data.deleted || []).forEach(function(name) {
+      if (deletedNames[name] || !gameByName[name]) return;
+      deletedNames[name] = true;
+      pendingRemoteDeletions.push(name);
+    });
+    if (pendingRemoteDeletions.length) updateRemoteDeleteBanner();
 
     Object.keys(data.owned || {}).forEach(function(name) {
       var g = gameByName[name];
