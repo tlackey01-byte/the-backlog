@@ -736,17 +736,16 @@
 
   var RAW = JSON.parse(document.getElementById('game-data').textContent);
 
-  // ---- Play-progress persistence (per-browser, local to this artifact) ----
+  // ---- Play-progress / ownership / platform / played-hours overrides ----
+  // Read from localStorage for now; onSnapshot in a later chunk switches the read side
+  // over to Firestore too. See saveState() below for the write side, which already goes
+  // to Firestore.
   var PROGRESS_KEY = 'backlog-progress-v1';
   var progressOverrides = {};
   try {
     var savedProgress = localStorage.getItem(PROGRESS_KEY);
     if (savedProgress) progressOverrides = JSON.parse(savedProgress) || {};
   } catch (e) { progressOverrides = {}; }
-  function saveProgress() {
-    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(progressOverrides)); } catch (e) {}
-    markDirty();
-  }
 
   var PLAYED_KEY = 'backlog-played-v1';
   var playedOverrides = {};
@@ -754,10 +753,6 @@
     var savedPlayed = localStorage.getItem(PLAYED_KEY);
     if (savedPlayed) playedOverrides = JSON.parse(savedPlayed) || {};
   } catch (e) { playedOverrides = {}; }
-  function savePlayed() {
-    try { localStorage.setItem(PLAYED_KEY, JSON.stringify(playedOverrides)); } catch (e) {}
-    markDirty();
-  }
 
   var OWNED_KEY = 'backlog-owned-v1';
   var ownedOverrides = {};
@@ -765,10 +760,6 @@
     var savedOwned = localStorage.getItem(OWNED_KEY);
     if (savedOwned) ownedOverrides = JSON.parse(savedOwned) || {};
   } catch (e) { ownedOverrides = {}; }
-  function saveOwned() {
-    try { localStorage.setItem(OWNED_KEY, JSON.stringify(ownedOverrides)); } catch (e) {}
-    markDirty();
-  }
 
   var PLATFORM_KEY = 'backlog-platforms-v1';
   var platformOverrides = {};
@@ -776,12 +767,8 @@
     var savedPlat = localStorage.getItem(PLATFORM_KEY);
     if (savedPlat) platformOverrides = JSON.parse(savedPlat) || {};
   } catch (e) { platformOverrides = {}; }
-  function savePlatforms() {
-    try { localStorage.setItem(PLATFORM_KEY, JSON.stringify(platformOverrides)); } catch (e) {}
-    markDirty();
-  }
 
-  // Removed-from-backlog games (per-browser, same as the overrides above). Deleted names are
+  // Removed-from-backlog games (same source as the overrides above). Deleted names are
   // filtered out before GAMES is built, rather than spliced out later, so every id stays a
   // stable index into GAMES and every derived stat (counts, genre list, hours) is correct
   // without needing its own "skip deleted" check.
@@ -793,14 +780,39 @@
       (JSON.parse(savedDeleted) || []).forEach(function(n) { deletedNames[n] = true; });
     }
   } catch (e) { deletedNames = {}; }
+
+  // ---- Firestore persistence ----
+  // Every override change writes the *whole* state object back via setDoc -- never
+  // updateDoc() with dotted field-path strings, since game names can contain '.', which
+  // updateDoc would treat as a nested-map path separator and silently corrupt the write.
+  // window.__cloudSaveState is wired up by the login-gate module script once signed in;
+  // it's only absent in the brief window before that resolves, when nothing is editable
+  // yet since the UI itself stays hidden until then.
+  function buildStateObject() {
+    return {
+      owned: ownedOverrides,
+      progress: progressOverrides,
+      played: playedOverrides,
+      platforms: platformOverrides,
+      deleted: Object.keys(deletedNames)
+    };
+  }
+  function saveState() {
+    markDirty();
+    return window.__cloudSaveState ? window.__cloudSaveState(buildStateObject()) : Promise.resolve();
+  }
+
   function deleteGame(name) {
     deletedNames[name] = true;
-    try { localStorage.setItem(DELETED_KEY, JSON.stringify(Object.keys(deletedNames))); } catch (e) {}
     // Every count/genre/hours-range figure below is derived once at load time, so the
-    // simplest correct way to reflect a deletion everywhere is to reload from the (now
-    // filtered) localStorage state rather than trying to patch each derived value live.
-    location.hash = '';
-    location.reload();
+    // simplest correct way to reflect a deletion everywhere is to reload after the write
+    // lands, rather than trying to patch each derived value live. Waiting for saveState()
+    // to resolve (instead of reloading immediately) matters here specifically -- an
+    // in-flight Firestore write can get aborted by navigation if we don't wait for it.
+    saveState().then(function() {
+      location.hash = '';
+      location.reload();
+    });
   }
 
   // A backlog game hasn't been started, so it always shows 0 hours played unless the user
@@ -1432,7 +1444,7 @@
     var val = sel.value;
     g.progress = val;
     progressOverrides[g.name] = val;
-    saveProgress();
+    saveState();
     var cls = progressClass(val);
     Array.prototype.forEach.call(document.querySelectorAll('.progress-select[data-id="' + id + '"]'), function(el) {
       el.classList.remove('p-backlog', 'p-dnf', 'p-beaten', 'p-hundred');
@@ -1472,7 +1484,7 @@
       val = parsed;
     }
     g.playedHours = val;
-    savePlayed();
+    saveState();
     var hasVal = val != null;
     Array.prototype.forEach.call(document.querySelectorAll('.played-input[data-id="' + id + '"]'), function(el) {
       el.classList.toggle('has-value', hasVal);
@@ -1494,7 +1506,7 @@
     var newOwned = sel.value === 'owned';
     g.owned = newOwned;
     ownedOverrides[g.name] = newOwned;
-    saveOwned();
+    saveState();
     Array.prototype.forEach.call(document.querySelectorAll('.status-select[data-id="' + id + '"]'), function(el) {
       el.classList.remove('owned', 'wishlist');
       el.classList.add(newOwned ? 'owned' : 'wishlist');
@@ -1519,7 +1531,7 @@
     if (idx > -1) { g.platforms.splice(idx, 1); nowActive = false; }
     else { g.platforms.push(plat); nowActive = true; }
     platformOverrides[g.name] = g.platforms.slice();
-    savePlatforms();
+    saveState();
     Array.prototype.forEach.call(document.querySelectorAll('.plat-toggle[data-id="' + id + '"][data-plat="' + plat + '"]'), function(el) {
       el.classList.toggle('active', nowActive);
       el.setAttribute('aria-pressed', String(nowActive));
@@ -1543,8 +1555,8 @@
 
   // ---- Backup export ----
   // The sync-dot/sync-label pair (see markup above) is wired to live Firestore sync
-  // status in a later step of this migration; for now markDirty() is a no-op stub so the
-  // existing edit handlers that call it don't need to change yet.
+  // status in a later step of this migration; for now markDirty() is a no-op stub so
+  // saveState() (above) doesn't need to change once that wiring lands.
   var syncDotEl = document.getElementById('sync-dot');
   var syncLabelEl = document.getElementById('sync-label');
   var exportBtn = document.getElementById('export-btn');
@@ -1588,9 +1600,16 @@
 </script>
 
 <script type="module">
-  import { requireLogin } from "../shared/firebase-init.js";
+  import { requireLogin, db, doc, setDoc } from "../shared/firebase-init.js";
   requireLogin(document.body, function (user) {
     document.getElementById("app").style.display = "";
+    var stateRef = doc(db, "users", user.uid, "state", "games");
+    // Called by saveState() in the classic script above, which owns the state shape.
+    // Always a full overwrite (see the dotted-key comment near buildStateObject()).
+    window.__cloudSaveState = function (stateObj) {
+      var payload = Object.assign({}, stateObj, { updatedAt: new Date().toISOString() });
+      return setDoc(stateRef, payload);
+    };
   });
 </script>
 
