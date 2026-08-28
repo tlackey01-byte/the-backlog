@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Backlog</title>
+<link rel="stylesheet" href="shared/base.css">
+<style>
+  .home-header { padding: 40px 0 8px; }
+  .home-header h1 {
+    font-family: var(--font-display); font-weight: 800;
+    font-size: clamp(38px, 6vw, 58px); letter-spacing: -0.01em; margin: 0 0 8px;
+    line-height: 0.98;
+  }
+  .home-header p { color: var(--text-muted); font-size: 15px; max-width: 56ch; margin: 0 0 32px; }
+
+  .section-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px; margin-bottom: 40px;
+  }
+  .section-card {
+    display: block; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-l); padding: 22px; text-decoration: none; color: var(--text);
+    box-shadow: var(--shadow); transition: border-color .15s ease, transform .15s ease;
+  }
+  a.section-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .section-card.coming-soon { opacity: .55; }
+  .section-card-icon { font-size: 28px; margin-bottom: 10px; }
+  .section-card h2 {
+    font-family: var(--font-display); font-weight: 700; font-size: 22px; margin: 0 0 10px;
+  }
+  .section-card-stats { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-muted); }
+  .section-card-stats b { color: var(--text); font-family: var(--font-mono); font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="app" style="display:none">
+  <nav class="site-nav">
+    <a class="site-nav-brand" href=".">The Backlog</a>
+    <div class="site-nav-links">
+      <a class="site-nav-link active" href=".">Home</a>
+      <a class="site-nav-link" href="games/">Games</a>
+      <span class="site-nav-link coming-soon">Books</span>
+      <span class="site-nav-link coming-soon">Movies</span>
+      <span class="site-nav-link coming-soon">TV</span>
+      <span class="site-nav-link coming-soon">Music</span>
+    </div>
+  </nav>
+  <div class="wrap">
+    <header class="home-header">
+      <h1>The Backlog</h1>
+      <p>Everything you own, want, or are partway through, synced across every device. Games today, more media types on the way.</p>
+    </header>
+    <div class="section-grid" id="section-grid"></div>
+  </div>
+</div>
+<script type="module">
+  import { requireLogin, db, doc, onSnapshot } from "./shared/firebase-init.js";
+
+  var gridEl = document.getElementById("section-grid");
+  var COMING_SOON = [
+    { name: "Books", icon: "📚" },
+    { name: "Movies", icon: "🎬" },
+    { name: "TV", icon: "📺" },
+    { name: "Music", icon: "🎵" }
+  ];
+
+  function fmt(n) {
+    return n != null ? n.toLocaleString("en-US") : "—";
+  }
+
+  // The games section (docs/games/) writes a small `totals` summary into this same
+  // state doc whenever it loads or saves, since the homepage intentionally never loads
+  // the full ~13MB game catalog just to compute a stat card. Totals read as "—" until
+  // that section has been visited at least once.
+  function renderCards(totals) {
+    var t = totals || {};
+    var gamesCard =
+      '<a class="section-card" href="games/">' +
+        '<div class="section-card-icon">🎮</div>' +
+        "<h2>Games</h2>" +
+        '<div class="section-card-stats">' +
+          "<span><b>" + fmt(t.total) + "</b> total</span>" +
+          "<span><b>" + fmt(t.owned) + "</b> owned</span>" +
+          "<span><b>" + fmt(t.wishlist) + "</b> wishlist</span>" +
+        "</div>" +
+      "</a>";
+
+    var comingSoonCards = COMING_SOON.map(function (s) {
+      return (
+        '<div class="section-card coming-soon">' +
+          '<div class="section-card-icon">' + s.icon + "</div>" +
+          "<h2>" + s.name + "</h2>" +
+          '<div class="section-card-stats"><span>Coming soon</span></div>' +
+        "</div>"
+      );
+    }).join("");
+
+    gridEl.innerHTML = gamesCard + comingSoonCards;
+  }
+
+  renderCards(null);
+
+  requireLogin(document.body, function (user) {
+    document.getElementById("app").style.display = "";
+    var stateRef = doc(db, "users", user.uid, "state", "games");
+    onSnapshot(stateRef, function (snap) {
+      var data = snap.data();
+      renderCards(data ? data.totals : null);
+    });
+  });
+</script>
+</body>
+</html>
