@@ -1,0 +1,195 @@
+/* ---------- Fonts ---------- */
+@import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+/* ---------- Design tokens (same palette as the games section) ---------- */
+:root {
+  --bg: #eef1f6;
+  --surface: #ffffff;
+  --surface-2: #f6f8fb;
+  --surface-3: #eaeef4;
+  --border: #dbe0ea;
+  --border-strong: #c4cbd8;
+  --text: #1a1d24;
+  --text-muted: #5b6072;
+  --text-faint: #8a90a1;
+  --accent: #b8701a;
+  --accent-strong: #96590f;
+  --accent-ink: #fff4e5;
+  --owned: #21815c;
+  --owned-ink: #e5f5ee;
+  --wishlist: #6a5fc4;
+  --wishlist-ink: #efedfc;
+  --backlog: #5b6072;
+  --backlog-ink: #eaecf1;
+  --beaten: #2f6fb0;
+  --beaten-ink: #e6f0fa;
+  --hundred: #b23a72;
+  --hundred-ink: #fbe8f1;
+  --dnf: #a1481f;
+  --dnf-ink: #fbeae1;
+  --shadow: 0 1px 2px rgba(20, 22, 30, 0.06), 0 8px 24px -12px rgba(20, 22, 30, 0.12);
+  --radius-s: 6px;
+  --radius-m: 10px;
+  --radius-l: 16px;
+  --font-display: "Big Shoulders Display", "Arial Narrow", sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", "Consolas", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161c;
+    --surface: #1b1e27;
+    --surface-2: #21242f;
+    --surface-3: #292d3a;
+    --border: #2c303d;
+    --border-strong: #3a3f4f;
+    --text: #eef0f4;
+    --text-muted: #a2a8bc;
+    --text-faint: #6b7086;
+    --accent: #e8a23d;
+    --accent-strong: #f3b862;
+    --accent-ink: #3a2a0f;
+    --owned: #5fc79a;
+    --owned-ink: #0e2a20;
+    --wishlist: #a79bf0;
+    --wishlist-ink: #221f3a;
+    --backlog: #a2a8bc;
+    --backlog-ink: #262a35;
+    --beaten: #6fa8e0;
+    --beaten-ink: #142943;
+    --hundred: #e881b3;
+    --hundred-ink: #3a1a2a;
+    --dnf: #e08a5a;
+    --dnf-ink: #3a2214;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14161c;
+  --surface: #1b1e27;
+  --surface-2: #21242f;
+  --surface-3: #292d3a;
+  --border: #2c303d;
+  --border-strong: #3a3f4f;
+  --text: #eef0f4;
+  --text-muted: #a2a8bc;
+  --text-faint: #6b7086;
+  --accent: #e8a23d;
+  --accent-strong: #f3b862;
+  --accent-ink: #3a2a0f;
+  --owned: #5fc79a;
+  --owned-ink: #0e2a20;
+  --wishlist: #a79bf0;
+  --wishlist-ink: #221f3a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- Reset ---------- */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+.wrap { max-width: 1280px; margin: 0 auto; padding: 28px 20px 80px; }
+
+/* ---------- Shared form controls ---------- */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-faint);
+}
+input[type="search"], input[type="text"], input[type="number"], input[type="email"], input[type="password"] {
+  font-family: var(--font-body);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-s);
+  padding: 8px 10px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color .15s ease, background .15s ease;
+}
+input[type="search"]:focus, input[type="text"]:focus, input[type="number"]:focus,
+input[type="email"]:focus, input[type="password"]:focus, select:focus, button:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.btn {
+  font-family: var(--font-body);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-s);
+  padding: 8px 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background .15s ease, border-color .15s ease;
+}
+.btn:hover { background: var(--surface-3); border-color: var(--border-strong); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.primary:hover { background: var(--accent-strong); }
+.btn:disabled { opacity: .6; cursor: default; }
+
+/* ---------- Site nav (shared across homepage + every section) ---------- */
+.site-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; max-width: 1280px; margin: 0 auto;
+  border-bottom: 1px solid var(--border);
+}
+.site-nav-brand {
+  font-family: var(--font-display); font-weight: 800; font-size: 20px;
+  letter-spacing: -0.01em; color: var(--text); text-decoration: none;
+}
+.site-nav-links { display: flex; align-items: center; gap: 4px; }
+.site-nav-link {
+  font-size: 13.5px; font-weight: 500; color: var(--text-muted);
+  text-decoration: none; padding: 7px 12px; border-radius: var(--radius-s);
+  transition: background .15s ease, color .15s ease;
+}
+.site-nav-link:hover { background: var(--surface-2); color: var(--text); }
+.site-nav-link.active { color: var(--accent); font-weight: 600; }
+.site-nav-link.coming-soon {
+  color: var(--text-faint); cursor: default; pointer-events: none;
+}
+
+/* ---------- Login gate ---------- */
+.login-gate {
+  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: var(--bg); z-index: 100; padding: 20px;
+}
+.login-form {
+  width: 100%; max-width: 340px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius-l);
+  padding: 32px 28px; box-shadow: var(--shadow);
+  display: flex; flex-direction: column; gap: 16px;
+}
+.login-eyebrow {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--accent); font-weight: 600;
+}
+.login-title {
+  font-family: var(--font-display); font-weight: 800; font-size: 28px;
+  margin: -8px 0 4px; color: var(--text);
+}
+.login-submit { justify-content: center; width: 100%; padding: 10px 12px; }
+.login-error {
+  color: var(--dnf); font-size: 12.5px; min-height: 1.2em;
+}
