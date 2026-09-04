@@ -1,0 +1,80 @@
+// App-shell service worker for the whole site (homepage + every media-type section).
+//
+// Bump CACHE_NAME whenever the shell file list below changes, or whenever you want a
+// deploy to force every visitor onto fresh copies of these files -- activate() deletes
+// any previously-cached version under a different name, so a bump is what actually
+// invalidates stale copies; editing SHELL_ASSETS alone does not.
+const CACHE_NAME = 'the-backlog-shell-v1';
+
+const SHELL_ASSETS = [
+  '/the-backlog/',
+  '/the-backlog/index.html',
+  '/the-backlog/games/',
+  '/the-backlog/games/index.html',
+  '/the-backlog/shared/base.css',
+  '/the-backlog/shared/firebase-init.js',
+  '/the-backlog/manifest.json',
+  '/the-backlog/icons/icon-192.png',
+  '/the-backlog/icons/icon-512.png',
+];
+
+self.addEventListener('install', function (event) {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(function (cache) {
+      return cache.addAll(SHELL_ASSETS);
+    }).then(function () {
+      return self.skipWaiting();
+    })
+  );
+});
+
+self.addEventListener('activate', function (event) {
+  event.waitUntil(
+    caches.keys().then(function (names) {
+      return Promise.all(
+        names.filter(function (name) { return name !== CACHE_NAME; })
+          .map(function (name) { return caches.delete(name); })
+      );
+    }).then(function () {
+      return self.clients.claim();
+    })
+  );
+});
+
+// Cache-first for same-origin shell assets and page navigations only -- Firebase
+// Auth/Firestore calls and the Google Fonts stylesheet/font files are cross-origin and
+// deliberately left alone here so they always hit the network (or fail visibly offline)
+// rather than ever being served stale from this cache.
+self.addEventListener('fetch', function (event) {
+  const request = event.request;
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
+  event.respondWith(
+    caches.match(request).then(function (cached) {
+      if (cached) return cached;
+
+      return fetch(request).then(function (response) {
+        if (response && response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then(function (cache) { cache.put(request, copy); });
+        }
+        return response;
+      }).catch(function () {
+        // Offline and not already cached: for a page navigation, fall back to the
+        // matching cached shell page so the app still opens instead of showing the
+        // browser's default offline error.
+        if (request.mode === 'navigate') {
+          return caches.match(
+            url.pathname.startsWith('/the-backlog/games/')
+              ? '/the-backlog/games/index.html'
+              : '/the-backlog/index.html'
+          );
+        }
+        return Response.error();
+      });
+    })
+  );
+});
