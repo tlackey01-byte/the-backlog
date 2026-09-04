@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The Backlog</title>
+<link rel="manifest" href="../manifest.json">
+<meta name="theme-color" content="#14161c">
 <link rel="stylesheet" href="../shared/base.css">
 </head>
 <body>
@@ -1789,6 +1791,13 @@
       }
     });
   });
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/the-backlog/sw.js', { scope: '/the-backlog/' });
+    });
+  }
 </script>
 
 </body>
