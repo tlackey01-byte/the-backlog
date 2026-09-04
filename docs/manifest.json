@@ -1,0 +1,22 @@
+{
+  "name": "The Backlog",
+  "short_name": "Backlog",
+  "description": "Owned and wishlisted games, books, movies, TV, and music, tracked in one place.",
+  "start_url": "/the-backlog/",
+  "scope": "/the-backlog/",
+  "display": "standalone",
+  "background_color": "#14161c",
+  "theme_color": "#14161c",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
