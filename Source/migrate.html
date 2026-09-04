@@ -1,0 +1,137 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>The Backlog — one-time migration</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; background: #14161c; color: #e8e8ea; }
+  h1 { font-size: 1.25rem; }
+  textarea { width: 100%; height: 70px; font-family: monospace; font-size: 12px; background: #1e2129; color: #e8e8ea; border: 1px solid #333; border-radius: 4px; padding: 6px; box-sizing: border-box; }
+  label { display: block; margin-top: 14px; font-weight: 600; font-size: 0.85rem; }
+  input[type=email], input[type=password] { width: 100%; padding: 8px; box-sizing: border-box; background: #1e2129; color: #e8e8ea; border: 1px solid #333; border-radius: 4px; }
+  button { margin-top: 16px; padding: 10px 16px; font-size: 0.95rem; cursor: pointer; border-radius: 4px; border: none; background: #4f7cff; color: white; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  #status { margin-top: 16px; padding: 10px; border-radius: 4px; white-space: pre-wrap; font-family: monospace; font-size: 12px; }
+  .ok { background: #16331f; color: #7be08a; }
+  .err { background: #3a1616; color: #ff8f8f; }
+  .hint { font-size: 0.8rem; color: #9aa0ac; margin-top: 4px; }
+</style>
+</head>
+<body>
+<h1>The Backlog — one-time state migration</h1>
+<p class="hint">
+  Paste the raw values of the 5 <code>backlog-*-v1</code> localStorage keys from the live
+  claude.ai artifact (open its devtools Console on that tab and run the snippet at the
+  bottom of this page, or call <code>localStorage.getItem('backlog-owned-v1')</code> etc.
+  one at a time). Leave a field blank if that key was never set. Then sign in with the same
+  Firebase account the new site uses and click the button. This writes the assembled state
+  once to <code>users/&lt;uid&gt;/state/games</code> — safe to re-run, it always overwrites
+  with whatever is currently in these fields.
+</p>
+
+<label for="f-owned">backlog-owned-v1</label>
+<textarea id="f-owned" placeholder="{}"></textarea>
+
+<label for="f-progress">backlog-progress-v1</label>
+<textarea id="f-progress" placeholder="{}"></textarea>
+
+<label for="f-played">backlog-played-v1</label>
+<textarea id="f-played" placeholder="{}"></textarea>
+
+<label for="f-platforms">backlog-platforms-v1</label>
+<textarea id="f-platforms" placeholder="{}"></textarea>
+
+<label for="f-deleted">backlog-deleted-v1</label>
+<textarea id="f-deleted" placeholder="[]"></textarea>
+
+<label for="email">Email</label>
+<input type="email" id="email" autocomplete="username">
+<label for="password">Password</label>
+<input type="password" id="password" autocomplete="current-password">
+
+<button id="run-btn" type="button">Sign in &amp; migrate</button>
+<div id="status"></div>
+
+<hr style="margin-top:32px; border-color:#333">
+<p class="hint">Snippet to run in the live artifact's devtools Console to grab all 5 values at once:</p>
+<pre style="font-size:11px; overflow-x:auto; background:#1e2129; padding:8px; border-radius:4px;">['backlog-owned-v1','backlog-progress-v1','backlog-played-v1','backlog-platforms-v1','backlog-deleted-v1'].forEach(k => console.log(k, '=>', localStorage.getItem(k)))</pre>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+  import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+
+  // Same public config as docs/shared/firebase-init.js -- not a secret, see that file's
+  // header comment for why. Duplicated (not imported) because this page is opened as a
+  // local file:// document, and Chrome blocks cross-file ES module fetches over file://.
+  const firebaseConfig = {
+    apiKey: "AIzaSyD6xJX12ovVZ7Hi8Xtwu0L3CHmgKB3-BzY",
+    authDomain: "the-backlog-34b22.firebaseapp.com",
+    projectId: "the-backlog-34b22",
+    storageBucket: "the-backlog-34b22.firebasestorage.app",
+    messagingSenderId: "306665266277",
+    appId: "1:306665266277:web:129933a71722256ba9ba8c",
+  };
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  const statusEl = document.getElementById('status');
+  function showStatus(msg, ok) {
+    statusEl.textContent = msg;
+    statusEl.className = ok ? 'ok' : 'err';
+  }
+
+  function parseField(id, fallback) {
+    const raw = document.getElementById(id).value.trim();
+    if (!raw) return fallback;
+    return JSON.parse(raw);
+  }
+
+  document.getElementById('run-btn').addEventListener('click', async function () {
+    const btn = this;
+    btn.disabled = true;
+    showStatus('Signing in...', true);
+    try {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+
+      const owned = parseField('f-owned', {});
+      const progress = parseField('f-progress', {});
+      const played = parseField('f-played', {});
+      const platforms = parseField('f-platforms', {});
+      const deleted = parseField('f-deleted', []);
+
+      showStatus('Signed in as ' + cred.user.email + '. Writing to Firestore...', true);
+
+      const stateRef = doc(db, 'users', cred.user.uid, 'state', 'games');
+      await setDoc(stateRef, {
+        owned: owned,
+        progress: progress,
+        played: played,
+        platforms: platforms,
+        deleted: deleted,
+        updatedAt: new Date().toISOString()
+      });
+
+      showStatus(
+        'Done. Wrote to users/' + cred.user.uid + '/state/games:\n' +
+        '  owned overrides: ' + Object.keys(owned).length + '\n' +
+        '  progress overrides: ' + Object.keys(progress).length + '\n' +
+        '  played-hours overrides: ' + Object.keys(played).length + '\n' +
+        '  platform overrides: ' + Object.keys(platforms).length + '\n' +
+        '  deleted games: ' + deleted.length + '\n' +
+        '(totals field intentionally omitted -- the live site seeds it on first load.)\n' +
+        'Verify these counts against the Firebase console before treating this as done.',
+        true
+      );
+    } catch (err) {
+      showStatus('Failed: ' + (err && err.message ? err.message : String(err)), false);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
