@@ -600,7 +600,6 @@
 <div class="remote-delete-banner" id="remote-delete-banner">
   <span id="remote-delete-text"></span>
   <span class="actions">
-    <button type="button" class="refresh-btn" id="remote-delete-refresh">Refresh</button>
     <button type="button" id="remote-delete-dismiss" aria-label="Dismiss">Dismiss</button>
   </span>
 </div>
@@ -830,17 +829,25 @@
   // trigger a save -- e.g. to seed `totals` the very first time this doc is ever written.
   window.saveState = saveState;
 
+  // Shared by a local delete and a deletion synced in from another device: flags the
+  // game (never splices it out of GAMES, so every other game's `id` stays stable),
+  // backs it out of the genre index, and re-renders stats + the current filtered list
+  // so it disappears immediately -- no reload required either way.
+  function applyDeletion(g) {
+    if (g.deleted) return;
+    g.deleted = true;
+    g.genres.forEach(function(tag) { if (genreCounts[tag]) genreCounts[tag]--; });
+    renderStats();
+    document.getElementById('eyebrow-count').textContent = fmtInt(totalCount()) + ' titles tracked';
+    applyFilters();
+  }
+
   function deleteGame(name) {
     deletedNames[name] = true;
-    // Every count/genre/hours-range figure below is derived once at load time, so the
-    // simplest correct way to reflect a deletion everywhere is to reload after the write
-    // lands, rather than trying to patch each derived value live. Waiting for saveState()
-    // to resolve (instead of reloading immediately) matters here specifically -- an
-    // in-flight Firestore write can get aborted by navigation if we don't wait for it.
-    saveState().then(function() {
-      location.hash = '';
-      location.reload();
-    });
+    var g = gameByName[name];
+    if (g) applyDeletion(g);
+    location.hash = '';
+    saveState();
   }
 
   // A backlog game hasn't been started, so it always shows 0 hours played unless the user
@@ -851,9 +858,12 @@
   }
 
   // Expand compact records: n,m,e,c,o,p,g,pr(default progress),ph(real played hours)
-  var GAMES = RAW.filter(function(r) {
-    return !deletedNames[r.n];
-  }).map(function(r, i) {
+  //
+  // Deletions are never filtered out of this array -- every game keeps a permanently
+  // stable `id` (its index here), and a deleted game is instead flagged via `deleted:
+  // true` below. Every stat/filter/render function that reads GAMES excludes flagged
+  // games itself. This avoids ever needing to renumber ids when something is deleted.
+  var GAMES = RAW.map(function(r, i) {
     var owned = Object.prototype.hasOwnProperty.call(ownedOverrides, r.n) ? ownedOverrides[r.n] : !!r.o;
     var platforms = Object.prototype.hasOwnProperty.call(platformOverrides, r.n) ? platformOverrides[r.n] : (r.p || []);
     var progress = progressOverrides[r.n] || r.pr || 'backlog';
@@ -870,7 +880,8 @@
       progress: progress,
       playedHoursDefault: importedDefault,
       playedHours: effectivePlayed(progress, importedDefault, r.n),
-      cover: r.cv || null
+      cover: r.cv || null,
+      deleted: !!deletedNames[r.n]
     };
   });
 
@@ -884,15 +895,18 @@
     { key: 'Emulation', label: 'Emulation', short: 'Emulation', cls: 'emu', statLabel: 'On Emulation', statId: 'stat-emu' }
   ];
 
-  // ---- Derived stats (recomputed live since ownership/platform are now editable) ----
-  var totalCount = GAMES.length;
-  function ownedGamesList() { return GAMES.filter(function(g){ return g.owned; }); }
-  function wishlistCountNow() { return totalCount - ownedGamesList().length; }
+  // ---- Derived stats (recomputed live since ownership/platform/deletion are now editable) ----
+  // totalCount() is a function, not a cached value, so a live deletion is reflected
+  // immediately everywhere it's read -- never cache this in a `var`.
+  function totalCount() { return GAMES.filter(function(g){ return !g.deleted; }).length; }
+  function ownedGamesList() { return GAMES.filter(function(g){ return g.owned && !g.deleted; }); }
+  function wishlistCountNow() { return totalCount() - ownedGamesList().length; }
   // Read by the homepage's "Games" card straight off the state doc, so it doesn't need to
   // load the full catalog just to show a stat.
   function computeTotals() {
+    var total = totalCount();
     var owned = ownedGamesList().length;
-    return { total: totalCount, owned: owned, wishlist: totalCount - owned };
+    return { total: total, owned: owned, wishlist: total - owned };
   }
 
   // ---- Live cross-device sync ----
@@ -941,7 +955,9 @@
 
   // Names seen in a snapshot's `deleted` list that this device hasn't already accounted
   // for (its own deletes mark deletedNames synchronously before writing, so those never
-  // end up here). Accumulates across snapshots until the user dismisses or refreshes.
+  // end up here). applyRemoteState() below applies the removal immediately via
+  // applyDeletion() -- this banner is purely an FYI that it happened, not a prompt to
+  // fix anything. Accumulates across snapshots until the user dismisses it.
   var pendingRemoteDeletions = [];
   function updateRemoteDeleteBanner() {
     var banner = document.getElementById('remote-delete-banner');
@@ -952,15 +968,11 @@
       return;
     }
     textEl.textContent = pendingRemoteDeletions.length === 1
-      ? '"' + pendingRemoteDeletions[0] + '" was removed elsewhere — refresh to update the list.'
-      : pendingRemoteDeletions.length + ' games were removed elsewhere — refresh to update the list.';
+      ? '"' + pendingRemoteDeletions[0] + '" was removed on another device.'
+      : pendingRemoteDeletions.length + ' games were removed on another device.';
     banner.classList.add('visible');
   }
-  var remoteDeleteRefreshBtn = document.getElementById('remote-delete-refresh');
   var remoteDeleteDismissBtn = document.getElementById('remote-delete-dismiss');
-  if (remoteDeleteRefreshBtn) remoteDeleteRefreshBtn.addEventListener('click', function() {
-    location.reload();
-  });
   if (remoteDeleteDismissBtn) remoteDeleteDismissBtn.addEventListener('click', function() {
     pendingRemoteDeletions = [];
     updateRemoteDeleteBanner();
@@ -970,12 +982,17 @@
     if (!data) return;
     var statsChanged = false;
 
+    var newlyDeleted = [];
     (data.deleted || []).forEach(function(name) {
       if (deletedNames[name] || !gameByName[name]) return;
       deletedNames[name] = true;
-      pendingRemoteDeletions.push(name);
+      newlyDeleted.push(name);
     });
-    if (pendingRemoteDeletions.length) updateRemoteDeleteBanner();
+    if (newlyDeleted.length) {
+      newlyDeleted.forEach(function(name) { applyDeletion(gameByName[name]); });
+      pendingRemoteDeletions = pendingRemoteDeletions.concat(newlyDeleted);
+      updateRemoteDeleteBanner();
+    }
 
     Object.keys(data.owned || {}).forEach(function(name) {
       var g = gameByName[name];
@@ -1020,19 +1037,19 @@
   }
   window.__applyRemoteState = applyRemoteState;
   function platformCountNow(key) { return ownedGamesList().filter(function(g){ return g.platforms.indexOf(key) > -1; }).length; }
-  function countProgress(val) { return GAMES.filter(function(g){ return g.progress === val; }).length; }
+  function countProgress(val) { return GAMES.filter(function(g){ return g.progress === val && !g.deleted; }).length; }
   // Backlog hours is "how long left to beat this" (an estimate), so it uses Main+Extra directly —
   // a backlog game always reads 0 played, so it can't be pulled from playedHours.
   // Progress applies to wishlist games too now — "backlog" just means "haven't started",
   // whether or not you own it yet.
   function backlogHours() {
-    return GAMES.reduce(function(sum, g){ return sum + (g.progress === 'backlog' ? (g.extra || g.main || 0) : 0); }, 0);
+    return GAMES.reduce(function(sum, g){ return sum + (!g.deleted && g.progress === 'backlog' ? (g.extra || g.main || 0) : 0); }, 0);
   }
   // Time Played sums the actual playedHours attribute shown in the Played column/field for
   // every game — never an estimate standing in for it. A game with no known played time (null)
   // contributes 0, so this total always matches exactly what's displayed as "Played" everywhere.
   function timePlayed() {
-    return GAMES.reduce(function(sum, g){ return sum + (g.playedHours != null ? g.playedHours : 0); }, 0);
+    return GAMES.reduce(function(sum, g){ return sum + (!g.deleted && g.playedHours != null ? g.playedHours : 0); }, 0);
   }
 
   function fmtHours(n) {
@@ -1045,7 +1062,7 @@
   var statsEl = document.getElementById('stats');
   function buildStats() {
     var stats = [
-      { num: fmtInt(totalCount), label: 'Total titles', cls: '' },
+      { num: fmtInt(totalCount()), label: 'Total titles', cls: '' },
       { num: fmtInt(ownedGamesList().length), label: 'Owned', cls: 'accent-owned', id: 'stat-owned' },
       { num: fmtInt(wishlistCountNow()), label: 'Wishlist', cls: 'accent-wish', id: 'stat-wishlist' },
       { num: fmtInt(countProgress('beaten')), label: 'Beaten', cls: 'accent-beaten', id: 'stat-beaten' },
@@ -1087,11 +1104,12 @@
       if (el) el.textContent = fmtInt(platformCountNow(p.key));
     });
   }
-  document.getElementById('eyebrow-count').textContent = fmtInt(totalCount) + ' titles tracked';
+  document.getElementById('eyebrow-count').textContent = fmtInt(totalCount()) + ' titles tracked';
 
   // ---- Genre index ----
   var genreCounts = {};
   GAMES.forEach(function(g) {
+    if (g.deleted) return;
     g.genres.forEach(function(tag) {
       genreCounts[tag] = (genreCounts[tag] || 0) + 1;
     });
@@ -1372,6 +1390,7 @@
     var basis = state.hoursBasis;
     var useHoursFilter = state.hoursMin != null || state.hoursMax != null;
     var list = GAMES.filter(function(g) {
+      if (g.deleted) return false;
       if (state.q && g.name.toLowerCase().indexOf(state.q) === -1) return false;
       if (state.status === 'owned' && !g.owned) return false;
       if (state.status === 'wishlist' && g.owned) return false;
