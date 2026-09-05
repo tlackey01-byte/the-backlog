@@ -50,7 +50,14 @@
     "touchmove",
     function (e) {
       if (startY == null) return;
-      if (!atTop()) { reset(); return; }
+      // No atTop() re-check here on purpose: reading scrollY/scrollTop is a
+      // layout-dependent property, and touchmove can fire dozens of times per gesture --
+      // re-checking on every single one forces a synchronous layout that pass on this
+      // page's fairly large DOM, and was making every tap near the top of the page (the
+      // toolbar/filter buttons, which sit right there) feel laggy, not just actual pulls.
+      // It's also unnecessary: during a real overscroll pull, the document's scrollTop
+      // stays pinned at 0 throughout (the pull is an elastic bounce, not real scrolling),
+      // so the touchstart-time check above already covers the only case that matters.
       var delta = e.touches[0].clientY - startY;
       if (delta <= 0) { reset(); return; }
       pulling = true;
