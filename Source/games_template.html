@@ -959,6 +959,11 @@
   // applyDeletion() -- this banner is purely an FYI that it happened, not a prompt to
   // fix anything. Accumulates across snapshots until the user dismisses it.
   var pendingRemoteDeletions = [];
+  // True once this page load's first snapshot has been processed. deletedNames always
+  // starts empty (nothing persists it), so every game already deleted before this load
+  // looks "new" on that first snapshot -- only snapshots after it represent an actual
+  // live change happening during this session, so only those should surface the banner.
+  var initialStateLoaded = false;
   function updateRemoteDeleteBanner() {
     var banner = document.getElementById('remote-delete-banner');
     var textEl = document.getElementById('remote-delete-text');
@@ -979,8 +984,9 @@
   });
 
   function applyRemoteState(data) {
-    if (!data) return;
+    if (!data) { initialStateLoaded = true; return; }
     var statsChanged = false;
+    var isInitialLoad = !initialStateLoaded;
 
     var newlyDeleted = [];
     (data.deleted || []).forEach(function(name) {
@@ -990,8 +996,13 @@
     });
     if (newlyDeleted.length) {
       newlyDeleted.forEach(function(name) { applyDeletion(gameByName[name]); });
-      pendingRemoteDeletions = pendingRemoteDeletions.concat(newlyDeleted);
-      updateRemoteDeleteBanner();
+      // Silently applied on the load that establishes this session's starting state --
+      // only a deletion arriving after that point is an actual live change worth telling
+      // the user about.
+      if (!isInitialLoad) {
+        pendingRemoteDeletions = pendingRemoteDeletions.concat(newlyDeleted);
+        updateRemoteDeleteBanner();
+      }
     }
 
     Object.keys(data.owned || {}).forEach(function(name) {
@@ -1034,6 +1045,7 @@
       refreshOwnershipStats();
       applyFilters();
     }
+    initialStateLoaded = true;
   }
   window.__applyRemoteState = applyRemoteState;
   function platformCountNow(key) { return ownedGamesList().filter(function(g){ return g.platforms.indexOf(key) > -1; }).length; }
