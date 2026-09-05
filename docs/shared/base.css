@@ -97,7 +97,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
@@ -113,7 +113,7 @@ body {
 /* ---------- Shared form controls ---------- */
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field label {
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -126,7 +126,7 @@ input[type="search"], input[type="text"], input[type="number"], input[type="emai
   color: var(--text);
   border-radius: var(--radius-s);
   padding: 8px 10px;
-  font-size: 14px;
+  font-size: 15px;
   outline: none;
   transition: border-color .15s ease, background .15s ease;
 }
@@ -143,7 +143,7 @@ input[type="email"]:focus, input[type="password"]:focus, select:focus, button:fo
   color: var(--text);
   border-radius: var(--radius-s);
   padding: 8px 12px;
-  font-size: 13.5px;
+  font-size: 14.5px;
   font-weight: 500;
   cursor: pointer;
   display: inline-flex;
@@ -173,7 +173,7 @@ a, button, select, input { -webkit-tap-highlight-color: transparent; }
 }
 .site-nav-links { display: flex; align-items: center; gap: 4px; }
 .site-nav-link {
-  font-size: 13.5px; font-weight: 500; color: var(--text-muted);
+  font-size: 14.5px; font-weight: 500; color: var(--text-muted);
   text-decoration: none; padding: 7px 12px; border-radius: var(--radius-s);
   transition: background .15s ease, color .15s ease;
 }
@@ -197,16 +197,16 @@ a, button, select, input { -webkit-tap-highlight-color: transparent; }
   display: flex; flex-direction: column; gap: 16px;
 }
 .login-eyebrow {
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em;
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.14em;
   text-transform: uppercase; color: var(--accent); font-weight: 600;
 }
 .login-title {
-  font-family: var(--font-display); font-weight: 800; font-size: 28px;
+  font-family: var(--font-display); font-weight: 800; font-size: 30px;
   margin: -8px 0 4px; color: var(--text);
 }
 .login-submit { justify-content: center; width: 100%; padding: 10px 12px; }
 .login-error {
-  color: var(--dnf); font-size: 12.5px; min-height: 1.2em;
+  color: var(--dnf); font-size: 13.5px; min-height: 1.2em;
 }
 
 /* ---------- Phone-width touch refinements (shared shell only -- each page's own
