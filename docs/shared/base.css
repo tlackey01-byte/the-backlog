@@ -100,7 +100,10 @@ body {
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
 
-.wrap { max-width: 1280px; margin: 0 auto; padding: 28px 20px 80px; }
+.wrap {
+  max-width: 1280px; margin: 0 auto;
+  padding: 28px max(20px, env(safe-area-inset-right)) max(80px, calc(24px + env(safe-area-inset-bottom))) max(20px, env(safe-area-inset-left));
+}
 
 /* ---------- Shared form controls ---------- */
 .field { display: flex; flex-direction: column; gap: 6px; }
@@ -148,10 +151,15 @@ input[type="email"]:focus, input[type="password"]:focus, select:focus, button:fo
 .btn.primary:hover { background: var(--accent-strong); }
 .btn:disabled { opacity: .6; cursor: default; }
 
+/* Suppresses iOS/Android's default grey tap-flash on interactive elements in favor of
+   this app's own hover/active states; harmless no-op on desktop. */
+a, button, select, input { -webkit-tap-highlight-color: transparent; }
+
 /* ---------- Site nav (shared across homepage + every section) ---------- */
 .site-nav {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 20px; max-width: 1280px; margin: 0 auto;
+  padding: max(16px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 16px max(20px, env(safe-area-inset-left));
+  max-width: 1280px; margin: 0 auto;
   border-bottom: 1px solid var(--border);
 }
 .site-nav-brand {
@@ -173,7 +181,9 @@ input[type="email"]:focus, input[type="password"]:focus, select:focus, button:fo
 /* ---------- Login gate ---------- */
 .login-gate {
   position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-  background: var(--bg); z-index: 100; padding: 20px;
+  background: var(--bg); z-index: 100;
+  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+           max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
 }
 .login-form {
   width: 100%; max-width: 340px; background: var(--surface);
@@ -192,4 +202,17 @@ input[type="email"]:focus, input[type="password"]:focus, select:focus, button:fo
 .login-submit { justify-content: center; width: 100%; padding: 10px 12px; }
 .login-error {
   color: var(--dnf); font-size: 12.5px; min-height: 1.2em;
+}
+
+/* ---------- Phone-width touch refinements (shared shell only -- each page's own
+   controls, e.g. the games table/cards, handle their own equivalents separately) ---------- */
+@media (max-width: 720px) {
+  /* iOS Safari auto-zooms the page on focusing any text input under 16px; this is the
+     single biggest "feels broken" mobile issue if left at the desktop size. */
+  input[type="search"], input[type="text"], input[type="number"],
+  input[type="email"], input[type="password"], select {
+    font-size: 16px;
+  }
+  .site-nav-link, .btn { min-height: 44px; display: inline-flex; align-items: center; }
+  .login-submit { min-height: 44px; }
 }

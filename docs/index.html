@@ -2,10 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>The Backlog</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#14161c">
+<!-- iOS ignores the web manifest for "Add to Home Screen" styling, so these are needed
+     alongside it for a standalone (no Safari chrome) launch with a matching icon. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="The Backlog">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="shared/base.css">
 <style>
   .home-header { padding: 40px 0 8px; }
