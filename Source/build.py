@@ -42,6 +42,7 @@ GAMES_PAGE_OUT_PATH = os.path.join(DOCS_DIR, "games", "index.html")
 HOMEPAGE_PATH = os.path.join(DOCS_DIR, "index.html")
 BASE_CSS_PATH = os.path.join(DOCS_DIR, "shared", "base.css")
 FIREBASE_INIT_PATH = os.path.join(DOCS_DIR, "shared", "firebase-init.js")
+PULL_TO_REFRESH_PATH = os.path.join(DOCS_DIR, "shared", "pull-to-refresh.js")
 SW_PATH = os.path.join(DOCS_DIR, "sw.js")
 
 
@@ -85,7 +86,7 @@ def build_games_page(compact_json_str):
 
 
 def update_service_worker_cache_name():
-    shell_paths = [GAMES_PAGE_OUT_PATH, HOMEPAGE_PATH, BASE_CSS_PATH, FIREBASE_INIT_PATH]
+    shell_paths = [GAMES_PAGE_OUT_PATH, HOMEPAGE_PATH, BASE_CSS_PATH, FIREBASE_INIT_PATH, PULL_TO_REFRESH_PATH]
     h = hashlib.sha256()
     for p in shell_paths:
         with open(p, "rb") as f:
