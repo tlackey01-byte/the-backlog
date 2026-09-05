@@ -2,10 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>The Backlog</title>
 <link rel="manifest" href="../manifest.json">
 <meta name="theme-color" content="#14161c">
+<!-- iOS ignores the web manifest for "Add to Home Screen" styling, so these are needed
+     alongside it for a standalone (no Safari chrome) launch with a matching icon. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="The Backlog">
+<link rel="apple-touch-icon" href="../icons/icon-192.png">
 <link rel="stylesheet" href="../shared/base.css">
 </head>
 <body>
@@ -460,6 +466,14 @@
   .detail-hero-text .detail-title { margin-bottom: 12px; }
   @media (max-width: 480px) {
     .detail-hero { flex-direction: column; }
+    /* Toolbar filter groups get cramped wrapping side by side at phone width -- one per
+       row reads far more clearly than a ragged multi-column wrap. */
+    .toolbar .field { flex: 1 1 100%; }
+    /* The game-name column can be long; keep the dismiss button from getting squeezed
+       against it on a narrow screen. */
+    .remote-delete-banner { flex-direction: column; align-items: flex-start; gap: 8px; }
+    /* A fixed 320px popover can run off the right edge of a phone screen entirely. */
+    .popover { width: min(320px, calc(100vw - 40px)); }
   }
   .detail-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
   .detail-back {
@@ -573,6 +587,20 @@
     .card-tags { color: var(--text-faint); font-size: 11.5px; margin-top: 3px; }
     .card-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--text-muted); margin-top: 10px; }
     .card-meta b { color: var(--text); font-family: var(--font-mono); font-weight: 600; }
+
+    /* iOS Safari auto-zooms the page on focusing a text input under 16px -- these are
+       this page's own copies of the shared rule in base.css, so they need the same fix. */
+    input[type="search"], input[type="text"], input[type="number"] { font-size: 16px; }
+
+    /* Every card repeats these controls, so at phone width they're the most-tapped
+       targets on the page -- worth sizing well past their desktop density even though
+       that still falls short of a full 44px target for the platform toggles specifically,
+       which would otherwise force 4 of them to overflow a card's width. */
+    .progress-select, .status-select { font-size: 13px; padding: 7px 26px 7px 12px; min-height: 34px; }
+    .plat-toggle { padding: 7px 11px; font-size: 13px; }
+    .plat-toggle-group { gap: 6px; }
+    .segmented button { padding: 9px 14px; min-height: 40px; }
+    .played-input { min-height: 34px; }
   }
 
   footer.foot {
