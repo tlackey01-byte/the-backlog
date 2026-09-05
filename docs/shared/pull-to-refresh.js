@@ -8,8 +8,14 @@
   "use strict";
   if (!window.matchMedia || !window.matchMedia("(pointer: coarse)").matches) return;
 
-  var THRESHOLD = 70;
-  var MAX_PULL = 120;
+  // How far a full reveal takes is the indicator's own rendered height -- which includes
+  // env(safe-area-inset-top) for the notch/Dynamic Island, so it varies by device. A fixed
+  // pixel budget here previously left it permanently unable to fully reveal on devices
+  // with a larger inset (the indicator's real height could exceed that fixed cap), so it
+  // always looked cut off. maxPull is re-measured on every touchstart instead, which also
+  // keeps it correct across an orientation change.
+  var THRESHOLD_RATIO = 0.65;
+  var maxPull = 120;
 
   var indicator = document.createElement("div");
   indicator.className = "pull-refresh-indicator";
@@ -18,6 +24,11 @@
     '<span class="pull-refresh-label">Pull to refresh</span>';
   document.body.insertBefore(indicator, document.body.firstChild);
   var label = indicator.querySelector(".pull-refresh-label");
+
+  function measure() {
+    maxPull = indicator.offsetHeight || maxPull;
+  }
+  measure();
 
   var startY = null;
   var pulling = false;
@@ -42,6 +53,7 @@
     function (e) {
       startY = atTop() ? e.touches[0].clientY : null;
       pulling = false;
+      if (startY != null) measure();
     },
     { passive: true }
   );
@@ -63,10 +75,11 @@
       pulling = true;
       // Square-root easing: quick to start responding, harder to keep pulling past the
       // threshold, so it doesn't feel like it's about to fire the instant you touch the screen.
-      var damped = Math.min(MAX_PULL, Math.sqrt(delta) * 8);
+      var damped = Math.min(maxPull, Math.sqrt(delta) * 8);
+      var threshold = maxPull * THRESHOLD_RATIO;
       indicator.style.transform = "translateY(" + damped + "px)";
-      indicator.style.opacity = String(Math.min(1, damped / THRESHOLD));
-      var ready = damped >= THRESHOLD;
+      indicator.style.opacity = String(Math.min(1, damped / threshold));
+      var ready = damped >= threshold;
       indicator.classList.toggle("ready", ready);
       label.textContent = ready ? "Release to refresh" : "Pull to refresh";
     },
