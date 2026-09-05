@@ -177,12 +177,25 @@ a, button, select, input { -webkit-tap-highlight-color: transparent; touch-actio
 .site-nav-brand {
   font-family: var(--font-display); font-weight: 800; font-size: 22px;
   letter-spacing: -0.01em; color: var(--text); text-decoration: none;
+  flex-shrink: 0;
 }
-.site-nav-links { display: flex; align-items: center; gap: 4px; }
+/* min-width: 0 is load-bearing: without it, a flex item defaults to never shrinking
+   below its content's natural width, so overflow-x here would never actually trigger --
+   the row would just overflow .site-nav (and used to get silently clipped by the
+   overflow-x: clip safety net on html/body, which is what was cutting off the last tab).
+   With it, this scrolls internally instead, so every tab stays reachable regardless of
+   how many there are or how wide the screen is. */
+.site-nav-links {
+  display: flex; align-items: center; gap: 4px;
+  flex: 1 1 auto; min-width: 0; overflow-x: auto;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.site-nav-links::-webkit-scrollbar { display: none; }
 .site-nav-link {
   font-size: 15.5px; font-weight: 500; color: var(--text-muted);
   text-decoration: none; padding: 7px 12px; border-radius: var(--radius-s);
   transition: background .15s ease, color .15s ease;
+  white-space: nowrap; flex-shrink: 0;
 }
 .site-nav-link:hover { background: var(--surface-2); color: var(--text); }
 .site-nav-link.active { color: var(--accent); font-weight: 600; }
