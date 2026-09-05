@@ -97,7 +97,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
@@ -113,7 +113,7 @@ body {
 /* ---------- Shared form controls ---------- */
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field label {
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -125,8 +125,8 @@ input[type="search"], input[type="text"], input[type="number"], input[type="emai
   border: 1px solid var(--border);
   color: var(--text);
   border-radius: var(--radius-s);
-  padding: 8px 10px;
-  font-size: 15px;
+  padding: 9px 11px;
+  font-size: 16px;
   outline: none;
   transition: border-color .15s ease, background .15s ease;
 }
@@ -142,8 +142,8 @@ input[type="email"]:focus, input[type="password"]:focus, select:focus, button:fo
   border: 1px solid var(--border);
   color: var(--text);
   border-radius: var(--radius-s);
-  padding: 8px 12px;
-  font-size: 14.5px;
+  padding: 9px 13px;
+  font-size: 15.5px;
   font-weight: 500;
   cursor: pointer;
   display: inline-flex;
@@ -168,12 +168,12 @@ a, button, select, input { -webkit-tap-highlight-color: transparent; }
   border-bottom: 1px solid var(--border);
 }
 .site-nav-brand {
-  font-family: var(--font-display); font-weight: 800; font-size: 20px;
+  font-family: var(--font-display); font-weight: 800; font-size: 22px;
   letter-spacing: -0.01em; color: var(--text); text-decoration: none;
 }
 .site-nav-links { display: flex; align-items: center; gap: 4px; }
 .site-nav-link {
-  font-size: 14.5px; font-weight: 500; color: var(--text-muted);
+  font-size: 15.5px; font-weight: 500; color: var(--text-muted);
   text-decoration: none; padding: 7px 12px; border-radius: var(--radius-s);
   transition: background .15s ease, color .15s ease;
 }
@@ -197,16 +197,16 @@ a, button, select, input { -webkit-tap-highlight-color: transparent; }
   display: flex; flex-direction: column; gap: 16px;
 }
 .login-eyebrow {
-  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.14em;
+  font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.14em;
   text-transform: uppercase; color: var(--accent); font-weight: 600;
 }
 .login-title {
-  font-family: var(--font-display); font-weight: 800; font-size: 30px;
+  font-family: var(--font-display); font-weight: 800; font-size: 32px;
   margin: -8px 0 4px; color: var(--text);
 }
-.login-submit { justify-content: center; width: 100%; padding: 10px 12px; }
+.login-submit { justify-content: center; width: 100%; padding: 11px 13px; }
 .login-error {
-  color: var(--dnf); font-size: 13.5px; min-height: 1.2em;
+  color: var(--dnf); font-size: 14.5px; min-height: 1.2em;
 }
 
 /* ---------- Phone-width touch refinements (shared shell only -- each page's own
@@ -229,20 +229,20 @@ a, button, select, input { -webkit-tap-highlight-color: transparent; }
    pointer:coarse device, so it's simply never touched on desktop. */
 .pull-refresh-indicator {
   position: fixed;
-  top: calc(-56px - env(safe-area-inset-top));
+  top: calc(-60px - env(safe-area-inset-top));
   left: 0; right: 0;
-  height: calc(56px + env(safe-area-inset-top));
+  height: calc(60px + env(safe-area-inset-top));
   padding-top: env(safe-area-inset-top);
   display: flex; align-items: center; justify-content: center; gap: 8px;
   background: var(--surface); border-bottom: 1px solid var(--border);
-  color: var(--text-muted); font-size: 12.5px; font-weight: 600;
+  color: var(--text-muted); font-size: 13.5px; font-weight: 600;
   opacity: 0;
   z-index: 200;
   pointer-events: none;
 }
 .pull-refresh-indicator.ready { color: var(--accent); }
 .pull-refresh-spinner {
-  width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+  width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
   border: 2px solid currentColor; border-top-color: transparent;
 }
 .pull-refresh-indicator.refreshing .pull-refresh-spinner {

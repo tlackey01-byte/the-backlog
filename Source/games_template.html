@@ -123,7 +123,7 @@
   header.top { display: flex; flex-direction: column; gap: 4px; margin-bottom: 22px; }
   .eyebrow {
     font-family: var(--font-mono);
-    font-size: 12.5px;
+    font-size: 13.5px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--accent);
@@ -132,30 +132,30 @@
   h1 {
     font-family: var(--font-display);
     font-weight: 800;
-    font-size: clamp(38px, 6vw, 58px);
+    font-size: clamp(42px, 6.5vw, 62px);
     letter-spacing: -0.01em;
     margin: 0;
     text-wrap: balance;
     line-height: 0.98;
   }
-  .sub { color: var(--text-muted); font-size: 15.5px; max-width: 62ch; }
+  .sub { color: var(--text-muted); font-size: 16.5px; max-width: 62ch; }
 
   /* ---------- Sync / backup bar ---------- */
   .sync-bar { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
-  .sync-status { display: flex; align-items: center; gap: 7px; font-size: 13.5px; color: var(--text-muted); }
+  .sync-status { display: flex; align-items: center; gap: 7px; font-size: 14.5px; color: var(--text-muted); }
   .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); flex: none; }
   .sync-dot.synced { background: var(--owned); }
   .sync-dot.dirty { background: var(--accent); }
   .sync-dot.saving { background: var(--accent); animation: sync-pulse 1s ease-in-out infinite; }
   .sync-dot.error { background: var(--dnf); }
   @keyframes sync-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
-  .sync-bar .btn { padding: 6px 11px; font-size: 13.5px; }
+  .sync-bar .btn { padding: 7px 12px; font-size: 14.5px; }
   .sync-bar .btn:disabled { opacity: .5; cursor: default; }
 
   /* ---------- Stat strip ---------- */
   .stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 1px;
     background: var(--border);
     border: 1px solid var(--border);
@@ -166,7 +166,7 @@
   }
   .stat {
     background: var(--surface);
-    padding: 16px 16px 14px;
+    padding: 18px 18px 16px;
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -175,13 +175,13 @@
   .stat .num {
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 32px;
+    font-size: 34px;
     line-height: 1;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
   }
   .stat .label {
-    font-size: 12px;
+    font-size: 13px;
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -210,7 +210,7 @@
   }
   .field { display: flex; flex-direction: column; gap: 6px; }
   .field label {
-    font-size: 11.5px;
+    font-size: 12.5px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.07em;
@@ -229,12 +229,12 @@
     border: 1px solid var(--border);
     color: var(--text);
     border-radius: var(--radius-s);
-    padding: 8px 10px;
-    font-size: 15px;
+    padding: 9px 11px;
+    font-size: 16px;
     outline: none;
     transition: border-color .15s ease, background .15s ease;
   }
-  input[type="search"] { padding-left: 32px; width: 100%; }
+  input[type="search"] { padding-left: 34px; width: 100%; }
   input[type="search"]:focus, input[type="text"]:focus, input[type="number"]:focus, select:focus, button:focus-visible {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
@@ -255,9 +255,9 @@
     border: none;
     background: transparent;
     color: var(--text-muted);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 500;
-    padding: 6px 12px;
+    padding: 7px 13px;
     border-radius: 5px;
     cursor: pointer;
     white-space: nowrap;
@@ -273,7 +273,7 @@
     color: var(--text);
     border-radius: var(--radius-s);
     padding: 8px 10px;
-    font-size: 14.5px;
+    font-size: 15.5px;
     outline: none;
     cursor: pointer;
   }
@@ -284,8 +284,8 @@
     border: 1px solid var(--border);
     color: var(--text);
     border-radius: var(--radius-s);
-    padding: 8px 12px;
-    font-size: 14.5px;
+    padding: 9px 13px;
+    font-size: 15.5px;
     font-weight: 500;
     cursor: pointer;
     display: inline-flex;
@@ -301,19 +301,19 @@
     color: var(--accent);
     border-radius: 20px;
     padding: 1px 7px;
-    font-size: 12.5px;
+    font-size: 13.5px;
     font-weight: 700;
     font-family: var(--font-mono);
   }
   .clear-link {
-    background: none; border: none; color: var(--text-faint); font-size: 14px;
+    background: none; border: none; color: var(--text-faint); font-size: 15px;
     cursor: pointer; text-decoration: underline; text-underline-offset: 2px; padding: 8px 4px;
   }
   .clear-link:hover { color: var(--text); }
 
   .hours-range { display: flex; align-items: center; gap: 8px; }
-  .hours-range input[type="number"] { width: 60px; text-align: right; font-family: var(--font-mono); }
-  .hours-range .to { color: var(--text-faint); font-size: 13px; }
+  .hours-range input[type="number"] { width: 66px; text-align: right; font-family: var(--font-mono); }
+  .hours-range .to { color: var(--text-faint); font-size: 14px; }
 
   /* ---------- Genre popover ---------- */
   .popover-wrap { position: relative; }
@@ -336,12 +336,12 @@
   .popover-list { overflow-y: auto; padding: 6px; flex: 1; }
   .genre-row {
     display: flex; align-items: center; gap: 8px;
-    padding: 6px 8px; border-radius: var(--radius-s); cursor: pointer; font-size: 14.5px;
+    padding: 7px 9px; border-radius: var(--radius-s); cursor: pointer; font-size: 15.5px;
   }
   .genre-row:hover { background: var(--surface-2); }
-  .genre-row input { accent-color: var(--accent); width: 15px; height: 15px; flex-shrink: 0; }
+  .genre-row input { accent-color: var(--accent); width: 16px; height: 16px; flex-shrink: 0; }
   .genre-row .gname { flex: 1; }
-  .genre-row .gcount { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-faint); }
+  .genre-row .gcount { font-family: var(--font-mono); font-size: 13.5px; color: var(--text-faint); }
   .popover-footer { padding: 8px 10px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; }
 
   .chips-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
@@ -349,10 +349,10 @@
     display: inline-flex; align-items: center; gap: 6px;
     background: var(--accent-ink); color: var(--accent-strong);
     border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-    border-radius: 20px; padding: 4px 6px 4px 12px; font-size: 13.5px; font-weight: 600;
+    border-radius: 20px; padding: 5px 7px 5px 13px; font-size: 14.5px; font-weight: 600;
   }
   .chip button {
-    background: none; border: none; color: inherit; cursor: pointer; font-size: 14px;
+    background: none; border: none; color: inherit; cursor: pointer; font-size: 15px;
     line-height: 1; padding: 2px; opacity: .7; display: flex;
   }
   .chip button:hover { opacity: 1; }
@@ -360,7 +360,7 @@
   /* ---------- Results meta ---------- */
   .results-meta {
     display: flex; justify-content: space-between; align-items: center;
-    margin: 18px 2px 10px; color: var(--text-muted); font-size: 14px; flex-wrap: wrap; gap: 8px;
+    margin: 18px 2px 10px; color: var(--text-muted); font-size: 15px; flex-wrap: wrap; gap: 8px;
   }
   .results-meta .count strong { color: var(--text); font-family: var(--font-mono); }
 
@@ -373,17 +373,17 @@
     box-shadow: var(--shadow);
   }
   .table-scroll { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; min-width: 760px; }
+  table { width: 100%; border-collapse: collapse; min-width: 800px; }
   thead th {
     position: sticky; top: 0; z-index: 2;
     background: var(--surface-2);
     text-align: left;
-    font-size: 12.5px;
+    font-size: 13.5px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--text-faint);
     font-weight: 700;
-    padding: 13px 14px;
+    padding: 14px 15px;
     border-bottom: 1px solid var(--border);
     white-space: nowrap;
     cursor: pointer;
@@ -396,9 +396,9 @@
   thead th.sorted { color: var(--text); }
 
   tbody td {
-    padding: 13px 14px;
+    padding: 14px 15px;
     border-bottom: 1px solid var(--border);
-    font-size: 16px;
+    font-size: 17px;
     vertical-align: middle;
   }
   tbody tr:last-child td { border-bottom: none; }
@@ -407,9 +407,9 @@
   td.num.basis { color: var(--text); font-weight: 600; }
 
   .played-input {
-    width: 62px;
+    width: 68px;
     font-family: var(--font-mono);
-    font-size: 14px;
+    font-size: 15px;
     text-align: right;
     background: transparent;
     border: 1px solid transparent;
@@ -424,9 +424,9 @@
   .played-input:hover { border-color: var(--border); background: var(--surface-2); }
   .played-input:focus { border-color: var(--accent); background: var(--surface-2); color: var(--text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
   .played-input::-webkit-inner-spin-button, .played-input::-webkit-outer-spin-button { opacity: 0.35; }
-  .card-meta .played-input { width: 50px; padding: 2px 4px; font-size: 12.5px; }
+  .card-meta .played-input { width: 54px; padding: 2px 4px; font-size: 13.5px; }
   td.name-cell { font-weight: 600; max-width: 340px; }
-  td.name-cell .gtags { font-weight: 400; color: var(--text-faint); font-size: 13.5px; margin-top: 2px; white-space: normal; }
+  td.name-cell .gtags { font-weight: 400; color: var(--text-faint); font-size: 14.5px; margin-top: 2px; white-space: normal; }
 
   .game-link {
     display: block; width: 100%; background: none; border: none; padding: 0; margin: 0; text-align: left;
@@ -449,18 +449,18 @@
     color: var(--text-faint); font-family: var(--font-display); font-weight: 700;
     background: var(--surface-3);
   }
-  .cover-th { width: 60px; padding: 11px 0 11px 14px !important; }
+  .cover-th { width: 76px; padding: 11px 0 11px 14px !important; }
   td.cover-cell { padding: 6px 0 6px 14px; }
 
   /* Fixed box per size tier, taller than wide (roughly matches box-art proportions).
      object-fit: cover fills the box completely — fine now that most covers are portrait
      box art close to this ratio; older landscape capsule images crop more noticeably. */
-  .cover-row { width: 51px; height: 67px; border-radius: 6px; }
-  .cover-row.cover-placeholder { font-size: 20px; }
-  .cover-card { width: 56px; height: 74px; border-radius: 8px; }
-  .cover-card.cover-placeholder { font-size: 22px; }
-  .cover-hero { width: clamp(128px, 28vw, 192px); height: clamp(168px, 37vw, 253px); border-radius: var(--radius-m); box-shadow: var(--shadow); }
-  .cover-hero.cover-placeholder { font-size: clamp(45px, 9vw, 69px); }
+  .cover-row { width: 66px; height: 87px; border-radius: 6px; }
+  .cover-row.cover-placeholder { font-size: 26px; }
+  .cover-card { width: 74px; height: 98px; border-radius: 8px; }
+  .cover-card.cover-placeholder { font-size: 29px; }
+  .cover-hero { width: clamp(160px, 32vw, 232px); height: clamp(210px, 42vw, 306px); border-radius: var(--radius-m); box-shadow: var(--shadow); }
+  .cover-hero.cover-placeholder { font-size: clamp(56px, 11vw, 84px); }
 
   /* ---------- Detail view ---------- */
   .detail-hero { display: flex; align-items: flex-start; gap: 22px; margin-bottom: 4px; }
@@ -476,35 +476,35 @@
   }
   .detail-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
   .detail-back {
-    background: none; border: none; color: var(--text-muted); font-size: 13.5px; font-weight: 500;
+    background: none; border: none; color: var(--text-muted); font-size: 14.5px; font-weight: 500;
     cursor: pointer; padding: 6px 0; display: inline-flex; align-items: center; gap: 6px;
   }
   .detail-back:hover { color: var(--accent); }
   .detail-delete {
     background: var(--dnf-ink); border: 1px solid color-mix(in srgb, var(--dnf) 35%, transparent);
-    color: var(--dnf); font-family: var(--font-body); font-size: 12.5px; font-weight: 600;
-    border-radius: var(--radius-s); padding: 7px 12px; cursor: pointer;
+    color: var(--dnf); font-family: var(--font-body); font-size: 13.5px; font-weight: 600;
+    border-radius: var(--radius-s); padding: 8px 13px; cursor: pointer;
     transition: background .15s ease, color .15s ease;
   }
   .detail-delete:hover { background: var(--dnf); color: var(--dnf-ink); }
   .detail-eyebrow { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
   .detail-eyebrow .g-chip {
-    font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+    font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
     color: var(--accent); font-weight: 600;
   }
-  .detail-title { font-family: var(--font-display); font-weight: 800; font-size: clamp(32px, 5.5vw, 50px);
+  .detail-title { font-family: var(--font-display); font-weight: 800; font-size: clamp(34px, 6vw, 54px);
     letter-spacing: -0.01em; margin: 0 0 14px; text-wrap: balance; line-height: 1.0; }
   .detail-badges { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 26px; }
   .detail-fields { display: flex; gap: 28px; flex-wrap: wrap; margin-bottom: 28px; }
   .detail-fields .field label { margin-bottom: 8px; display: block; }
-  .detail-fields .progress-select, .detail-fields .status-select { font-size: 14.5px; padding: 7px 28px 7px 14px; }
-  .detail-fields .plat-toggle { font-size: 13.5px; padding: 6px 12px; }
-  .detail-fields .played-input { width: 90px; font-size: 16px; padding: 8px 10px; border: 1px solid var(--border); background: var(--surface-2); }
+  .detail-fields .progress-select, .detail-fields .status-select { font-size: 15.5px; padding: 8px 30px 8px 15px; }
+  .detail-fields .plat-toggle { font-size: 14.5px; padding: 7px 13px; }
+  .detail-fields .played-input { width: 96px; font-size: 17px; padding: 9px 11px; border: 1px solid var(--border); background: var(--surface-2); }
   .detail-fields .played-input:hover { background: var(--surface-3); }
-  .detail-hint { color: var(--text-faint); font-size: 13.5px; margin: -18px 0 28px; }
+  .detail-hint { color: var(--text-faint); font-size: 14.5px; margin: -18px 0 28px; }
   .detail-hint b { color: var(--text-muted); font-weight: 600; }
   .detail-stats { margin: 0 0 8px; }
-  .detail-note { color: var(--text-faint); font-size: 13.5px; margin-top: 14px; }
+  .detail-note { color: var(--text-faint); font-size: 14.5px; margin-top: 14px; }
 
   .progress-select, .status-select {
     font-family: var(--font-body);
@@ -512,8 +512,8 @@
     border: 1px solid var(--border);
     color: var(--text);
     border-radius: 20px;
-    padding: 4px 24px 4px 11px;
-    font-size: 13.5px;
+    padding: 5px 26px 5px 12px;
+    font-size: 14.5px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .04em;
@@ -541,8 +541,8 @@
     border: 1px solid var(--border);
     background: transparent;
     color: var(--text-faint);
-    font-size: 13px; font-weight: 700; letter-spacing: .02em;
-    padding: 3px 8px; border-radius: 5px;
+    font-size: 14px; font-weight: 700; letter-spacing: .02em;
+    padding: 4px 9px; border-radius: 5px;
     cursor: pointer;
     transition: background .15s ease, color .15s ease, border-color .15s ease;
   }
@@ -565,11 +565,11 @@
   /* Toolbar's platform filter buttons double as multi-select toggles (not exclusive like other segmented controls) */
   #platform-seg button.plat-active { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
 
-  .empty-state { padding: 60px 20px; text-align: center; color: var(--text-muted); }
-  .empty-state .big { font-family: var(--font-display); font-size: 26px; color: var(--text); margin-bottom: 6px; font-weight: 700; }
+  .empty-state { padding: 60px 20px; text-align: center; color: var(--text-muted); font-size: 15px; }
+  .empty-state .big { font-family: var(--font-display); font-size: 28px; color: var(--text); margin-bottom: 6px; font-weight: 700; }
 
   .sentinel { height: 1px; }
-  .load-more-row td { text-align: center; padding: 16px; color: var(--text-faint); font-size: 13.5px; }
+  .load-more-row td { text-align: center; padding: 16px; color: var(--text-faint); font-size: 14.5px; }
 
   /* ---------- Mobile cards ---------- */
   .cards { display: none; }
@@ -587,13 +587,13 @@
          contain-intrinsic-size is just a placeholder height for the skipped ones so the
          scrollbar/scroll position don't jump around; it doesn't need to be exact. */
       content-visibility: auto;
-      contain-intrinsic-size: auto 120px;
+      contain-intrinsic-size: auto 150px;
     }
     .card-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
     .card-top-text { flex: 1; min-width: 0; }
-    .card-title { font-weight: 700; font-size: 16.5px; }
-    .card-tags { color: var(--text-faint); font-size: 12.5px; margin-top: 4px; }
-    .card-meta { display: flex; flex-wrap: wrap; gap: 7px 14px; font-size: 13.5px; color: var(--text-muted); margin-top: 10px; }
+    .card-title { font-weight: 700; font-size: 18.5px; }
+    .card-tags { color: var(--text-faint); font-size: 14px; margin-top: 4px; }
+    .card-meta { display: flex; flex-wrap: wrap; gap: 7px 14px; font-size: 15px; color: var(--text-muted); margin-top: 10px; }
     .card-meta b { color: var(--text); font-family: var(--font-mono); font-weight: 600; }
 
     /* iOS Safari auto-zooms the page on focusing a text input under 16px -- these are
@@ -604,32 +604,32 @@
        targets on the page -- worth sizing well past their desktop density even though
        that still falls short of a full 44px target for the platform toggles specifically,
        which would otherwise force 4 of them to overflow a card's width. */
-    .progress-select, .status-select { font-size: 13.5px; padding: 7px 26px 7px 12px; min-height: 34px; }
-    .plat-toggle { padding: 7px 11px; font-size: 13.5px; }
+    .progress-select, .status-select { font-size: 15.5px; padding: 8px 28px 8px 13px; min-height: 38px; }
+    .plat-toggle { padding: 8px 12px; font-size: 15px; }
     .plat-toggle-group { gap: 6px; }
-    .segmented button { padding: 9px 14px; font-size: 14px; min-height: 40px; }
-    .played-input { min-height: 34px; }
+    .segmented button { padding: 10px 15px; font-size: 16px; min-height: 44px; }
+    .played-input { min-height: 38px; }
 
     /* Header, stats, and toolbar labels read noticeably small on a phone at desktop
        sizing -- this is the plain "make it easier to read without pinching to zoom" pass. */
-    .eyebrow { font-size: 13px; }
-    .sub { font-size: 15.5px; }
-    .field label { font-size: 12px; }
-    .stat .num { font-size: 26px; }
-    .stat .label { font-size: 12px; }
-    .genre-row { font-size: 14.5px; }
-    .empty-state .big { font-size: 22px; }
-    .empty-state { font-size: 14.5px; }
+    .eyebrow { font-size: 14.5px; }
+    .sub { font-size: 17px; }
+    .field label { font-size: 13.5px; }
+    .stat .num { font-size: 29px; }
+    .stat .label { font-size: 13px; }
+    .genre-row { font-size: 16px; }
+    .empty-state .big { font-size: 24px; }
+    .empty-state { font-size: 16px; }
   }
 
   @media (max-width: 480px) {
     /* Same phone-readability pass, scoped to the detail (single-game) page, which has
        its own font-size overrides layered on top of the shared .progress-select/
        .status-select/.plat-toggle rules above. */
-    .detail-fields .progress-select, .detail-fields .status-select { font-size: 14.5px; }
-    .detail-fields .plat-toggle { font-size: 13.5px; }
-    .detail-fields .played-input { font-size: 16px; }
-    .detail-hint, .detail-note { font-size: 13.5px; }
+    .detail-fields .progress-select, .detail-fields .status-select { font-size: 16.5px; }
+    .detail-fields .plat-toggle { font-size: 15.5px; }
+    .detail-fields .played-input { font-size: 17px; }
+    .detail-hint, .detail-note { font-size: 15px; }
   }
 
   footer.foot {
@@ -637,7 +637,7 @@
     color: var(--text-faint); font-size: 13px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
   }
   @media (max-width: 480px) {
-    footer.foot { font-size: 13px; }
+    footer.foot { font-size: 14px; }
   }
 </style>
 
