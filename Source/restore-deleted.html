@@ -1,0 +1,137 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>The Backlog — restore deleted games</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; background: #14161c; color: #e8e8ea; }
+  h1 { font-size: 1.25rem; }
+  label { display: block; margin-top: 14px; font-weight: 600; font-size: 0.85rem; }
+  input[type=email], input[type=password] { width: 100%; padding: 8px; box-sizing: border-box; background: #1e2129; color: #e8e8ea; border: 1px solid #333; border-radius: 4px; }
+  button { margin-top: 16px; padding: 10px 16px; font-size: 0.95rem; cursor: pointer; border-radius: 4px; border: none; background: #4f7cff; color: white; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  #status { margin-top: 16px; padding: 10px; border-radius: 4px; white-space: pre-wrap; font-family: monospace; font-size: 12px; }
+  .ok { background: #16331f; color: #7be08a; }
+  .err { background: #3a1616; color: #ff8f8f; }
+  .hint { font-size: 0.8rem; color: #9aa0ac; margin-top: 4px; }
+  #list { margin-top: 16px; }
+  .del-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #292d3a; }
+  .del-row input { width: auto; }
+  .del-row label { margin: 0; font-weight: 400; font-size: 0.9rem; flex: 1; }
+</style>
+</head>
+<body>
+<h1>The Backlog — restore deleted games</h1>
+<p class="hint">
+  Sign in, then check any games below you want to bring back (checked = restore) and click
+  Restore Checked. Everything else in your synced state (ownership, progress, played hours,
+  platforms) is read back and written unchanged — only the `deleted` list is modified.
+</p>
+
+<label for="email">Email</label>
+<input type="email" id="email" autocomplete="username">
+<label for="password">Password</label>
+<input type="password" id="password" autocomplete="current-password">
+<button id="load-btn" type="button">Sign in &amp; load deleted games</button>
+
+<div id="list"></div>
+<button id="restore-btn" type="button" style="display:none;">Restore Checked</button>
+<div id="status"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+  import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+
+  // Same public config as docs/shared/firebase-init.js -- not a secret, see that file's
+  // header comment for why. Duplicated (not imported) because this page is opened as a
+  // local file:// document, and Chrome blocks cross-file ES module fetches over file://.
+  const firebaseConfig = {
+    apiKey: "AIzaSyD6xJX12ovVZ7Hi8Xtwu0L3CHmgKB3-BzY",
+    authDomain: "the-backlog-34b22.firebaseapp.com",
+    projectId: "the-backlog-34b22",
+    storageBucket: "the-backlog-34b22.firebasestorage.app",
+    messagingSenderId: "306665266277",
+    appId: "1:306665266277:web:129933a71722256ba9ba8c",
+  };
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  const statusEl = document.getElementById('status');
+  const listEl = document.getElementById('list');
+  const restoreBtn = document.getElementById('restore-btn');
+  function showStatus(msg, ok) {
+    statusEl.textContent = msg;
+    statusEl.className = ok ? 'ok' : 'err';
+  }
+
+  var stateRef = null;
+  var currentData = null;
+
+  document.getElementById('load-btn').addEventListener('click', async function () {
+    var btn = this;
+    btn.disabled = true;
+    showStatus('Signing in...', true);
+    try {
+      var email = document.getElementById('email').value.trim();
+      var password = document.getElementById('password').value;
+      var cred = await signInWithEmailAndPassword(auth, email, password);
+      stateRef = doc(db, 'users', cred.user.uid, 'state', 'games');
+      var snap = await getDoc(stateRef);
+      currentData = snap.exists() ? snap.data() : {};
+      var deleted = currentData.deleted || [];
+      if (!deleted.length) {
+        listEl.innerHTML = '<p class="hint">No deleted games on record.</p>';
+        showStatus('Signed in as ' + cred.user.email + '. Nothing to restore.', true);
+        return;
+      }
+      listEl.innerHTML = deleted.map(function (name, i) {
+        var safe = name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        return '<div class="del-row">' +
+          '<input type="checkbox" id="del-' + i + '" value="' + safe + '" checked>' +
+          '<label for="del-' + i + '">' + safe + '</label>' +
+          '</div>';
+      }).join('');
+      restoreBtn.style.display = '';
+      showStatus('Signed in as ' + cred.user.email + '. ' + deleted.length + ' deleted game(s) loaded.', true);
+    } catch (err) {
+      showStatus('Failed: ' + (err && err.message ? err.message : String(err)), false);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  restoreBtn.addEventListener('click', async function () {
+    var btn = this;
+    btn.disabled = true;
+    try {
+      var checked = Array.prototype.slice.call(listEl.querySelectorAll('input[type=checkbox]:checked'))
+        .map(function (el) { return el.value; });
+      var remaining = (currentData.deleted || []).filter(function (name) {
+        return checked.indexOf(name) === -1;
+      });
+      var payload = Object.assign({}, currentData, {
+        deleted: remaining,
+        updatedAt: new Date().toISOString()
+      });
+      await setDoc(stateRef, payload);
+      showStatus(
+        'Restored ' + checked.length + ' game(s): ' + checked.join(', ') + '\n' +
+        remaining.length + ' still marked deleted.\n' +
+        'Refresh the live site (hard refresh) to see them again.',
+        true
+      );
+      currentData.deleted = remaining;
+      listEl.innerHTML = remaining.length
+        ? listEl.innerHTML
+        : '<p class="hint">No deleted games remain.</p>';
+    } catch (err) {
+      showStatus('Failed: ' + (err && err.message ? err.message : String(err)), false);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

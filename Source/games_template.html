@@ -1794,19 +1794,21 @@
 
     // Live cross-device sync: every snapshot (this device's own writes echoing back
     // included) gets diffed and patched into the DOM by applyRemoteState(), never a full
-    // reload. Also seeds `totals` (and bootstraps the doc entirely, for a first-ever user)
-    // exactly once per page load, and only when it's actually missing -- never on every
-    // load, since the read side here still only reflects what this snapshot brings in, and
-    // an unconditional write could otherwise race a device that hasn't caught up yet.
+    // reload. Also re-saves `totals` exactly once per page load, always -- not only when
+    // it's missing. `totals` is purely derived from `owned`/`deleted`, and by this point
+    // applyRemoteState() has already folded this snapshot's `owned`/`deleted` into local
+    // state, so recomputing here is always correct, never racy against another device.
+    // This also makes the games page self-healing after anything writes this doc without
+    // recomputing totals itself (e.g. a one-off maintenance script that only touches
+    // `deleted`) -- the very next time this page loads, the stale cached number fixes
+    // itself with no manual nudge needed.
     var seededTotals = false;
     onSnapshot(stateRef, function (snap) {
       var data = snap.data();
       if (window.__applyRemoteState) window.__applyRemoteState(data);
       if (!seededTotals) {
         seededTotals = true;
-        if (!data || data.totals == null) {
-          if (window.saveState) window.saveState();
-        }
+        if (window.saveState) window.saveState();
       }
     });
   });
