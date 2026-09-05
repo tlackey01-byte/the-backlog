@@ -1619,15 +1619,27 @@
     renderedCount += slice.length;
   }
 
+  // Rebuilding the visible rows/cards from scratch (wiping innerHTML and re-inserting up
+  // to 60 fresh <img> covers) is heavy enough on phone hardware -- especially now that
+  // covers render bigger -- that running it synchronously inside a click handler blocks
+  // the browser from painting anything else first, including the tapped button's own
+  // .active-class highlight (that class change happens before this runs, in the same
+  // handler, but paint doesn't happen until the handler returns). The result reads as
+  // "the button itself is slow," when it's really this rebuild blocking the first paint.
+  // Deferring one frame lets the button's own visual feedback paint immediately; the list
+  // still updates just as fast in wall-clock time, it just isn't gating perceived tap
+  // responsiveness anymore.
   function applyFilters() {
-    currentFiltered = computeFiltered();
-    renderedCount = 0;
-    tbody.innerHTML = '';
-    cardsEl.innerHTML = '';
-    resultCountEl.textContent = fmtInt(currentFiltered.length);
-    emptyState.style.display = currentFiltered.length ? 'none' : 'block';
-    document.querySelector('.table-scroll').style.display = currentFiltered.length ? '' : 'none';
-    renderNextBatch();
+    requestAnimationFrame(function () {
+      currentFiltered = computeFiltered();
+      renderedCount = 0;
+      tbody.innerHTML = '';
+      cardsEl.innerHTML = '';
+      resultCountEl.textContent = fmtInt(currentFiltered.length);
+      emptyState.style.display = currentFiltered.length ? 'none' : 'block';
+      document.querySelector('.table-scroll').style.display = currentFiltered.length ? '' : 'none';
+      renderNextBatch();
+    });
   }
 
   // ---- Editing progress inline (table + cards stay in sync; saved to this browser) ----

@@ -157,8 +157,10 @@ input[type="email"]:focus, input[type="password"]:focus, select:focus, button:fo
 .btn:disabled { opacity: .6; cursor: default; }
 
 /* Suppresses iOS/Android's default grey tap-flash on interactive elements in favor of
-   this app's own hover/active states; harmless no-op on desktop. */
-a, button, select, input { -webkit-tap-highlight-color: transparent; }
+   this app's own hover/active states; harmless no-op on desktop. touch-action tells the
+   browser these elements never support double-tap-to-zoom, so it can dispatch the click
+   immediately instead of briefly waiting to see if a second tap is coming. */
+a, button, select, input { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 
 /* ---------- Site nav (shared across homepage + every section) ---------- */
 .site-nav {
