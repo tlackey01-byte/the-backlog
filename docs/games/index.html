@@ -591,9 +591,9 @@
     }
     .card-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
     .card-top-text { flex: 1; min-width: 0; }
-    .card-title { font-weight: 700; font-size: 14.5px; }
-    .card-tags { color: var(--text-faint); font-size: 11.5px; margin-top: 3px; }
-    .card-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--text-muted); margin-top: 10px; }
+    .card-title { font-weight: 700; font-size: 16.5px; }
+    .card-tags { color: var(--text-faint); font-size: 12.5px; margin-top: 4px; }
+    .card-meta { display: flex; flex-wrap: wrap; gap: 7px 14px; font-size: 13.5px; color: var(--text-muted); margin-top: 10px; }
     .card-meta b { color: var(--text); font-family: var(--font-mono); font-weight: 600; }
 
     /* iOS Safari auto-zooms the page on focusing a text input under 16px -- these are
@@ -604,18 +604,41 @@
        targets on the page -- worth sizing well past their desktop density even though
        that still falls short of a full 44px target for the platform toggles specifically,
        which would otherwise force 4 of them to overflow a card's width. */
-    .progress-select, .status-select { font-size: 13px; padding: 7px 26px 7px 12px; min-height: 34px; }
-    .plat-toggle { padding: 7px 11px; font-size: 13px; }
+    .progress-select, .status-select { font-size: 13.5px; padding: 7px 26px 7px 12px; min-height: 34px; }
+    .plat-toggle { padding: 7px 11px; font-size: 13.5px; }
     .plat-toggle-group { gap: 6px; }
-    .segmented button { padding: 9px 14px; min-height: 40px; }
+    .segmented button { padding: 9px 14px; font-size: 14px; min-height: 40px; }
     .played-input { min-height: 34px; }
+
+    /* Header, stats, and toolbar labels read noticeably small on a phone at desktop
+       sizing -- this is the plain "make it easier to read without pinching to zoom" pass. */
+    .eyebrow { font-size: 13px; }
+    .sub { font-size: 15.5px; }
+    .field label { font-size: 12px; }
+    .stat .num { font-size: 26px; }
+    .stat .label { font-size: 12px; }
+    .genre-row { font-size: 14.5px; }
+    .empty-state .big { font-size: 22px; }
+    .empty-state { font-size: 14.5px; }
+  }
+
+  @media (max-width: 480px) {
+    /* Same phone-readability pass, scoped to the detail (single-game) page, which has
+       its own font-size overrides layered on top of the shared .progress-select/
+       .status-select/.plat-toggle rules above. */
+    .detail-fields .progress-select, .detail-fields .status-select { font-size: 14.5px; }
+    .detail-fields .plat-toggle { font-size: 13.5px; }
+    .detail-fields .played-input { font-size: 16px; }
+    .detail-hint, .detail-note { font-size: 13.5px; }
   }
 
   footer.foot {
     margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border);
     color: var(--text-faint); font-size: 12px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
   }
-
+  @media (max-width: 480px) {
+    footer.foot { font-size: 13px; }
+  }
 </style>
 
 <div id="app" style="display:none">
