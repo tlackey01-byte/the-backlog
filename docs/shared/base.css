@@ -88,6 +88,11 @@
 /* ---------- Reset ---------- */
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+/* Safety net: the centered max-width layout never needs to scroll sideways, so treat any
+   element that overflows it (a control that's wider than expected on a narrow phone
+   screen, say) as a bug to clip rather than something that lets the whole page drift
+   left/right. No effect on desktop, which never overflows in the first place. */
+html { overflow-x: hidden; }
 body {
   background: var(--bg);
   color: var(--text);
