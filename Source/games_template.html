@@ -242,6 +242,8 @@
 
   .segmented {
     display: inline-flex;
+    flex-wrap: wrap;
+    max-width: 100%;
     background: var(--surface-2);
     border: 1px solid var(--border);
     border-radius: var(--radius-s);
@@ -580,6 +582,15 @@
     .card {
       background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-m);
       padding: 14px; box-shadow: var(--shadow);
+      /* An unfiltered list keeps appending 60-card batches as you scroll toward the
+         bottom (see the sentinel/IntersectionObserver below), so a long scroll session
+         can leave thousands of cards in the DOM. content-visibility skips layout/paint
+         entirely for whichever ones are currently off-screen -- the actual fix for scroll
+         smoothness on a phone, well beyond what battery a shadow/border-radius costs.
+         contain-intrinsic-size is just a placeholder height for the skipped ones so the
+         scrollbar/scroll position don't jump around; it doesn't need to be exact. */
+      content-visibility: auto;
+      contain-intrinsic-size: auto 120px;
     }
     .card-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
     .card-top-text { flex: 1; min-width: 0; }
@@ -1482,7 +1493,7 @@
   }
   function coverThumb(g, cls) {
     if (g.cover) {
-      return '<img class="cover-thumb ' + cls + '" src="' + g.cover + '" alt="" loading="lazy">';
+      return '<img class="cover-thumb ' + cls + '" src="' + g.cover + '" alt="" loading="lazy" decoding="async">';
     }
     var initial = g.name.replace(/[™®©]/g, '').trim().charAt(0).toUpperCase() || '?';
     return '<span class="cover-thumb cover-placeholder ' + cls + '">' + escHtml(initial) + '</span>';
