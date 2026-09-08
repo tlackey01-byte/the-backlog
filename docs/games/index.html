@@ -208,6 +208,30 @@
     position: relative;
     z-index: 5;
   }
+  /* Search + this button are the only things always visible; every other filter lives in
+     .filters-panel below, collapsed by default -- the point of this whole restructure was
+     shrinking how much space the filter row takes up when you're not actively using it.
+     Active filters still show as chips underneath regardless of collapsed state (see
+     .chips-row, a sibling of .toolbar, untouched by any of this) so what's filtered stays
+     visible even with the panel closed. */
+  .filters-toggle { display: inline-flex; align-items: center; gap: 6px; }
+  .filters-toggle-arrow { font-size: 10px; transition: transform .15s ease; }
+  .filters-toggle[aria-expanded="true"] .filters-toggle-arrow { transform: rotate(180deg); }
+  .filters-panel {
+    flex: 1 1 100%;
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px;
+    margin-top: 4px; padding-top: 16px; border-top: 1px solid var(--border);
+  }
+  .filters-panel[hidden] { display: none; }
+  .field-label-row { display: flex; align-items: center; gap: 8px; }
+  /* The Hours basis selector only ever affects which hours column gets highlighted in
+     results (see rowHtml()/cardHtml()'s use of state.hoursBasis) -- it's a minor modifier
+     of the Hours to beat field right below it, not a filter of its own, so it rides
+     inline in that field's label row instead of taking a whole separate field slot. */
+  .basis-mini-select {
+    font-size: 10.5px; font-weight: 600;
+    padding: 2px 6px; border-radius: var(--radius-s);
+  }
   .field { display: flex; flex-direction: column; gap: 6px; }
   .field label {
     font-size: 12.5px;
@@ -838,83 +862,89 @@
       </div>
     </div>
 
-    <div class="field">
-      <label>Ownership</label>
-      <div class="segmented" id="status-seg">
-        <button data-val="all" class="active">All</button>
-        <button data-val="owned">Owned</button>
-        <button data-val="wishlist">Wishlist</button>
-      </div>
-    </div>
+    <button class="btn filters-toggle" id="filters-toggle-btn" type="button" aria-expanded="false" aria-controls="filters-panel">
+      <span id="filters-toggle-label">Filters</span>
+      <span class="count-badge" id="filters-count" style="display:none">0</span>
+      <span class="filters-toggle-arrow" id="filters-toggle-arrow">▾</span>
+    </button>
 
-    <div class="field">
-      <label>Progress</label>
-      <div class="segmented" id="progress-seg">
-        <button data-val="all" class="active">Any</button>
-        <button data-val="backlog">Backlog</button>
-        <button data-val="dnf">DNF</button>
-        <button data-val="beaten">Beaten</button>
-        <button data-val="100">100%</button>
-      </div>
-    </div>
-
-    <div class="field">
-      <label>Platform owned on</label>
-      <div class="segmented" id="platform-seg">
-        <button data-val="all" class="active">Any</button>
-        <button data-val="PlayStation">PlayStation</button>
-        <button data-val="Steam">Steam</button>
-        <button data-val="Nintendo">Nintendo</button>
-        <button data-val="Emulation">Emulation</button>
-      </div>
-    </div>
-
-    <div class="field popover-wrap" id="genre-wrap">
-      <label>Genre</label>
-      <button class="btn" id="genre-btn">Any genre <span class="count-badge" id="genre-count" style="display:none">0</span></button>
-      <div class="popover" id="genre-popover">
-        <div class="popover-search">
-          <input type="text" id="genre-search" placeholder="Filter genres…">
-        </div>
-        <div class="popover-list" id="genre-list"></div>
-        <div class="popover-footer">
-          <button class="clear-link" id="genre-clear-btn">Clear</button>
-          <button class="btn primary" id="genre-apply-btn" style="padding:5px 12px;font-size:12.5px;">Done</button>
+    <div class="filters-panel" id="filters-panel" hidden>
+      <div class="field">
+        <label>Ownership</label>
+        <div class="segmented" id="status-seg">
+          <button data-val="all" class="active">All</button>
+          <button data-val="owned">Owned</button>
+          <button data-val="wishlist">Wishlist</button>
         </div>
       </div>
-    </div>
 
-    <div class="field">
-      <label>Hours basis</label>
-      <select id="hours-basis" class="filter-select">
-        <option value="m">Main Story</option>
-        <option value="e" selected>Main + Extra</option>
-        <option value="c">Completionist</option>
-      </select>
-    </div>
+      <div class="field">
+        <label>Progress</label>
+        <div class="segmented" id="progress-seg">
+          <button data-val="all" class="active">Any</button>
+          <button data-val="backlog">Backlog</button>
+          <button data-val="dnf">DNF</button>
+          <button data-val="beaten">Beaten</button>
+          <button data-val="100">100%</button>
+        </div>
+      </div>
 
-    <div class="field">
-      <label>Hours to beat</label>
-      <select id="hours-filter" class="filter-select">
-        <option value="">Any length</option>
-        <option value="0">Under 2 hours</option>
-        <option value="1">2-10 Hours</option>
-        <option value="2">10-20 Hours</option>
-        <option value="3">20-40 Hours</option>
-        <option value="4">40-100 Hours</option>
-        <option value="5">100-150 Hours</option>
-        <option value="6">150+</option>
-      </select>
-    </div>
+      <div class="field">
+        <label>Platform owned on</label>
+        <div class="segmented" id="platform-seg">
+          <button data-val="all" class="active">Any</button>
+          <button data-val="PlayStation">PlayStation</button>
+          <button data-val="Steam">Steam</button>
+          <button data-val="Nintendo">Nintendo</button>
+          <button data-val="Emulation">Emulation</button>
+        </div>
+      </div>
 
-    <div class="field">
-      <label>Rating</label>
-      <select id="rating-filter" class="filter-select">
-        <option value="">Any rating</option>
-      </select>
-    </div>
+      <div class="field popover-wrap" id="genre-wrap">
+        <label>Genre</label>
+        <button class="btn" id="genre-btn">Any genre <span class="count-badge" id="genre-count" style="display:none">0</span></button>
+        <div class="popover" id="genre-popover">
+          <div class="popover-search">
+            <input type="text" id="genre-search" placeholder="Filter genres…">
+          </div>
+          <div class="popover-list" id="genre-list"></div>
+          <div class="popover-footer">
+            <button class="clear-link" id="genre-clear-btn">Clear</button>
+            <button class="btn primary" id="genre-apply-btn" style="padding:5px 12px;font-size:12.5px;">Done</button>
+          </div>
+        </div>
+      </div>
 
-    <button class="clear-link" id="clear-all">Reset filters</button>
+      <div class="field">
+        <div class="field-label-row">
+          <label>Hours to beat</label>
+          <select id="hours-basis" class="basis-mini-select" aria-label="Hours basis shown/highlighted in results">
+            <option value="m">Main</option>
+            <option value="e" selected>Main+Extra</option>
+            <option value="c">100%</option>
+          </select>
+        </div>
+        <select id="hours-filter" class="filter-select">
+          <option value="">Any length</option>
+          <option value="0">Under 2 hours</option>
+          <option value="1">2-10 Hours</option>
+          <option value="2">10-20 Hours</option>
+          <option value="3">20-40 Hours</option>
+          <option value="4">40-100 Hours</option>
+          <option value="5">100-150 Hours</option>
+          <option value="6">150+</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Rating</label>
+        <select id="rating-filter" class="filter-select">
+          <option value="">Any rating</option>
+        </select>
+      </div>
+
+      <button class="clear-link" id="clear-all">Reset filters</button>
+    </div>
   </div>
 
   <div class="chips-row" id="active-chips"></div>
@@ -1576,6 +1606,16 @@
   }
   updateSortDesc();
 
+  // ---- Collapsible filters panel ----
+  var filtersToggleBtn = document.getElementById('filters-toggle-btn');
+  var filtersPanel = document.getElementById('filters-panel');
+  var filtersCountEl = document.getElementById('filters-count');
+  filtersToggleBtn.addEventListener('click', function() {
+    var willBeOpen = filtersPanel.hidden;
+    filtersPanel.hidden = !willBeOpen;
+    filtersToggleBtn.setAttribute('aria-expanded', String(willBeOpen));
+  });
+
   // ---- Active filter chips ----
   var chipsEl = document.getElementById('active-chips');
   function renderChips() {
@@ -1616,6 +1656,13 @@
         applyFilters();
       });
     });
+
+    // Search stays visible outside the collapsed panel at all times, so it's excluded
+    // from this count -- the badge specifically means "filters currently active inside
+    // the panel you haven't opened," not every active chip.
+    var hiddenFilterCount = chips.length - (state.q ? 1 : 0);
+    filtersCountEl.style.display = hiddenFilterCount ? '' : 'none';
+    filtersCountEl.textContent = hiddenFilterCount;
   }
   function setSeg(id, val) {
     var el = document.getElementById(id);
@@ -2336,7 +2383,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788890038', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788890781', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
