@@ -519,12 +519,35 @@
     font-family: var(--font-display); font-weight: 800; font-size: 22px;
     letter-spacing: -0.01em; margin: 0;
   }
-  .journal-form {
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-l);
-    box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px;
-    display: flex; flex-direction: column; gap: 14px;
+  /* Overlay + centered card, in the same spirit as .login-gate -- covers the page rather
+     than pushing content down, and only ever exists hidden until #journal-add-btn opens
+     it (see openJournalModal()/closeJournalModal() and the [hidden] rule right below,
+     which has to out-specificity the plain .journal-modal-overlay{display:flex} rule for
+     the hidden attribute to actually hide it). */
+  .journal-modal-overlay {
+    position: fixed; inset: 0; z-index: 150;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(10, 11, 15, 0.6);
+    padding: 20px;
   }
-  .journal-form textarea { width: 100%; }
+  .journal-modal-overlay[hidden] { display: none; }
+  .journal-modal {
+    width: 100%; max-width: 420px; max-height: calc(100vh - 40px);
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-l);
+    box-shadow: var(--shadow); padding: 20px;
+    display: flex; flex-direction: column; gap: 14px;
+    overflow-y: auto;
+  }
+  .journal-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .journal-modal-title {
+    font-family: var(--font-display); font-weight: 800; font-size: 19px; margin: 0;
+  }
+  .journal-modal-close {
+    background: none; border: none; color: var(--text-faint); font-size: 24px; line-height: 1;
+    cursor: pointer; padding: 4px 8px; border-radius: var(--radius-s);
+  }
+  .journal-modal-close:hover { color: var(--text); background: var(--surface-2); }
+  .journal-modal textarea { width: 100%; }
   .journal-form-actions { display: flex; gap: 10px; }
   .journal-list {
     display: flex; flex-direction: column; gap: 10px;
@@ -541,6 +564,40 @@
   .journal-entry-summary {
     font-size: 15px; color: var(--text); line-height: 1.5; white-space: pre-wrap;
   }
+  /* Saved recording-timestamp bullets, shown per entry. */
+  .journal-entry-timestamps {
+    list-style: none; margin: 10px 0 0; padding: 0;
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .journal-entry-timestamps li {
+    font-size: 13.5px; color: var(--text-muted);
+    padding-left: 14px; position: relative;
+  }
+  .journal-entry-timestamps li::before {
+    content: '•'; position: absolute; left: 0; color: var(--text-faint);
+  }
+  .journal-ts-time-label {
+    font-family: var(--font-mono); font-weight: 600; color: var(--text); margin-right: 8px;
+  }
+  /* Composing time stamps in the "new entry" modal, before the entry itself is saved. */
+  .journal-ts-row { display: flex; gap: 8px; }
+  .journal-ts-time-field { flex: 0 0 92px; font-family: var(--font-mono); }
+  .journal-ts-row input:not(.journal-ts-time-field) { flex: 1 1 auto; min-width: 0; }
+  .journal-ts-preview {
+    list-style: none; margin: 10px 0 0; padding: 0;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .journal-ts-preview li {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface-2); border-radius: var(--radius-s); padding: 6px 8px;
+    font-size: 13.5px; color: var(--text-muted);
+  }
+  .journal-ts-desc-label { flex: 1; }
+  .journal-ts-remove {
+    background: none; border: none; color: var(--text-faint); font-size: 17px; line-height: 1;
+    cursor: pointer; padding: 2px 4px; border-radius: var(--radius-s); flex-shrink: 0;
+  }
+  .journal-ts-remove:hover { color: var(--dnf); background: var(--dnf-ink); }
   .journal-entry-timestamp {
     font-size: 12.5px; color: var(--text-faint); margin-top: 10px;
   }
@@ -894,6 +951,11 @@
   // this from Firestore once signed in, the same as every other override in practice.
   var journalOverrides = {};
   function journalEntriesFor(name) { return journalOverrides[name] || []; }
+  // Time stamps being built up in the currently-open "new entry" modal, before it's
+  // saved -- reset each time the modal opens. Distinct from an entry's auto-recorded
+  // createdAt: these are elapsed-time markers into a recording (e.g. "12:34"), typed in
+  // by hand, one entry can have several.
+  var pendingTimestamps = [];
 
   // ---- Firestore persistence ----
   // Every override change writes the *whole* state object back via setDoc -- never
@@ -1620,9 +1682,16 @@
   }
 
   function journalEntryHtml(e) {
+    var timestamps = e.timestamps || [];
+    var tsHtml = timestamps.length
+      ? '<ul class="journal-entry-timestamps">' + timestamps.map(function(t) {
+          return '<li><span class="journal-ts-time-label">' + escHtml(t.time) + '</span>' + escHtml(t.description) + '</li>';
+        }).join('') + '</ul>'
+      : '';
     return '<div class="journal-entry">' +
       '<div class="journal-entry-date">' + escHtml(fmtEntryDate(e.date)) + '</div>' +
       '<div class="journal-entry-summary">' + escHtml(e.summary) + '</div>' +
+      tsHtml +
       '<div class="journal-entry-timestamp">Logged ' + escHtml(fmtTimestamp(e.createdAt)) + '</div>' +
     '</div>';
   }
@@ -1639,12 +1708,27 @@
         '<h2 class="detail-journal-title">Journal</h2>' +
         '<button class="btn" type="button" id="journal-add-btn">+ Add Entry</button>' +
       '</div>' +
-      '<div class="journal-form" id="journal-form" hidden>' +
-        '<div class="field"><label>Date</label><input type="date" id="journal-date-input" value="' + todayDateInputValue() + '"></div>' +
-        '<div class="field"><label>Summary</label><textarea id="journal-summary-input" rows="3" placeholder="What happened..."></textarea></div>' +
-        '<div class="journal-form-actions">' +
-          '<button class="btn primary" type="button" id="journal-save-btn">Save Entry</button>' +
-          '<button class="btn" type="button" id="journal-cancel-btn">Cancel</button>' +
+      '<div class="journal-modal-overlay" id="journal-form" hidden>' +
+        '<div class="journal-modal" role="dialog" aria-modal="true" aria-label="New journal entry">' +
+          '<div class="journal-modal-head">' +
+            '<h3 class="journal-modal-title">New Journal Entry</h3>' +
+            '<button type="button" class="journal-modal-close" id="journal-modal-close" aria-label="Close">&times;</button>' +
+          '</div>' +
+          '<div class="field"><label>Date</label><input type="date" id="journal-date-input" value="' + todayDateInputValue() + '"></div>' +
+          '<div class="field"><label>Summary</label><textarea id="journal-summary-input" rows="4" placeholder="What happened..."></textarea></div>' +
+          '<div class="field">' +
+            '<label>Time Stamps</label>' +
+            '<div class="journal-ts-row">' +
+              '<input type="text" id="journal-ts-time-input" class="journal-ts-time-field" placeholder="12:34">' +
+              '<input type="text" id="journal-ts-desc-input" placeholder="What happens here...">' +
+              '<button type="button" class="btn" id="journal-ts-add-btn">Add</button>' +
+            '</div>' +
+            '<ul class="journal-ts-preview" id="journal-ts-preview"></ul>' +
+          '</div>' +
+          '<div class="journal-form-actions">' +
+            '<button class="btn primary" type="button" id="journal-save-btn">Save Entry</button>' +
+            '<button class="btn" type="button" id="journal-cancel-btn">Cancel</button>' +
+          '</div>' +
         '</div>' +
       '</div>' +
       (listHtml ? '<div class="journal-list" id="journal-list">' + listHtml + '</div>' : '') +
@@ -1663,13 +1747,52 @@
     container.outerHTML = journalSectionHtml(g);
   }
 
-  function addJournalEntry(g, dateStr, summaryText) {
+  function addJournalEntry(g, dateStr, summaryText, timestamps) {
     var list = journalOverrides[g.name] ? journalOverrides[g.name].slice() : [];
-    list.push({ date: dateStr, summary: summaryText, createdAt: new Date().toISOString() });
+    list.push({
+      date: dateStr,
+      summary: summaryText,
+      timestamps: (timestamps || []).slice(),
+      createdAt: new Date().toISOString()
+    });
     journalOverrides[g.name] = list;
     saveState();
     refreshJournalSectionIfOpen(g);
   }
+
+  // Renders the running bulleted preview of time stamps added so far in the currently
+  // open modal (pendingTimestamps), each removable before the entry is actually saved.
+  function renderTsPreview() {
+    var el = document.getElementById('journal-ts-preview');
+    if (!el) return;
+    el.innerHTML = pendingTimestamps.map(function(t, i) {
+      return '<li><span class="journal-ts-time-label">' + escHtml(t.time) + '</span>' +
+        '<span class="journal-ts-desc-label">' + escHtml(t.description) + '</span>' +
+        '<button type="button" class="journal-ts-remove" data-i="' + i + '" aria-label="Remove time stamp">&times;</button></li>';
+    }).join('');
+  }
+
+  function openJournalModal() {
+    var jForm = document.getElementById('journal-form');
+    if (!jForm) return;
+    jForm.hidden = false;
+    var jDateInput = document.getElementById('journal-date-input');
+    if (jDateInput) jDateInput.value = todayDateInputValue();
+    var jSummaryInput = document.getElementById('journal-summary-input');
+    if (jSummaryInput) { jSummaryInput.value = ''; jSummaryInput.focus(); }
+    pendingTimestamps = [];
+    renderTsPreview();
+  }
+  function closeJournalModal() {
+    var jForm = document.getElementById('journal-form');
+    if (jForm) jForm.hidden = true;
+  }
+  // Escape closes the modal from anywhere, same as clicking the backdrop or the X.
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Escape') return;
+    var jForm = document.getElementById('journal-form');
+    if (jForm && !jForm.hidden) closeJournalModal();
+  });
 
   function renderDetail(g) {
     var tagsHtml = g.genres.length
@@ -1751,22 +1874,38 @@
     }
 
     if (e.target.closest('#journal-add-btn')) {
-      var jForm = document.getElementById('journal-form');
-      var jAddBtn = document.getElementById('journal-add-btn');
-      if (!jForm) return;
-      jForm.hidden = false;
-      if (jAddBtn) jAddBtn.hidden = true;
-      var jDateInput = document.getElementById('journal-date-input');
-      if (jDateInput) jDateInput.value = todayDateInputValue();
-      var jSummaryInput = document.getElementById('journal-summary-input');
-      if (jSummaryInput) { jSummaryInput.value = ''; jSummaryInput.focus(); }
+      openJournalModal();
       return;
     }
-    if (e.target.closest('#journal-cancel-btn')) {
-      var jForm2 = document.getElementById('journal-form');
-      var jAddBtn2 = document.getElementById('journal-add-btn');
-      if (jForm2) jForm2.hidden = true;
-      if (jAddBtn2) jAddBtn2.hidden = false;
+    // Closes on the X button, the Cancel button, or a click on the dimmed backdrop
+    // itself (but not a click inside the dialog card, which would otherwise bubble up
+    // and close it while someone's just clicking into the Summary field).
+    if (e.target.closest('#journal-cancel-btn') || e.target.closest('#journal-modal-close') ||
+        e.target.id === 'journal-form') {
+      closeJournalModal();
+      return;
+    }
+    if (e.target.closest('#journal-ts-add-btn')) {
+      var jTsTimeEl = document.getElementById('journal-ts-time-input');
+      var jTsDescEl = document.getElementById('journal-ts-desc-input');
+      var jTsTime = ((jTsTimeEl && jTsTimeEl.value) || '').trim();
+      var jTsDesc = ((jTsDescEl && jTsDescEl.value) || '').trim();
+      if (!jTsTime || !jTsDesc) {
+        (jTsTime ? jTsDescEl : jTsTimeEl).focus();
+        return;
+      }
+      pendingTimestamps.push({ time: jTsTime, description: jTsDesc });
+      renderTsPreview();
+      if (jTsTimeEl) jTsTimeEl.value = '';
+      if (jTsDescEl) jTsDescEl.value = '';
+      if (jTsTimeEl) jTsTimeEl.focus();
+      return;
+    }
+    var jTsRemoveBtn = e.target.closest('.journal-ts-remove');
+    if (jTsRemoveBtn) {
+      var jTsIdx = parseInt(jTsRemoveBtn.getAttribute('data-i'), 10);
+      pendingTimestamps.splice(jTsIdx, 1);
+      renderTsPreview();
       return;
     }
     if (e.target.closest('#journal-save-btn')) {
@@ -1782,7 +1921,7 @@
         if (jSummaryEl) jSummaryEl.focus();
         return;
       }
-      addJournalEntry(jGame, jDateVal, jSummaryVal);
+      addJournalEntry(jGame, jDateVal, jSummaryVal, pendingTimestamps);
       return;
     }
   });
