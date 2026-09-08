@@ -224,10 +224,10 @@
   }
   .filters-panel[hidden] { display: none; }
   .field-label-row { display: flex; align-items: center; gap: 8px; }
-  /* The Hours basis selector only ever affects which hours column gets highlighted in
-     results (see rowHtml()/cardHtml()'s use of state.hoursBasis) -- it's a minor modifier
-     of the Hours to beat field right below it, not a filter of its own, so it rides
-     inline in that field's label row instead of taking a whole separate field slot. */
+  /* Hours basis picks which hours field (main/extra/completionist) both the highlighted
+     table/card column and the Hours to beat filter right below use -- it's a modifier of
+     that field, not a filter of its own, so it rides inline in the label row instead of
+     taking a whole separate field slot. */
   .basis-mini-select {
     font-size: 10.5px; font-weight: 600;
     padding: 2px 6px; border-radius: var(--radius-s);
@@ -918,7 +918,7 @@
       <div class="field">
         <div class="field-label-row">
           <label>Hours to beat</label>
-          <select id="hours-basis" class="basis-mini-select" aria-label="Hours basis shown/highlighted in results">
+          <select id="hours-basis" class="basis-mini-select" aria-label="Hours basis, used for both the highlighted column and the filter below">
             <option value="m">Main</option>
             <option value="e" selected>Main+Extra</option>
             <option value="c">100%</option>
@@ -1407,10 +1407,10 @@
   var RATING_VALUES = [];
   for (var ratingStep = 20; ratingStep >= 0; ratingStep--) RATING_VALUES.push(ratingStep / 2);
   // Preset length buckets for the "Hours to beat" filter -- max: null means no upper
-  // bound. Each game's Main+Extra hours (g.extra) is what's checked against these,
-  // regardless of whatever the separate "Hours basis" selector is set to display/sort by
-  // in the table -- that basis only ever affects which hours column is highlighted there,
-  // never what this filter actually filters on.
+  // bound. Which of a game's hours fields (main/extra/completionist) gets checked against
+  // these is whatever the paired "Hours basis" mini-select is currently set to (see
+  // computeFiltered()) -- the two are shown merged into one field precisely because they
+  // both apply to the same value together, not two independent concerns.
   var HOURS_BUCKETS = [
     { label: 'Under 2 hours', min: 0, max: 2 },
     { label: '2-10 Hours', min: 2, max: 10 },
@@ -1541,9 +1541,11 @@
   });
 
   // ---- Hours ----
-  // hoursBasisEl only ever controls which hours column is bolded/highlighted in the
-  // table (see rowHtml()'s use of state.hoursBasis) -- it's unrelated to hoursFilterEl
-  // below, which always filters on Main+Extra regardless of this selector.
+  // hoursBasisEl controls both which hours column is bolded/highlighted in the table
+  // (see rowHtml()'s use of state.hoursBasis) and which hours field hoursFilterEl below
+  // filters on (see computeFiltered()) -- changing it needs a full re-filter, not just a
+  // re-render, since the same bucket selection can include different games depending on
+  // which basis is active.
   var hoursBasisEl = document.getElementById('hours-basis');
   hoursBasisEl.addEventListener('change', function(e) {
     state.hoursBasis = e.target.value;
@@ -1699,7 +1701,7 @@
       }
       if (state.hoursBucket != null) {
         var bucket = HOURS_BUCKETS[state.hoursBucket];
-        var hv = g.extra; // always Main+Extra, regardless of the "Hours basis" selector
+        var hv = state.hoursBasis === 'm' ? g.main : state.hoursBasis === 'c' ? g.completionist : g.extra;
         if (hv == null) return false;
         if (hv < bucket.min) return false;
         if (bucket.max != null && hv >= bucket.max) return false;
@@ -2383,7 +2385,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788890781', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788892087', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
