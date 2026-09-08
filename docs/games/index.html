@@ -208,12 +208,13 @@
     position: relative;
     z-index: 5;
   }
-  /* Search + this button are the only things always visible; every other filter lives in
-     .filters-panel below, collapsed by default -- the point of this whole restructure was
-     shrinking how much space the filter row takes up when you're not actively using it.
-     Active filters still show as chips underneath regardless of collapsed state (see
-     .chips-row, a sibling of .toolbar, untouched by any of this) so what's filtered stays
-     visible even with the panel closed. */
+  /* Search, Ownership, Progress, and Platform stay always visible (the filters reached
+     for most often); Genre, Hours to beat, and Rating live in .filters-panel below,
+     collapsed by default under this "Additional Filtering" toggle -- the point of this
+     restructure was shrinking how much space the filter row takes up when those less-used
+     ones aren't actively in play. Active filters still show as chips underneath
+     regardless of collapsed state (see .chips-row, a sibling of .toolbar, untouched by any
+     of this) so what's filtered stays visible even with the panel closed. */
   .filters-toggle { display: inline-flex; align-items: center; gap: 6px; }
   .filters-toggle-arrow { font-size: 10px; transition: transform .15s ease; }
   .filters-toggle[aria-expanded="true"] .filters-toggle-arrow { transform: rotate(180deg); }
@@ -862,44 +863,44 @@
       </div>
     </div>
 
+    <div class="field">
+      <label>Ownership</label>
+      <div class="segmented" id="status-seg">
+        <button data-val="all" class="active">All</button>
+        <button data-val="owned">Owned</button>
+        <button data-val="wishlist">Wishlist</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Progress</label>
+      <div class="segmented" id="progress-seg">
+        <button data-val="all" class="active">Any</button>
+        <button data-val="backlog">Backlog</button>
+        <button data-val="dnf">DNF</button>
+        <button data-val="beaten">Beaten</button>
+        <button data-val="100">100%</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Platform owned on</label>
+      <div class="segmented" id="platform-seg">
+        <button data-val="all" class="active">Any</button>
+        <button data-val="PlayStation">PlayStation</button>
+        <button data-val="Steam">Steam</button>
+        <button data-val="Nintendo">Nintendo</button>
+        <button data-val="Emulation">Emulation</button>
+      </div>
+    </div>
+
     <button class="btn filters-toggle" id="filters-toggle-btn" type="button" aria-expanded="false" aria-controls="filters-panel">
-      <span id="filters-toggle-label">Filters</span>
+      <span id="filters-toggle-label">Additional Filtering</span>
       <span class="count-badge" id="filters-count" style="display:none">0</span>
       <span class="filters-toggle-arrow" id="filters-toggle-arrow">▾</span>
     </button>
 
     <div class="filters-panel" id="filters-panel" hidden>
-      <div class="field">
-        <label>Ownership</label>
-        <div class="segmented" id="status-seg">
-          <button data-val="all" class="active">All</button>
-          <button data-val="owned">Owned</button>
-          <button data-val="wishlist">Wishlist</button>
-        </div>
-      </div>
-
-      <div class="field">
-        <label>Progress</label>
-        <div class="segmented" id="progress-seg">
-          <button data-val="all" class="active">Any</button>
-          <button data-val="backlog">Backlog</button>
-          <button data-val="dnf">DNF</button>
-          <button data-val="beaten">Beaten</button>
-          <button data-val="100">100%</button>
-        </div>
-      </div>
-
-      <div class="field">
-        <label>Platform owned on</label>
-        <div class="segmented" id="platform-seg">
-          <button data-val="all" class="active">Any</button>
-          <button data-val="PlayStation">PlayStation</button>
-          <button data-val="Steam">Steam</button>
-          <button data-val="Nintendo">Nintendo</button>
-          <button data-val="Emulation">Emulation</button>
-        </div>
-      </div>
-
       <div class="field popover-wrap" id="genre-wrap">
         <label>Genre</label>
         <button class="btn" id="genre-btn">Any genre <span class="count-badge" id="genre-count" style="display:none">0</span></button>
@@ -1659,10 +1660,15 @@
       });
     });
 
-    // Search stays visible outside the collapsed panel at all times, so it's excluded
-    // from this count -- the badge specifically means "filters currently active inside
-    // the panel you haven't opened," not every active chip.
-    var hiddenFilterCount = chips.length - (state.q ? 1 : 0);
+    // Counted directly from state rather than derived from chips.length, since Search,
+    // Ownership, Progress, and Platform all produce chips too but stay visible outside
+    // the collapsed panel at all times -- this badge specifically means "filters active
+    // inside the Additional Filtering panel you haven't opened" (Genre/Hours/Rating, one
+    // count per category regardless of how many genres are selected within it).
+    var hiddenFilterCount =
+      (state.genres.length ? 1 : 0) +
+      (state.hoursBucket != null ? 1 : 0) +
+      (state.ratingFilter != null ? 1 : 0);
     filtersCountEl.style.display = hiddenFilterCount ? '' : 'none';
     filtersCountEl.textContent = hiddenFilterCount;
   }
@@ -2385,7 +2391,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788892087', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788892771', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
