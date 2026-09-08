@@ -557,10 +557,18 @@
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-m);
     box-shadow: var(--shadow); padding: 14px 16px;
   }
+  .journal-entry-head {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 10px; margin-bottom: 6px;
+  }
   .journal-entry-date {
     font-family: var(--font-display); font-weight: 700; font-size: 15.5px; color: var(--text);
-    margin-bottom: 6px;
   }
+  .journal-entry-delete {
+    background: none; border: none; color: var(--text-faint); font-size: 19px; line-height: 1;
+    cursor: pointer; padding: 2px 6px; border-radius: var(--radius-s); flex-shrink: 0;
+  }
+  .journal-entry-delete:hover { color: var(--dnf); background: var(--dnf-ink); }
   .journal-entry-summary {
     font-size: 15px; color: var(--text); line-height: 1.5; white-space: pre-wrap;
   }
@@ -1689,7 +1697,10 @@
         }).join('') + '</ul>'
       : '';
     return '<div class="journal-entry">' +
-      '<div class="journal-entry-date">' + escHtml(fmtEntryDate(e.date)) + '</div>' +
+      '<div class="journal-entry-head">' +
+        '<div class="journal-entry-date">' + escHtml(fmtEntryDate(e.date)) + '</div>' +
+        '<button type="button" class="journal-entry-delete" data-created="' + escHtml(e.createdAt) + '" aria-label="Delete entry">&times;</button>' +
+      '</div>' +
       '<div class="journal-entry-summary">' + escHtml(e.summary) + '</div>' +
       tsHtml +
       '<div class="journal-entry-timestamp">Logged ' + escHtml(fmtTimestamp(e.createdAt)) + '</div>' +
@@ -1755,6 +1766,16 @@
       timestamps: (timestamps || []).slice(),
       createdAt: new Date().toISOString()
     });
+    journalOverrides[g.name] = list;
+    saveState();
+    refreshJournalSectionIfOpen(g);
+  }
+
+  // Entries don't carry their own id -- createdAt (full ISO, millisecond precision) is
+  // already unique enough per entry to identify which one to remove, without needing to
+  // add a dedicated id field to the data model.
+  function removeJournalEntry(g, createdAt) {
+    var list = (journalOverrides[g.name] || []).filter(function(e) { return e.createdAt !== createdAt; });
     journalOverrides[g.name] = list;
     saveState();
     refreshJournalSectionIfOpen(g);
@@ -1875,6 +1896,17 @@
 
     if (e.target.closest('#journal-add-btn')) {
       openJournalModal();
+      return;
+    }
+    var jEntryDeleteBtn = e.target.closest('.journal-entry-delete');
+    if (jEntryDeleteBtn) {
+      var jdContainer = document.getElementById('journal-section');
+      var jdName = jdContainer ? jdContainer.getAttribute('data-name') : null;
+      var jdGame = jdName ? gameByName[jdName] : null;
+      if (!jdGame) return;
+      if (window.confirm('Delete this journal entry? This can\'t be undone from here.')) {
+        removeJournalEntry(jdGame, jEntryDeleteBtn.getAttribute('data-created'));
+      }
       return;
     }
     // Closes on the X button, the Cancel button, or a click on the dimmed backdrop
