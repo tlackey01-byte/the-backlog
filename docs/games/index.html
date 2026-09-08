@@ -1849,7 +1849,7 @@
   function renderChips() {
     var chips = [];
     if (state.status !== 'all') chips.push({ label: (state.status === 'owned' ? 'Owned' : 'Wishlist'), clear: function(){ state.status='all'; statusMiniEl.value = 'all'; } });
-    if (state.progress !== 'all') chips.push({ label: 'Progress: ' + (state.progress === '!backlog' ? 'Everything except Backlog' : PROGRESS_LABEL[state.progress]), clear: function(){ state.progress='all'; setSeg('progress-seg','all'); } });
+    if (state.progress !== 'all') chips.push({ label: 'Progress: ' + (state.progress === '!backlog' ? 'Everything Except Backlog' : PROGRESS_LABEL[state.progress]), clear: function(){ state.progress='all'; setSeg('progress-seg','all'); } });
     state.platforms.forEach(function(p) {
       chips.push({ label: 'Platform: ' + p, clear: function(){
         state.platforms = state.platforms.filter(function(x){ return x !== p; });
@@ -2673,7 +2673,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788898537', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788898751', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
