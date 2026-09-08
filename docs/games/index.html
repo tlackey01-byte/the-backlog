@@ -494,11 +494,9 @@
   td.num.basis { color: var(--text); font-weight: 600; }
   /* Card view's equivalent of td.num.basis above -- the table highlights the selected
      basis by making its column's normally-muted text full-color+bold; cards need their
-     own version since .card-meta already bolds every hours number's <b> the same way
-     regardless of basis, so nothing there previously distinguished the selected one at
-     all when this class was never applied. */
-  .card-meta .basis { color: var(--accent); }
-  .card-meta .basis b { color: var(--accent); }
+     own version since every .card-stat-value is already bold the same way regardless of
+     basis, so nothing there would otherwise distinguish the selected one at all. */
+  .card-stat.basis .card-stat-value { color: var(--accent); }
 
   .played-input {
     width: 68px;
@@ -820,15 +818,43 @@
       content-visibility: auto;
       contain-intrinsic-size: auto 150px;
     }
-    .card-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+    .card-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
     .card-top-text { flex: 1; min-width: 0; }
-    /* Ownership and Platform sit together on the top row now, right-aligned next to the
+    /* Ownership and Platform sit together on the top row, right-aligned next to the
        cover/title, rather than Platform being down with Progress in the row below. */
     .card-top-controls { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
     .card-title { font-weight: 700; font-size: 18.5px; }
     .card-tags { color: var(--text-faint); font-size: 14px; margin-top: 4px; }
-    .card-meta { display: flex; flex-wrap: wrap; gap: 7px 14px; font-size: 15px; color: var(--text-muted); margin-top: 10px; }
-    .card-meta b { color: var(--text); font-family: var(--font-mono); font-weight: 600; }
+    /* Progress gets its own row -- a plain wrapper rather than an inline style, but with no
+       extra visual weight of its own since the pill's status color already carries it. */
+    .card-progress-row { margin-bottom: 10px; }
+    /* Numeric fields (Rating/Played/Main/+Extra/Complete) as a clean label-over-value grid
+       instead of flex-wrapped "Label value" pairs of mismatched widths -- the previous
+       layout was the main source of a cluttered, unevenly-wrapping card. Mirrors the
+       dashboard stat boxes' own label-under-number pattern for visual consistency. */
+    .card-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
+      gap: 10px 12px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    .card-stat { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .card-stat-label {
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-faint);
+      font-weight: 600;
+    }
+    .card-stat-value {
+      font-family: var(--font-mono);
+      font-size: 14.5px;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
 
     /* iOS Safari auto-zooms the page on focusing a text input under 16px -- these are
        this page's own copies of the shared rule in base.css, so they need the same fix. */
@@ -2068,13 +2094,13 @@
         '<div class="card-top-text"><button class="game-link card-title" data-open="' + g.id + '">' + escHtml(g.name) + '</button><div class="card-tags">' + escHtml(tagStr) + '</div></div>' +
         '<div class="card-top-controls">' + ownedControl(g) + platformControl(g) + '</div>' +
       '</div>' +
-      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' + progressControl(g) + '</div>' +
+      '<div class="card-progress-row">' + progressControl(g) + '</div>' +
       '<div class="card-meta">' +
-        '<span style="display:flex;align-items:center;gap:5px;">Rating ' + ratingControl(g) + '</span>' +
-        '<span style="display:flex;align-items:center;gap:5px;">Played ' + playedControl(g) + 'h</span>' +
-        '<span class="' + (basis === 'm' ? 'basis' : '') + '">Main <b>' + fmtHours(g.main) + 'h</b></span>' +
-        '<span class="' + (basis === 'e' ? 'basis' : '') + '">+Extra <b>' + fmtHours(g.extra) + 'h</b></span>' +
-        '<span class="' + (basis === 'c' ? 'basis' : '') + '">Complete <b>' + fmtHours(g.completionist) + 'h</b></span>' +
+        '<div class="card-stat"><span class="card-stat-label">Rating</span>' + ratingControl(g) + '</div>' +
+        '<div class="card-stat"><span class="card-stat-label">Played</span><span class="card-stat-value">' + playedControl(g) + 'h</span></div>' +
+        '<div class="card-stat' + (basis === 'm' ? ' basis' : '') + '"><span class="card-stat-label">Main</span><span class="card-stat-value">' + fmtHours(g.main) + 'h</span></div>' +
+        '<div class="card-stat' + (basis === 'e' ? ' basis' : '') + '"><span class="card-stat-label">+Extra</span><span class="card-stat-value">' + fmtHours(g.extra) + 'h</span></div>' +
+        '<div class="card-stat' + (basis === 'c' ? ' basis' : '') + '"><span class="card-stat-label">Complete</span><span class="card-stat-value">' + fmtHours(g.completionist) + 'h</span></div>' +
       '</div>' +
     '</div>';
   }
@@ -2693,7 +2719,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788899680', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788900119', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
