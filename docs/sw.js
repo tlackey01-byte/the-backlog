@@ -5,7 +5,7 @@
 // under a different name, so this hash changing is what actually invalidates stale
 // copies after a deploy; if you edit this file directly, build.py will overwrite this
 // line the next time it runs anyway.
-const CACHE_NAME = 'the-backlog-shell-0f7e8da4e5e9';
+const CACHE_NAME = 'the-backlog-shell-0edac2edb73d';
 
 const SHELL_ASSETS = [
   '/the-backlog/',

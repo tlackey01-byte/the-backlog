@@ -424,26 +424,37 @@
   .played-input.has-value { color: var(--beaten); font-weight: 700; }
   .played-input:hover { border-color: var(--border); background: var(--surface-2); }
   .played-input:focus { border-color: var(--accent); background: var(--surface-2); color: var(--text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+  /* A dropdown rather than a free-typed number -- can only ever be a valid half-point
+     value or blank, so unlike .played-input there's nothing to validate/clamp on input.
+     Same custom-arrow treatment as .progress-select/.status-select for visual consistency
+     with the app's other dropdowns. */
   .rating-input {
-    width: 54px;
+    width: 58px;
     font-family: var(--font-mono);
     font-size: 15px;
-    text-align: right;
+    font-variant-numeric: tabular-nums;
     background: transparent;
     border: 1px solid transparent;
     border-radius: var(--radius-s);
     color: var(--text-faint);
-    padding: 6px 7px;
+    padding: 6px 20px 6px 8px;
     outline: none;
-    font-variant-numeric: tabular-nums;
-    transition: border-color .15s ease, background .15s ease, color .15s ease;
+    cursor: pointer;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: right 10px top 55%, right 6px top 55%;
+    background-size: 4px 4px, 4px 4px;
+    background-repeat: no-repeat;
+    transition: border-color .15s ease, background-color .15s ease, color .15s ease;
   }
   .rating-input.has-value { color: var(--accent); font-weight: 700; }
-  .rating-input:hover { border-color: var(--border); background: var(--surface-2); }
-  .rating-input:focus { border-color: var(--accent); background: var(--surface-2); color: var(--text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+  .rating-input:hover { border-color: var(--border); background-color: var(--surface-2); }
+  .rating-input:focus { border-color: var(--accent); background-color: var(--surface-2); color: var(--text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
   .played-input::-webkit-inner-spin-button, .played-input::-webkit-outer-spin-button { opacity: 0.35; }
   .card-meta .played-input { width: 54px; padding: 2px 4px; font-size: 13.5px; }
-  .card-meta .rating-input { width: 44px; padding: 2px 4px; font-size: 13.5px; }
+  .card-meta .rating-input { width: 58px; padding: 2px 18px 2px 4px; font-size: 13.5px; background-position: right 6px top 55%, right 2px top 55%; }
   td.name-cell { font-weight: 600; max-width: 340px; }
   td.name-cell .gtags { font-weight: 400; color: var(--text-faint); font-size: 14.5px; margin-top: 2px; white-space: normal; }
 
@@ -520,8 +531,11 @@
   .detail-fields .plat-toggle { font-size: 14.5px; padding: 7px 13px; }
   .detail-fields .played-input { width: 96px; font-size: 17px; padding: 9px 11px; border: 1px solid var(--border); background: var(--surface-2); }
   .detail-fields .played-input:hover { background: var(--surface-3); }
-  .detail-fields .rating-input { width: 96px; font-size: 17px; padding: 9px 11px; border: 1px solid var(--border); background: var(--surface-2); }
-  .detail-fields .rating-input:hover { background: var(--surface-3); }
+  .detail-fields .rating-input {
+    width: 96px; font-size: 17px; padding: 9px 30px 9px 12px; border: 1px solid var(--border);
+    background-color: var(--surface-2); background-position: right 14px top 55%, right 10px top 55%;
+  }
+  .detail-fields .rating-input:hover { background-color: var(--surface-3); }
   .detail-hint { color: var(--text-faint); font-size: 14.5px; margin: -18px 0 28px; }
   .detail-hint b { color: var(--text-muted); font-weight: 600; }
   .detail-stats { margin: 0 0 8px; }
@@ -880,11 +894,9 @@
 
     <div class="field">
       <label>Rating</label>
-      <div class="hours-range">
-        <input type="number" id="rating-min" min="0" max="10" step="0.5" placeholder="0">
-        <span class="to">–</span>
-        <input type="number" id="rating-max" min="0" max="10" step="0.5" placeholder="10">
-      </div>
+      <select id="rating-filter">
+        <option value="">Any rating</option>
+      </select>
     </div>
 
     <button class="clear-link" id="clear-all">Reset filters</button>
@@ -1338,8 +1350,7 @@
     hoursBasis: 'e',
     hoursMin: null,
     hoursMax: null,
-    ratingMin: null,
-    ratingMax: null,
+    ratingFilter: null,
     sortKey: 'n',
     sortDir: 'asc'
   };
@@ -1353,6 +1364,11 @@
 
   var PROGRESS_LABEL = { backlog: 'Backlog', dnf: 'DNF', beaten: 'Beaten', '100': '100%' };
   var PROGRESS_RANK = { backlog: 0, dnf: 1, beaten: 2, '100': 3 };
+  // 10, 9.5, 9, ... 0.5, 0 -- built from an integer loop rather than hand-typed to avoid
+  // floating-point drift (i/2 for integer i always lands on an exact half) and to keep a
+  // single source of truth shared by the per-game rating dropdown and the filter dropdown.
+  var RATING_VALUES = [];
+  for (var ratingStep = 20; ratingStep >= 0; ratingStep--) RATING_VALUES.push(ratingStep / 2);
 
   var renderBatchSize = 60;
   var renderedCount = 0;
@@ -1507,23 +1523,22 @@
   hoursMaxEl.addEventListener('input', onHoursInput);
   refreshHoursCap();
 
-  // ---- Rating filter ----
-  var ratingMinEl = document.getElementById('rating-min');
-  var ratingMaxEl = document.getElementById('rating-max');
-  var ratingFilterDebounce;
-  function onRatingFilterInput() {
-    clearTimeout(ratingFilterDebounce);
-    ratingFilterDebounce = setTimeout(function() {
-      var minV = ratingMinEl.value === '' ? null : parseFloat(ratingMinEl.value);
-      var maxV = ratingMaxEl.value === '' ? null : parseFloat(ratingMaxEl.value);
-      state.ratingMin = (minV != null && !isNaN(minV)) ? minV : null;
-      state.ratingMax = (maxV != null && !isNaN(maxV)) ? maxV : null;
-      renderChips();
-      applyFilters();
-    }, 250);
-  }
-  ratingMinEl.addEventListener('input', onRatingFilterInput);
-  ratingMaxEl.addEventListener('input', onRatingFilterInput);
+  // ---- Rating filter ---- "X" means "rated X or higher" (a minimum threshold), not an
+  // exact match -- options are populated from RATING_VALUES so this list can never drift
+  // out of sync with the per-game rating dropdown's own options.
+  var ratingFilterEl = document.getElementById('rating-filter');
+  RATING_VALUES.forEach(function(v) {
+    var opt = document.createElement('option');
+    opt.value = String(v);
+    opt.textContent = v + '+';
+    ratingFilterEl.appendChild(opt);
+  });
+  ratingFilterEl.addEventListener('change', function() {
+    var v = ratingFilterEl.value === '' ? null : parseFloat(ratingFilterEl.value);
+    state.ratingFilter = (v != null && !isNaN(v)) ? v : null;
+    renderChips();
+    applyFilters();
+  });
 
   // ---- Sorting ----
   var theadRow = document.getElementById('thead-row');
@@ -1580,9 +1595,9 @@
         state.hoursMin = null; state.hoursMax = null; hoursMinEl.value = ''; hoursMaxEl.value = '';
       }});
     }
-    if (state.ratingMin != null || state.ratingMax != null) {
-      chips.push({ label: 'Rating: ' + (state.ratingMin != null ? state.ratingMin : 0) + '–' + (state.ratingMax != null ? state.ratingMax : 10), clear: function(){
-        state.ratingMin = null; state.ratingMax = null; ratingMinEl.value = ''; ratingMaxEl.value = '';
+    if (state.ratingFilter != null) {
+      chips.push({ label: 'Rating: ' + state.ratingFilter + '+', clear: function(){
+        state.ratingFilter = null; ratingFilterEl.value = '';
       }});
     }
     if (state.q) chips.push({ label: '"' + state.q + '"', clear: function(){ state.q=''; document.getElementById('search').value=''; } });
@@ -1608,10 +1623,10 @@
   document.getElementById('clear-all').addEventListener('click', function() {
     state.q = ''; state.status = 'all'; state.platforms = []; state.progress = 'all'; state.genres = [];
     state.hoursMin = null; state.hoursMax = null;
-    state.ratingMin = null; state.ratingMax = null;
+    state.ratingFilter = null;
     document.getElementById('search').value = '';
     hoursMinEl.value = ''; hoursMaxEl.value = '';
-    ratingMinEl.value = ''; ratingMaxEl.value = '';
+    ratingFilterEl.value = '';
     setSeg('status-seg','all'); renderPlatformSeg(); setSeg('progress-seg','all');
     updateGenreButton();
     renderChips();
@@ -1626,7 +1641,6 @@
   function computeFiltered() {
     var basis = state.hoursBasis;
     var useHoursFilter = state.hoursMin != null || state.hoursMax != null;
-    var useRatingFilter = state.ratingMin != null || state.ratingMax != null;
     var list = GAMES.filter(function(g) {
       if (g.deleted) return false;
       if (state.q && g.name.toLowerCase().indexOf(state.q) === -1) return false;
@@ -1644,11 +1658,7 @@
         if (state.hoursMin != null && v < state.hoursMin) return false;
         if (state.hoursMax != null && v > state.hoursMax) return false;
       }
-      if (useRatingFilter) {
-        if (g.rating == null) return false;
-        if (state.ratingMin != null && g.rating < state.ratingMin) return false;
-        if (state.ratingMax != null && g.rating > state.ratingMax) return false;
-      }
+      if (state.ratingFilter != null && (g.rating == null || g.rating < state.ratingFilter)) return false;
       return true;
     });
 
@@ -1722,12 +1732,14 @@
       'value="' + (hasVal ? g.playedHours : '') + '" ' +
       'aria-label="Hours played for ' + escHtml(g.name) + '">';
   }
+
   function ratingControl(g) {
     var hasVal = g.rating != null;
-    return '<input type="number" class="rating-input' + (hasVal ? ' has-value' : '') + '" data-id="' + g.id + '" ' +
-      'min="0" max="10" step="0.5" inputmode="decimal" placeholder="—" ' +
-      'value="' + (hasVal ? g.rating : '') + '" ' +
-      'aria-label="Your rating for ' + escHtml(g.name) + '">';
+    var options = '<option value=""' + (!hasVal ? ' selected' : '') + '>—</option>' +
+      RATING_VALUES.map(function(v) {
+        return '<option value="' + v + '"' + (hasVal && g.rating === v ? ' selected' : '') + '>' + v + '</option>';
+      }).join('');
+    return '<select class="rating-input' + (hasVal ? ' has-value' : '') + '" data-id="' + g.id + '" aria-label="Your rating for ' + escHtml(g.name) + '">' + options + '</select>';
   }
 
   function rowHtml(g) {
@@ -2159,36 +2171,28 @@
   }
   document.addEventListener('change', onPlayedChange);
 
+  // A dropdown can only ever produce blank or one of RATING_VALUES, so unlike
+  // onPlayedChange there's nothing here to parse, snap, or clamp.
   function onRatingChange(e) {
-    var inp = e.target.closest('.rating-input');
-    if (!inp) return;
-    var id = parseInt(inp.getAttribute('data-id'), 10);
+    var sel = e.target.closest('.rating-input');
+    if (!sel) return;
+    var id = parseInt(sel.getAttribute('data-id'), 10);
     var g = GAMES[id];
     if (!g) return;
-    var raw = inp.value.trim();
-    var val;
-    if (raw === '') {
+    var val = sel.value === '' ? null : parseFloat(sel.value);
+    if (val == null) {
       delete ratingOverrides[g.name];
-      val = null;
     } else {
-      var parsed = parseFloat(raw);
-      if (isNaN(parsed)) { inp.value = g.rating != null ? g.rating : ''; return; }
-      // Snap to the nearest half-point and clamp to the 0-10 scale, rather than reject
-      // an out-of-step or out-of-range value outright.
-      parsed = Math.round(parsed * 2) / 2;
-      if (parsed < 0) parsed = 0;
-      if (parsed > 10) parsed = 10;
-      ratingOverrides[g.name] = parsed;
-      val = parsed;
+      ratingOverrides[g.name] = val;
     }
     g.rating = val;
     saveState();
     var hasVal = val != null;
     Array.prototype.forEach.call(document.querySelectorAll('.rating-input[data-id="' + id + '"]'), function(el) {
       el.classList.toggle('has-value', hasVal);
-      if (el !== inp) el.value = hasVal ? val : '';
+      if (el !== sel) el.value = hasVal ? String(val) : '';
     });
-    if (state.sortKey === 'rating' || state.ratingMin != null || state.ratingMax != null) {
+    if (state.sortKey === 'rating' || state.ratingFilter != null) {
       applyFilters();
     }
   }
@@ -2332,7 +2336,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788883215', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788888824', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
