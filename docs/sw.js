@@ -5,7 +5,7 @@
 // under a different name, so this hash changing is what actually invalidates stale
 // copies after a deploy; if you edit this file directly, build.py will overwrite this
 // line the next time it runs anyway.
-const CACHE_NAME = 'the-backlog-shell-aa649c931a19';
+const CACHE_NAME = 'the-backlog-shell-1ce863fc05ee';
 
 const SHELL_ASSETS = [
   '/the-backlog/',
@@ -43,9 +43,8 @@ self.addEventListener('activate', function (event) {
   );
 });
 
-// Cache-first for same-origin shell assets and page navigations only -- Firebase
-// Auth/Firestore calls and the Google Fonts stylesheet/font files are cross-origin and
-// deliberately left alone here so they always hit the network (or fail visibly offline)
+// Firebase Auth/Firestore calls and the Google Fonts stylesheet/font files are cross-origin
+// and deliberately left alone here so they always hit the network (or fail visibly offline)
 // rather than ever being served stale from this cache.
 self.addEventListener('fetch', function (event) {
   const request = event.request;
@@ -54,6 +53,35 @@ self.addEventListener('fetch', function (event) {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
+  // Page navigations (loading games/index.html or index.html itself) always try the
+  // network first. Cache-first here was the actual cause of deploys not showing up: the
+  // service worker's own update+activate+reload cycle only runs on certain navigations, so
+  // a tab or installed PWA instance left open since before a deploy could keep serving the
+  // old cached page indefinitely with nothing left to trigger a recheck. Network-first means
+  // a fresh deploy shows up on the very next load, independent of that cycle ever having
+  // run -- the cache here now exists purely as an offline fallback, not a normal-case path.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).then(function (response) {
+        if (response && response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then(function (cache) { cache.put(request, copy); });
+        }
+        return response;
+      }).catch(function () {
+        return caches.match(
+          url.pathname.startsWith('/the-backlog/games/')
+            ? '/the-backlog/games/index.html'
+            : '/the-backlog/index.html'
+        );
+      })
+    );
+    return;
+  }
+
+  // Every other shell asset (CSS/JS/images) stays cache-first -- these are versioned by
+  // CACHE_NAME above, so any real change already forces a new cache name and a genuine
+  // network fetch during install; there's no staleness risk left to trade away here.
   event.respondWith(
     caches.match(request).then(function (cached) {
       if (cached) return cached;
@@ -65,16 +93,6 @@ self.addEventListener('fetch', function (event) {
         }
         return response;
       }).catch(function () {
-        // Offline and not already cached: for a page navigation, fall back to the
-        // matching cached shell page so the app still opens instead of showing the
-        // browser's default offline error.
-        if (request.mode === 'navigate') {
-          return caches.match(
-            url.pathname.startsWith('/the-backlog/games/')
-              ? '/the-backlog/games/index.html'
-              : '/the-backlog/index.html'
-          );
-        }
         return Response.error();
       });
     })
