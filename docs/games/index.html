@@ -2026,6 +2026,17 @@
     window.addEventListener('load', function () {
       navigator.serviceWorker.register('/the-backlog/sw.js', { scope: '/the-backlog/' });
     });
+    // A service worker update normally needs two reloads to actually become visible: the
+    // first is still served by the outgoing worker while the new one installs in the
+    // background, and the new content only shows up once that new worker actually takes
+    // over. This auto-reloads the page exactly once, right when that handoff happens, so
+    // one manual refresh is enough to see a new deploy instead of two.
+    var refreshedForNewWorker = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (refreshedForNewWorker) return;
+      refreshedForNewWorker = true;
+      location.reload();
+    });
   }
 </script>
 <script src="../shared/pull-to-refresh.js"></script>
