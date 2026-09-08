@@ -822,6 +822,9 @@
     }
     .card-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
     .card-top-text { flex: 1; min-width: 0; }
+    /* Ownership and Platform sit together on the top row now, right-aligned next to the
+       cover/title, rather than Platform being down with Progress in the row below. */
+    .card-top-controls { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
     .card-title { font-weight: 700; font-size: 18.5px; }
     .card-tags { color: var(--text-faint); font-size: 14px; margin-top: 4px; }
     .card-meta { display: flex; flex-wrap: wrap; gap: 7px 14px; font-size: 15px; color: var(--text-muted); margin-top: 10px; }
@@ -2063,9 +2066,9 @@
       '<div class="card-top">' +
         '<button class="game-link cover-link" data-open="' + g.id + '" aria-label="' + escHtml(g.name) + '">' + coverThumb(g, 'cover-card') + '</button>' +
         '<div class="card-top-text"><button class="game-link card-title" data-open="' + g.id + '">' + escHtml(g.name) + '</button><div class="card-tags">' + escHtml(tagStr) + '</div></div>' +
-        ownedControl(g) +
+        '<div class="card-top-controls">' + ownedControl(g) + platformControl(g) + '</div>' +
       '</div>' +
-      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' + platformControl(g) + progressControl(g) + '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' + progressControl(g) + '</div>' +
       '<div class="card-meta">' +
         '<span style="display:flex;align-items:center;gap:5px;">Rating ' + ratingControl(g) + '</span>' +
         '<span style="display:flex;align-items:center;gap:5px;">Played ' + playedControl(g) + 'h</span>' +
@@ -2690,7 +2693,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788899254', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788899429', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
