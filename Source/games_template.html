@@ -548,7 +548,7 @@
      triggers iOS Safari's auto-zoom on focus (the same rule the mobile media query below
      sets for inputs generally -- this class-selector override was specific enough to have
      been silently winning over it and undoing the fix for this one input specifically). */
-  .card-meta .played-input { width: 60px; padding: 4px 6px; font-size: 16px; }
+  .card-meta .played-input { width: 38px; padding: 2px 3px; font-size: 16px; }
   .card-meta .rating-input { width: 44px; padding: 2px 15px 2px 3px; font-size: 12.5px; background-position: right 5px top 55%, right 1px top 55%; }
   td.name-cell { font-weight: 600; max-width: 340px; }
   td.name-cell .gtags { font-weight: 400; color: var(--text-faint); font-size: 14.5px; margin-top: 2px; white-space: normal; }
@@ -841,15 +841,41 @@
       contain-intrinsic-size: auto 150px;
     }
     .card-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+    /* Cover art plus its ownership badge, stacked as their own column so the badge reads as
+       attached to the art rather than floating loose in the row. */
+    .card-cover-col { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
     .card-top-text { flex: 1; min-width: 0; }
-    /* Ownership, Progress, and Platform stack together on the top row, right-aligned next
-       to the cover/title -- Progress directly under Ownership, Platform below that. */
+    /* Progress and Platform stack together on the top row, right-aligned next to the
+       cover/title -- Progress directly above Platform. */
     /* max-width caps how wide a game owned on many platforms' long comma-joined list can
        push this corner stack -- .plat-trigger-btn's own max-width:100%/ellipsis (above)
        then takes over inside that cap, rather than ever squeezing the title/cover next to it. */
     .card-top-controls { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; max-width: 56%; }
     .card-title { font-weight: 700; font-size: 18.5px; }
     .card-tags { color: var(--text-faint); font-size: 14px; margin-top: 4px; }
+    /* Ownership toggle: a small pill under the cover, always labeled "Owned" -- solid fill
+       means owned, a translucent version of the same fill means wishlisted, so the two
+       states read at a glance without needing two different words. */
+    .owned-badge {
+      font-family: var(--font-body);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      padding: 3px 11px;
+      border-radius: 20px;
+      border: none;
+      background: var(--owned);
+      color: var(--owned-ink);
+      cursor: pointer;
+      opacity: 1;
+      transition: opacity .15s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .owned-badge.wishlist { opacity: 0.38; }
+    .owned-badge:hover { opacity: 0.85; }
+    .owned-badge.wishlist:hover { opacity: 0.6; }
+    .owned-badge:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     /* Numeric fields (Rating/Played/Main/+Extra/Complete) as a clean label-over-value grid
        instead of flex-wrapped "Label value" pairs of mismatched widths -- the previous
        layout was the main source of a cluttered, unevenly-wrapping card. Mirrors the
@@ -1348,6 +1374,10 @@
       el.classList.remove('owned', 'wishlist');
       el.classList.add(g.owned ? 'owned' : 'wishlist');
       el.value = g.owned ? 'owned' : 'wishlist';
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.owned-badge[data-id="' + g.id + '"]'), function(el) {
+      el.classList.toggle('wishlist', !g.owned);
+      el.setAttribute('aria-label', 'Ownership for ' + g.name + ': ' + (g.owned ? 'Owned' : 'Wishlist') + ' -- tap to toggle');
     });
   }
   function patchProgressRow(g) {
@@ -2082,6 +2112,13 @@
       '<option value="owned"' + (g.owned ? ' selected' : '') + '>Owned</option>' +
       '</select>';
   }
+  // Card view's compact stand-in for ownedControl() -- a single toggle badge under the
+  // cover instead of a dropdown. The label always reads "Owned"; only the fill communicates
+  // which state it's in (solid = owned, translucent = wishlist) rather than the text itself
+  // changing, so tapping it never involves reading two different words.
+  function ownedBadgeHtml(g) {
+    return '<button type="button" class="owned-badge' + (g.owned ? '' : ' wishlist') + '" data-id="' + g.id + '" aria-label="Ownership for ' + escHtml(g.name) + ': ' + (g.owned ? 'Owned' : 'Wishlist') + ' -- tap to toggle">Owned</button>';
+  }
   function progressClass(p) { return p === 'beaten' ? 'p-beaten' : p === '100' ? 'p-hundred' : p === 'dnf' ? 'p-dnf' : p === 'playing' ? 'p-playing' : 'p-backlog'; }
   function progressControl(g) {
     return '<select class="progress-select ' + progressClass(g.progress) + '" data-id="' + g.id + '" aria-label="Progress for ' + escHtml(g.name) + '">' +
@@ -2132,9 +2169,12 @@
     var tagStr = g.genres.slice(0, 4).join(' · ') || 'Genre unknown';
     return '<div class="card">' +
       '<div class="card-top">' +
-        '<button class="game-link cover-link" data-open="' + g.id + '" aria-label="' + escHtml(g.name) + '">' + coverThumb(g, 'cover-card') + '</button>' +
+        '<div class="card-cover-col">' +
+          '<button class="game-link cover-link" data-open="' + g.id + '" aria-label="' + escHtml(g.name) + '">' + coverThumb(g, 'cover-card') + '</button>' +
+          ownedBadgeHtml(g) +
+        '</div>' +
         '<div class="card-top-text"><button class="game-link card-title" data-open="' + g.id + '">' + escHtml(g.name) + '</button><div class="card-tags">' + escHtml(tagStr) + '</div></div>' +
-        '<div class="card-top-controls">' + ownedControl(g) + progressControl(g) + platformControl(g) + '</div>' +
+        '<div class="card-top-controls">' + progressControl(g) + platformControl(g) + '</div>' +
       '</div>' +
       '<div class="card-meta">' +
         '<div class="card-stat"><span class="card-stat-label">Rating</span>' + ratingControl(g) + '</div>' +
@@ -2566,27 +2606,37 @@
   }
   document.addEventListener('change', onRatingChange);
 
+  // Shared by both ways ownership can be toggled -- the .status-select dropdown (table
+  // rows, detail page) and the .owned-badge tap-toggle (cards) -- so there's one place that
+  // updates state/saves/patches every representation instead of two near-duplicates.
+  function setOwned(g, newOwned) {
+    g.owned = newOwned;
+    ownedOverrides[g.name] = newOwned;
+    saveState();
+    patchOwnedRow(g);
+    refreshOwnershipStats();
+    if (state.status !== 'all' || state.platforms.length || state.sortKey === 'status') {
+      applyFilters();
+    }
+  }
   function onOwnedChange(e) {
     var sel = e.target.closest('.status-select');
     if (!sel) return;
     var id = parseInt(sel.getAttribute('data-id'), 10);
     var g = GAMES[id];
     if (!g) return;
-    var newOwned = sel.value === 'owned';
-    g.owned = newOwned;
-    ownedOverrides[g.name] = newOwned;
-    saveState();
-    Array.prototype.forEach.call(document.querySelectorAll('.status-select[data-id="' + id + '"]'), function(el) {
-      el.classList.remove('owned', 'wishlist');
-      el.classList.add(newOwned ? 'owned' : 'wishlist');
-      if (el !== sel) el.value = sel.value;
-    });
-    refreshOwnershipStats();
-    if (state.status !== 'all' || state.platforms.length || state.sortKey === 'status') {
-      applyFilters();
-    }
+    setOwned(g, sel.value === 'owned');
   }
   document.addEventListener('change', onOwnedChange);
+  function onOwnedBadgeClick(e) {
+    var badge = e.target.closest('.owned-badge');
+    if (!badge) return;
+    var id = parseInt(badge.getAttribute('data-id'), 10);
+    var g = GAMES[id];
+    if (!g) return;
+    setOwned(g, !g.owned);
+  }
+  document.addEventListener('click', onOwnedBadgeClick);
 
   // ---- Per-game platform editor (shared repositionable popover) ----
   var platEditPopover = document.getElementById('plat-edit-popover');
@@ -2778,7 +2828,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788901125', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788901559', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
