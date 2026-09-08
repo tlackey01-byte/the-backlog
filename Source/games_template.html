@@ -568,7 +568,7 @@
   .detail-fields { display: flex; gap: 28px; flex-wrap: wrap; margin-bottom: 28px; }
   .detail-fields .field label { margin-bottom: 8px; display: block; }
   .detail-fields .progress-select, .detail-fields .status-select { font-size: 15.5px; padding: 8px 30px 8px 15px; }
-  .detail-fields .plat-toggle { font-size: 14.5px; padding: 7px 13px; }
+  .detail-fields .plat-trigger-btn { font-size: 14.5px; padding: 7px 13px; }
   .detail-fields .played-input { width: 96px; font-size: 17px; padding: 9px 11px; border: 1px solid var(--border); background: var(--surface-2); }
   .detail-fields .played-input:hover { background: var(--surface-3); }
   .detail-fields .rating-input {
@@ -720,35 +720,27 @@
   .status-select.wishlist { background-color: var(--surface-3); color: var(--text-faint); }
   .progress-select:focus, .status-select:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
 
-  .plat-toggle-group { display: inline-flex; flex-wrap: wrap; max-width: 100%; gap: 4px; }
-  .plat-toggle {
+  /* Trigger button for the per-game platform editor popover -- opens the shared
+     #plat-edit-popover repositioned next to whichever row/card's button was clicked. */
+  .plat-trigger-btn {
     font-family: var(--font-body);
     border: 1px solid var(--border);
-    background: transparent;
+    background: var(--surface-2);
     color: var(--text-faint);
-    font-size: 14px; font-weight: 700; letter-spacing: .02em;
-    padding: 4px 9px; border-radius: 5px;
+    font-size: 14px; font-weight: 600;
+    padding: 4px 10px; border-radius: 5px;
     cursor: pointer;
     transition: background .15s ease, color .15s ease, border-color .15s ease;
   }
-  .plat-toggle:hover { border-color: var(--border-strong); color: var(--text-muted); }
-  .plat-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .plat-toggle.ps.active { background: color-mix(in srgb, #3c7dd9 18%, transparent); color: #3c7dd9; border-color: transparent; }
-  .plat-toggle.steam.active { background: color-mix(in srgb, var(--text-muted) 18%, transparent); color: var(--text-muted); border-color: transparent; }
-  .plat-toggle.nintendo.active { background: color-mix(in srgb, #c23a4d 18%, transparent); color: #c23a4d; border-color: transparent; }
-  .plat-toggle.emu.active { background: color-mix(in srgb, #1a8a8a 18%, transparent); color: #1a8a8a; border-color: transparent; }
+  .plat-trigger-btn:hover { border-color: var(--border-strong); background: var(--surface-3); }
+  .plat-trigger-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .plat-trigger-btn.has-value { color: var(--text); }
 
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .plat-toggle.ps.active { color: #7fb0f2; }
-    :root:not([data-theme="light"]) .plat-toggle.nintendo.active { color: #e8798a; }
-    :root:not([data-theme="light"]) .plat-toggle.emu.active { color: #5fd4d4; }
-  }
-  :root[data-theme="dark"] .plat-toggle.ps.active { color: #7fb0f2; }
-  :root[data-theme="dark"] .plat-toggle.nintendo.active { color: #e8798a; }
-  :root[data-theme="dark"] .plat-toggle.emu.active { color: #5fd4d4; }
-
-  /* Toolbar's platform filter buttons double as multi-select toggles (not exclusive like other segmented controls) */
-  #platform-seg button.plat-active { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  /* Overrides .popover's default `position: absolute` (which anchors to a .popover-wrap
+     parent, fine for the single toolbar instances) since this one popover is shared and
+     repositioned via JS next to whichever trigger button was clicked, scattered across
+     many rows/cards. */
+  .popover.popover-fixed { position: fixed; width: 220px; max-height: none; }
 
   .empty-state { padding: 60px 20px; text-align: center; color: var(--text-muted); font-size: 15px; }
   .empty-state .big { font-family: var(--font-display); font-size: 28px; color: var(--text); margin-bottom: 6px; font-weight: 700; }
@@ -786,12 +778,9 @@
     input[type="search"], input[type="text"], input[type="number"], input[type="date"], textarea { font-size: 16px; }
 
     /* Every card repeats these controls, so at phone width they're the most-tapped
-       targets on the page -- worth sizing well past their desktop density even though
-       that still falls short of a full 44px target for the platform toggles specifically,
-       which would otherwise force 4 of them to overflow a card's width. */
+       targets on the page -- worth sizing well past their desktop density. */
     .progress-select, .status-select { font-size: 15.5px; padding: 8px 28px 8px 13px; min-height: 38px; }
-    .plat-toggle { padding: 8px 12px; font-size: 15px; }
-    .plat-toggle-group { gap: 6px; }
+    .plat-trigger-btn { padding: 8px 12px; font-size: 15px; min-height: 38px; }
     .segmented button { padding: 10px 15px; font-size: 16px; min-height: 44px; }
     .played-input { min-height: 38px; }
     .rating-input { min-height: 38px; }
@@ -811,9 +800,9 @@
   @media (max-width: 480px) {
     /* Same phone-readability pass, scoped to the detail (single-game) page, which has
        its own font-size overrides layered on top of the shared .progress-select/
-       .status-select/.plat-toggle rules above. */
+       .status-select/.plat-trigger-btn rules above. */
     .detail-fields .progress-select, .detail-fields .status-select { font-size: 16.5px; }
-    .detail-fields .plat-toggle { font-size: 15.5px; }
+    .detail-fields .plat-trigger-btn { font-size: 15.5px; }
     .detail-fields .played-input { font-size: 17px; }
     .detail-fields .rating-input { font-size: 17px; }
     .detail-hint, .detail-note { font-size: 15px; }
@@ -889,14 +878,15 @@
       </div>
     </div>
 
-    <div class="field">
+    <div class="field popover-wrap" id="platform-filter-wrap">
       <label>Platform owned on</label>
-      <div class="segmented" id="platform-seg">
-        <button data-val="all" class="active">Any</button>
-        <button data-val="PlayStation">PlayStation</button>
-        <button data-val="Steam">Steam</button>
-        <button data-val="Nintendo">Nintendo</button>
-        <button data-val="Emulation">Emulation</button>
+      <button class="btn" id="platform-filter-btn">Any platform <span class="count-badge" id="platform-filter-count" style="display:none">0</span></button>
+      <div class="popover" id="platform-filter-popover">
+        <div class="popover-list" id="platform-filter-list"></div>
+        <div class="popover-footer">
+          <button class="clear-link" id="platform-filter-clear-btn">Clear</button>
+          <button class="btn primary" id="platform-filter-apply-btn" style="padding:5px 12px;font-size:12.5px;">Done</button>
+        </div>
       </div>
     </div>
 
@@ -952,6 +942,14 @@
 
       <button class="clear-link" id="clear-all">Reset filters</button>
     </div>
+  </div>
+
+  <!-- One shared popover for editing a single game's platforms, reused across every row/card
+       trigger button rather than one popover per game -- repositioned via JS to sit next to
+       whichever trigger was clicked. Checkbox changes apply immediately (no Done button),
+       unlike the toolbar filter above, since editing one game isn't an expensive re-filter. -->
+  <div class="popover popover-fixed" id="plat-edit-popover">
+    <div class="popover-list" id="plat-edit-list"></div>
   </div>
 
   <div class="chips-row" id="active-chips"></div>
@@ -1160,11 +1158,13 @@
   GAMES.forEach(function(g) { gameByName[g.name] = g; });
 
   var PLATFORMS = [
-    { key: 'PlayStation', label: 'PlayStation', short: 'PS', cls: 'ps', statLabel: 'On PlayStation', statId: 'stat-ps' },
+    { key: 'PlayStation', label: 'PS5', short: 'PS5', cls: 'ps', statLabel: 'On PS5', statId: 'stat-ps' },
     { key: 'Steam', label: 'Steam', short: 'Steam', cls: 'steam', statLabel: 'On Steam', statId: 'stat-steam' },
-    { key: 'Nintendo', label: 'Nintendo', short: 'Nintendo', cls: 'nintendo', statLabel: 'On Nintendo', statId: 'stat-nintendo' },
+    { key: 'Nintendo', label: 'Switch', short: 'Switch', cls: 'nintendo', statLabel: 'On Switch', statId: 'stat-nintendo' },
     { key: 'Emulation', label: 'Emulation', short: 'Emulation', cls: 'emu', statLabel: 'On Emulation', statId: 'stat-emu' }
   ];
+  var PLATFORMS_BY_KEY = {};
+  PLATFORMS.forEach(function(p) { PLATFORMS_BY_KEY[p.key] = p; });
 
   // ---- Derived stats (recomputed live since ownership/platform/deletion are now editable) ----
   // totalCount() is a function, not a cached value, so a live deletion is reflected
@@ -1216,13 +1216,19 @@
       el.value = hasVal ? g.rating : '';
     });
   }
+  function platformSummary(g) {
+    if (!g.platforms.length) return '—';
+    return g.platforms.map(function(key) {
+      var p = PLATFORMS_BY_KEY[key];
+      return p ? p.short : key;
+    }).join(', ');
+  }
   function patchPlatformRow(g) {
-    PLATFORMS.forEach(function(p) {
-      var active = g.platforms.indexOf(p.key) > -1;
-      Array.prototype.forEach.call(document.querySelectorAll('.plat-toggle[data-id="' + g.id + '"][data-plat="' + p.key + '"]'), function(el) {
-        el.classList.toggle('active', active);
-        el.setAttribute('aria-pressed', String(active));
-      });
+    var summary = platformSummary(g);
+    var hasVal = g.platforms.length > 0;
+    Array.prototype.forEach.call(document.querySelectorAll('.plat-trigger-btn[data-id="' + g.id + '"]'), function(el) {
+      el.textContent = summary;
+      el.classList.toggle('has-value', hasVal);
     });
   }
 
@@ -1509,32 +1515,61 @@
   bindSegmented('progress-seg', function(v) { state.progress = v; renderChips(); applyFilters(); });
 
   // Platform filter is multi-select (OR across whichever platforms are toggled on), unlike the
-  // other segmented controls above which only ever have one active option at a time.
-  function renderPlatformSeg() {
-    var el = document.getElementById('platform-seg');
-    Array.prototype.forEach.call(el.children, function(btn) {
-      var val = btn.getAttribute('data-val');
-      var isAny = val === 'all';
-      btn.classList.toggle('active', isAny ? state.platforms.length === 0 : false);
-      btn.classList.toggle('plat-active', !isAny && state.platforms.indexOf(val) > -1);
-    });
+  // other segmented controls above which only ever have one active option at a time -- so it's
+  // a checklist popover (mirroring the Genre popover above) rather than a segmented control.
+  var platformFilterPopover = document.getElementById('platform-filter-popover');
+  var platformFilterListEl = document.getElementById('platform-filter-list');
+  var pendingPlatformFilters = [];
+
+  function renderPlatformFilterList() {
+    platformFilterListEl.innerHTML = PLATFORMS.map(function(p) {
+      var checked = pendingPlatformFilters.indexOf(p.key) > -1 ? 'checked' : '';
+      return '<label class="genre-row"><input type="checkbox" value="' + p.key + '" ' + checked + '>' +
+        '<span class="gname">' + p.label + '</span></label>';
+    }).join('');
   }
-  document.getElementById('platform-seg').addEventListener('click', function(e) {
-    var btn = e.target.closest('button');
-    if (!btn) return;
-    var val = btn.getAttribute('data-val');
-    if (val === 'all') {
-      state.platforms = [];
-    } else {
-      var idx = state.platforms.indexOf(val);
-      if (idx > -1) state.platforms.splice(idx, 1);
-      else state.platforms.push(val);
+  document.getElementById('platform-filter-btn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    pendingPlatformFilters = state.platforms.slice();
+    renderPlatformFilterList();
+    platformFilterPopover.classList.toggle('open');
+  });
+  document.addEventListener('click', function(e) {
+    if (!platformFilterPopover.contains(e.target) && e.target.id !== 'platform-filter-btn') {
+      platformFilterPopover.classList.remove('open');
     }
-    renderPlatformSeg();
+  });
+  platformFilterListEl.addEventListener('change', function(e) {
+    if (e.target.tagName !== 'INPUT') return;
+    var v = e.target.value;
+    var idx = pendingPlatformFilters.indexOf(v);
+    if (e.target.checked && idx === -1) pendingPlatformFilters.push(v);
+    if (!e.target.checked && idx > -1) pendingPlatformFilters.splice(idx, 1);
+  });
+  document.getElementById('platform-filter-clear-btn').addEventListener('click', function() {
+    pendingPlatformFilters = [];
+    renderPlatformFilterList();
+  });
+  document.getElementById('platform-filter-apply-btn').addEventListener('click', function() {
+    state.platforms = pendingPlatformFilters.slice();
+    platformFilterPopover.classList.remove('open');
+    updatePlatformFilterButton();
     renderChips();
     applyFilters();
   });
-  renderPlatformSeg();
+  function updatePlatformFilterButton() {
+    var badge = document.getElementById('platform-filter-count');
+    var btn = document.getElementById('platform-filter-btn');
+    if (state.platforms.length) {
+      badge.style.display = '';
+      badge.textContent = state.platforms.length;
+      btn.firstChild.textContent = 'Platform ';
+    } else {
+      badge.style.display = 'none';
+      btn.firstChild.textContent = 'Any platform ';
+    }
+  }
+  updatePlatformFilterButton();
 
   // ---- Search ----
   var searchDebounce;
@@ -1634,7 +1669,7 @@
     state.platforms.forEach(function(p) {
       chips.push({ label: 'Platform: ' + p, clear: function(){
         state.platforms = state.platforms.filter(function(x){ return x !== p; });
-        renderPlatformSeg();
+        updatePlatformFilterButton();
       }});
     });
     state.genres.forEach(function(g) {
@@ -1692,7 +1727,7 @@
     document.getElementById('search').value = '';
     hoursFilterEl.value = '';
     ratingFilterEl.value = '';
-    setSeg('status-seg','all'); renderPlatformSeg(); setSeg('progress-seg','all');
+    setSeg('status-seg','all'); updatePlatformFilterButton(); setSeg('progress-seg','all');
     updateGenreButton();
     renderChips();
     applyFilters();
@@ -1762,12 +1797,8 @@
     return '<span class="cover-thumb cover-placeholder ' + cls + '">' + escHtml(initial) + '</span>';
   }
   function platformControl(g) {
-    return '<span class="plat-toggle-group">' +
-      PLATFORMS.map(function(p) {
-        var has = g.platforms.indexOf(p.key) > -1;
-        return '<button type="button" class="plat-toggle ' + p.cls + (has ? ' active' : '') + '" data-id="' + g.id + '" data-plat="' + p.key + '" aria-pressed="' + has + '" aria-label="Owned on ' + p.label + '">' + p.short + '</button>';
-      }).join('') +
-    '</span>';
+    var hasVal = g.platforms.length > 0;
+    return '<button type="button" class="plat-trigger-btn' + (hasVal ? ' has-value' : '') + '" data-id="' + g.id + '" aria-haspopup="true" aria-label="Platforms owned for ' + escHtml(g.name) + '">' + platformSummary(g) + '</button>';
   }
   function ownedControl(g) {
     return '<select class="status-select ' + (g.owned ? 'owned' : 'wishlist') + '" data-id="' + g.id + '" aria-label="Ownership for ' + escHtml(g.name) + '">' +
@@ -2282,29 +2313,76 @@
   }
   document.addEventListener('change', onOwnedChange);
 
-  function onPlatformToggle(e) {
-    var btn = e.target.closest('.plat-toggle');
-    if (!btn) return;
-    var id = parseInt(btn.getAttribute('data-id'), 10);
-    var g = GAMES[id];
+  // ---- Per-game platform editor (shared repositionable popover) ----
+  var platEditPopover = document.getElementById('plat-edit-popover');
+  var platEditListEl = document.getElementById('plat-edit-list');
+  var platEditGameId = null;
+
+  function renderPlatEditList(g) {
+    platEditListEl.innerHTML = PLATFORMS.map(function(p) {
+      var checked = g.platforms.indexOf(p.key) > -1 ? 'checked' : '';
+      return '<label class="genre-row"><input type="checkbox" value="' + p.key + '" ' + checked + '>' +
+        '<span class="gname">' + p.label + '</span></label>';
+    }).join('');
+  }
+
+  function positionPlatEditPopover(triggerEl) {
+    var r = triggerEl.getBoundingClientRect();
+    var popW = platEditPopover.offsetWidth || 200;
+    var popH = platEditPopover.offsetHeight || 160;
+    var left = Math.min(r.left, window.innerWidth - popW - 8);
+    left = Math.max(8, left);
+    var top = r.bottom + 4;
+    if (top + popH > window.innerHeight - 8) top = Math.max(8, r.top - popH - 4);
+    platEditPopover.style.left = left + 'px';
+    platEditPopover.style.top = top + 'px';
+  }
+
+  function closePlatEditPopover() {
+    platEditPopover.classList.remove('open');
+    platEditGameId = null;
+  }
+
+  function openPlatEditPopover(triggerEl, g) {
+    platEditGameId = g.id;
+    renderPlatEditList(g);
+    platEditPopover.classList.add('open');
+    positionPlatEditPopover(triggerEl);
+  }
+
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.plat-trigger-btn');
+    if (btn) {
+      e.stopPropagation();
+      var id = parseInt(btn.getAttribute('data-id'), 10);
+      var g = GAMES[id];
+      if (!g) return;
+      if (platEditGameId === id && platEditPopover.classList.contains('open')) {
+        closePlatEditPopover();
+      } else {
+        openPlatEditPopover(btn, g);
+      }
+      return;
+    }
+    if (!platEditPopover.contains(e.target)) closePlatEditPopover();
+  });
+
+  platEditListEl.addEventListener('change', function(e) {
+    if (e.target.tagName !== 'INPUT' || platEditGameId == null) return;
+    var g = GAMES[platEditGameId];
     if (!g) return;
-    var plat = btn.getAttribute('data-plat');
+    var plat = e.target.value;
     var idx = g.platforms.indexOf(plat);
-    var nowActive;
-    if (idx > -1) { g.platforms.splice(idx, 1); nowActive = false; }
-    else { g.platforms.push(plat); nowActive = true; }
+    if (e.target.checked && idx === -1) g.platforms.push(plat);
+    if (!e.target.checked && idx > -1) g.platforms.splice(idx, 1);
     platformOverrides[g.name] = g.platforms.slice();
     saveState();
-    Array.prototype.forEach.call(document.querySelectorAll('.plat-toggle[data-id="' + id + '"][data-plat="' + plat + '"]'), function(el) {
-      el.classList.toggle('active', nowActive);
-      el.setAttribute('aria-pressed', String(nowActive));
-    });
+    patchPlatformRow(g);
     refreshOwnershipStats();
     if (state.platforms.length || state.sortKey === 'plat') {
       applyFilters();
     }
-  }
-  document.addEventListener('click', onPlatformToggle);
+  });
 
   var sentinel = document.getElementById('sentinel');
   if ('IntersectionObserver' in window) {
@@ -2398,7 +2476,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788893043', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788894640', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
