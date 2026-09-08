@@ -202,7 +202,9 @@
      script below) -- rendered as <button> rather than <div> for that reason, so this resets
      the button-element defaults .stat's own rules above don't already cover. */
   .stat.stat-clickable {
+    -webkit-appearance: none; appearance: none;
     font: inherit;
+    color: inherit;
     text-align: left;
     border: none;
     cursor: pointer;
@@ -213,8 +215,9 @@
   /* The one stat box that isn't itself a button (it also hosts the platform <select>) --
      only the number inside is clickable, filtering to whichever platform the select shows. */
   .stat-platform-num-btn {
+    -webkit-appearance: none; appearance: none;
     background: none; border: none; padding: 0; margin: 0; text-align: left;
-    font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent;
+    font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent;
   }
   .stat-platform-num-btn:hover .num, .stat-platform-num-btn:focus-visible .num { text-decoration: underline; }
 
@@ -2673,7 +2676,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788898751', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788898839', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
