@@ -544,8 +544,12 @@
   .rating-input:hover { border-color: var(--border); background-color: var(--surface-2); }
   .rating-input:focus { border-color: var(--accent); background-color: var(--surface-2); color: var(--text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
   .played-input::-webkit-inner-spin-button, .played-input::-webkit-outer-spin-button { opacity: 0.35; }
-  .card-meta .played-input { width: 54px; padding: 2px 4px; font-size: 13.5px; }
-  .card-meta .rating-input { width: 58px; padding: 2px 18px 2px 4px; font-size: 13.5px; background-position: right 6px top 55%, right 2px top 55%; }
+  /* font-size here must stay >=16px: this is a free-typed text input, and anything smaller
+     triggers iOS Safari's auto-zoom on focus (the same rule the mobile media query below
+     sets for inputs generally -- this class-selector override was specific enough to have
+     been silently winning over it and undoing the fix for this one input specifically). */
+  .card-meta .played-input { width: 60px; padding: 4px 6px; font-size: 16px; }
+  .card-meta .rating-input { width: 44px; padding: 2px 15px 2px 3px; font-size: 12.5px; background-position: right 5px top 55%, right 1px top 55%; }
   td.name-cell { font-weight: 600; max-width: 340px; }
   td.name-cell .gtags { font-weight: 400; color: var(--text-faint); font-size: 14.5px; margin-top: 2px; white-space: normal; }
 
@@ -843,7 +847,7 @@
     /* max-width caps how wide a game owned on many platforms' long comma-joined list can
        push this corner stack -- .plat-trigger-btn's own max-width:100%/ellipsis (above)
        then takes over inside that cap, rather than ever squeezing the title/cover next to it. */
-    .card-top-controls { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; max-width: 42%; }
+    .card-top-controls { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; max-width: 56%; }
     .card-title { font-weight: 700; font-size: 18.5px; }
     .card-tags { color: var(--text-faint); font-size: 14px; margin-top: 4px; }
     /* Numeric fields (Rating/Played/Main/+Extra/Complete) as a clean label-over-value grid
@@ -873,6 +877,11 @@
       font-weight: 600;
       font-variant-numeric: tabular-nums;
     }
+    /* Played is the one .card-stat-value holding an actual input rather than plain text --
+       a flex row with a real gap so its "h" unit doesn't sit glued straight against the
+       box, and doesn't stretch to the input's own (now text-align:right) width either. */
+    .card-stat-input-row { display: flex; align-items: baseline; gap: 4px; }
+    .card-stat-input-row .unit { color: var(--text-faint); font-weight: 600; }
 
     /* iOS Safari auto-zooms the page on focusing a text input under 16px -- these are
        this page's own copies of the shared rule in base.css, so they need the same fix. */
@@ -2114,7 +2123,7 @@
       '</div>' +
       '<div class="card-meta">' +
         '<div class="card-stat"><span class="card-stat-label">Rating</span>' + ratingControl(g) + '</div>' +
-        '<div class="card-stat"><span class="card-stat-label">Played</span><span class="card-stat-value">' + playedControl(g) + 'h</span></div>' +
+        '<div class="card-stat"><span class="card-stat-label">Played</span><span class="card-stat-value card-stat-input-row">' + playedControl(g) + '<span class="unit">h</span></span></div>' +
         '<div class="card-stat' + (basis === 'm' ? ' basis' : '') + '"><span class="card-stat-label">Main</span><span class="card-stat-value">' + fmtHours(g.main) + 'h</span></div>' +
         '<div class="card-stat' + (basis === 'e' ? ' basis' : '') + '"><span class="card-stat-label">+Extra</span><span class="card-stat-value">' + fmtHours(g.extra) + 'h</span></div>' +
         '<div class="card-stat' + (basis === 'c' ? ' basis' : '') + '"><span class="card-stat-label">Complete</span><span class="card-stat-value">' + fmtHours(g.completionist) + 'h</span></div>' +
@@ -2736,7 +2745,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788900604', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788900892', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
