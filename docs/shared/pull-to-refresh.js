@@ -8,13 +8,21 @@
   "use strict";
   if (!window.matchMedia || !window.matchMedia("(pointer: coarse)").matches) return;
 
-  // How far a full reveal takes is the indicator's own rendered height -- which includes
-  // env(safe-area-inset-top) for the notch/Dynamic Island, so it varies by device. A fixed
-  // pixel budget here previously left it permanently unable to fully reveal on devices
-  // with a larger inset (the indicator's real height could exceed that fixed cap), so it
-  // always looked cut off. maxPull is re-measured on every touchstart instead, which also
-  // keeps it correct across an orientation change.
-  var THRESHOLD_RATIO = 0.65;
+  // TRIGGER_PX is how far you actually have to pull before release triggers a refresh --
+  // a fixed distance, deliberately independent of device/indicator size, matching the
+  // ~60-70px most native pull-to-refresh implementations converge on (Twitter, Gmail,
+  // iOS Mail among them): far enough that an incidental drag near the top of the page
+  // can't trigger it by accident, close enough that a deliberate pull doesn't feel like
+  // it's being ignored.
+  //
+  // maxPull is a different concern -- how far the indicator can visually travel to fully
+  // reveal itself -- and does need to track the device: it's the indicator's own rendered
+  // height, which includes env(safe-area-inset-top) for the notch/Dynamic Island, so it
+  // varies by device. Re-measured on every touchstart, which also keeps it correct across
+  // an orientation change. Deriving the trigger point from this (as an earlier version of
+  // this file did) made the trigger distance itself vary by device too, which wasn't the
+  // intent -- it was arbitrarily easier to trigger on a device with a larger inset.
+  var TRIGGER_PX = 64;
   var maxPull = 120;
 
   var indicator = document.createElement("div");
@@ -101,7 +109,9 @@
       // Square-root easing: quick to start responding, harder to keep pulling past the
       // threshold, so it doesn't feel like it's about to fire the instant you touch the screen.
       var damped = Math.min(maxPull, Math.sqrt(dy) * 8);
-      var threshold = maxPull * THRESHOLD_RATIO;
+      // Clamped to maxPull as a safety net in case some device ever measures an
+      // indicator shorter than the trigger distance -- keeps the trigger reachable.
+      var threshold = Math.min(TRIGGER_PX, maxPull);
       indicator.style.transform = "translateY(" + damped + "px)";
       indicator.style.opacity = String(Math.min(1, damped / threshold));
       var ready = damped >= threshold;
