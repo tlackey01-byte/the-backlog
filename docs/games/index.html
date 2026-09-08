@@ -865,15 +865,6 @@
     </div>
 
     <div class="field">
-      <label>Ownership</label>
-      <div class="segmented" id="status-seg">
-        <button data-val="all" class="active">All</button>
-        <button data-val="owned">Owned</button>
-        <button data-val="wishlist">Wishlist</button>
-      </div>
-    </div>
-
-    <div class="field">
       <label>Progress</label>
       <div class="segmented" id="progress-seg">
         <button data-val="all" class="active">Any</button>
@@ -886,7 +877,14 @@
     </div>
 
     <div class="field popover-wrap" id="platform-filter-wrap">
-      <label>Platform owned on</label>
+      <div class="field-label-row">
+        <label>Platform owned on</label>
+        <select id="status-mini" class="basis-mini-select" aria-label="Ownership, filters alongside platform below">
+          <option value="all" selected>All</option>
+          <option value="owned">Owned</option>
+          <option value="wishlist">Wishlist</option>
+        </select>
+      </div>
       <button class="btn" id="platform-filter-btn">Any platform <span class="count-badge" id="platform-filter-count" style="display:none">0</span></button>
       <div class="popover" id="platform-filter-popover">
         <div class="popover-search">
@@ -1554,8 +1552,18 @@
       onChange(btn.getAttribute('data-val'));
     });
   }
-  bindSegmented('status-seg', function(v) { state.status = v; renderChips(); applyFilters(); });
   bindSegmented('progress-seg', function(v) { state.progress = v; renderChips(); applyFilters(); });
+
+  // Ownership is folded into the Platform field's label row (mirroring how Hours Basis
+  // sits in the Hours-to-beat field's label row) rather than its own segmented control --
+  // both narrow the toolbar and, since ownership and platform are frequently filtered
+  // together, put the two related controls in one place.
+  var statusMiniEl = document.getElementById('status-mini');
+  statusMiniEl.addEventListener('change', function() {
+    state.status = statusMiniEl.value;
+    renderChips();
+    applyFilters();
+  });
 
   // Platform filter is multi-select (OR across whichever platforms are toggled on), unlike the
   // other segmented controls above which only ever have one active option at a time -- so it's
@@ -1737,7 +1745,7 @@
   var chipsEl = document.getElementById('active-chips');
   function renderChips() {
     var chips = [];
-    if (state.status !== 'all') chips.push({ label: (state.status === 'owned' ? 'Owned' : 'Wishlist'), clear: function(){ state.status='all'; setSeg('status-seg','all'); } });
+    if (state.status !== 'all') chips.push({ label: (state.status === 'owned' ? 'Owned' : 'Wishlist'), clear: function(){ state.status='all'; statusMiniEl.value = 'all'; } });
     if (state.progress !== 'all') chips.push({ label: 'Progress: ' + PROGRESS_LABEL[state.progress], clear: function(){ state.progress='all'; setSeg('progress-seg','all'); } });
     state.platforms.forEach(function(p) {
       chips.push({ label: 'Platform: ' + p, clear: function(){
@@ -1800,7 +1808,7 @@
     document.getElementById('search').value = '';
     hoursFilterEl.value = '';
     ratingFilterEl.value = '';
-    setSeg('status-seg','all'); updatePlatformFilterButton(); setSeg('progress-seg','all');
+    statusMiniEl.value = 'all'; updatePlatformFilterButton(); setSeg('progress-seg','all');
     updateGenreButton();
     renderChips();
     applyFilters();
@@ -2558,7 +2566,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788895459', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788895730', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
