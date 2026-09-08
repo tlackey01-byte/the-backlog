@@ -1035,10 +1035,10 @@
           <tr id="thead-row">
             <th class="cover-th"></th>
             <th data-sort="n" class="sorted">Title <span class="arrow">▲</span></th>
-            <th>Genre</th>
-            <th>Owned</th>
-            <th>Platform</th>
-            <th>Progress</th>
+            <th data-sort="genre">Genre <span class="arrow">▲</span></th>
+            <th data-sort="status">Owned <span class="arrow">▲</span></th>
+            <th data-sort="plat">Platform <span class="arrow">▲</span></th>
+            <th data-sort="progress">Progress <span class="arrow">▲</span></th>
             <th data-sort="rating" class="num">Rating <span class="arrow">▼</span></th>
             <th data-sort="played" class="num">Played <span class="arrow">▼</span></th>
             <th data-sort="m" class="num">Main <span class="arrow">▼</span></th>
@@ -1561,6 +1561,7 @@
   };
 
   var PROGRESS_LABEL = { backlog: 'Backlog', playing: 'Playing', dnf: 'DNF', beaten: 'Beaten', '100': '100%' };
+  var PROGRESS_RANK = { backlog: 0, playing: 1, dnf: 2, beaten: 3, '100': 4 };
   // 10, 9.5, 9, ... 0.5, 0 -- built from an integer loop rather than hand-typed to avoid
   // floating-point drift (i/2 for integer i always lands on an exact half) and to keep a
   // single source of truth shared by the per-game rating dropdown and the filter dropdown.
@@ -1791,9 +1792,13 @@
   var theadRow = document.getElementById('thead-row');
   var sortFieldSelect = document.getElementById('sort-field-select');
   var sortDirBtn = document.getElementById('sort-dir-btn');
-  var ASC_KEYS = ['n'];
+  // Genre/Owned/Platform/Progress are sortable again here (via the table's clickable
+  // headers) but deliberately NOT added back to sort-field-select above -- that control is
+  // mobile-only (see the CSS note on #sort-control), and the ask was desktop-only sortability
+  // for these four, not a return of mobile sorting for them.
+  var ASC_KEYS = ['n', 'genre', 'status', 'progress', 'plat'];
   function defaultSortDirFor(key) { return ASC_KEYS.indexOf(key) > -1 ? 'asc' : 'desc'; }
-  var sortLabels = { n: 'title', rating: 'rating', played: 'hours played', m: 'main story hours', e: 'main+extra hours', c: 'completionist hours' };
+  var sortLabels = { n: 'title', genre: 'genre', status: 'ownership', progress: 'progress', plat: 'platform', rating: 'rating', played: 'hours played', m: 'main story hours', e: 'main+extra hours', c: 'completionist hours' };
   function updateSortDesc() {
     document.getElementById('sort-desc').textContent = 'Sorted by ' + sortLabels[state.sortKey] + ' (' + (state.sortDir === 'asc' ? 'ascending' : 'descending') + ')';
   }
@@ -1956,6 +1961,10 @@
     list.sort(function(a, b) {
       var av, bv;
       if (key === 'n') { av = a.name.toLowerCase(); bv = b.name.toLowerCase(); }
+      else if (key === 'genre') { av = (a.genres[0]||'').toLowerCase(); bv = (b.genres[0]||'').toLowerCase(); }
+      else if (key === 'status') { av = a.owned ? 1 : 0; bv = b.owned ? 1 : 0; }
+      else if (key === 'progress') { av = a.progress ? PROGRESS_RANK[a.progress] : -1; bv = b.progress ? PROGRESS_RANK[b.progress] : -1; }
+      else if (key === 'plat') { av = a.platforms.join(); bv = b.platforms.join(); }
       else if (key === 'played') { av = a.playedHours == null ? -1 : a.playedHours; bv = b.playedHours == null ? -1 : b.playedHours; }
       else if (key === 'rating') { av = a.rating == null ? -1 : a.rating; bv = b.rating == null ? -1 : b.rating; }
       else {
@@ -2418,7 +2427,7 @@
       el.value = playedHasVal ? g.playedHours : '';
     });
     refreshProgressStats();
-    if (state.progress !== 'all') {
+    if (state.progress !== 'all' || state.sortKey === 'progress') {
       applyFilters();
     }
   }
@@ -2498,7 +2507,7 @@
       if (el !== sel) el.value = sel.value;
     });
     refreshOwnershipStats();
-    if (state.status !== 'all' || state.platforms.length) {
+    if (state.status !== 'all' || state.platforms.length || state.sortKey === 'status') {
       applyFilters();
     }
   }
@@ -2573,7 +2582,7 @@
     saveState();
     patchPlatformRow(g);
     refreshOwnershipStats();
-    if (state.platforms.length) {
+    if (state.platforms.length || state.sortKey === 'plat') {
       applyFilters();
     }
   });
@@ -2676,7 +2685,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788898839', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788899029', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
