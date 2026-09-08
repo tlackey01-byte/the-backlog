@@ -1439,7 +1439,12 @@
       { num: fmtInt(countProgress('100')), label: '100%’d', cls: 'accent-hundred', id: 'stat-hundred', filter: '100' },
       { num: fmtInt(countProgress('dnf')), label: 'DNF', cls: 'accent-dnf', id: 'stat-dnf', filter: 'dnf' },
       { num: fmtInt(Math.round(backlogHours())) + 'h', label: 'Backlog hours', cls: 'accent-hours', id: 'stat-backlog-hours', filter: 'backlog' },
-      { num: fmtInt(Math.round(timePlayed())) + 'h', label: 'Time Played', cls: 'accent-beaten', id: 'stat-played-hours' }
+      // Time Played sums hours across every non-backlog game (playing/DNF/beaten/100%'d all
+      // have logged time; backlog never does), so "everything except backlog" is the group
+      // this figure actually represents -- filter: '!backlog' is a synthetic progress value
+      // (see computeFiltered()/renderChips()) meaning exactly that, distinct from any real
+      // g.progress value.
+      { num: fmtInt(Math.round(timePlayed())) + 'h', label: 'Time Played', cls: 'accent-beaten', id: 'stat-played-hours', filter: '!backlog' }
     ];
     return stats;
   }
@@ -1494,9 +1499,9 @@
     if (f === 'owned' || f === 'wishlist') {
       state.status = f;
       statusMiniEl.value = f;
-    } else if (f === 'beaten' || f === '100' || f === 'dnf' || f === 'backlog') {
+    } else if (f === 'beaten' || f === '100' || f === 'dnf' || f === 'backlog' || f === '!backlog') {
       state.progress = f;
-      setSeg('progress-seg', f);
+      setSeg('progress-seg', f); // no button matches '!backlog' -- leaves all of them inactive, which is accurate
     } else if (f === 'platform') {
       state.platforms = platformStatKey === 'any' ? [] : [platformStatKey];
       updatePlatformFilterButton();
@@ -1844,7 +1849,7 @@
   function renderChips() {
     var chips = [];
     if (state.status !== 'all') chips.push({ label: (state.status === 'owned' ? 'Owned' : 'Wishlist'), clear: function(){ state.status='all'; statusMiniEl.value = 'all'; } });
-    if (state.progress !== 'all') chips.push({ label: 'Progress: ' + PROGRESS_LABEL[state.progress], clear: function(){ state.progress='all'; setSeg('progress-seg','all'); } });
+    if (state.progress !== 'all') chips.push({ label: 'Progress: ' + (state.progress === '!backlog' ? 'Everything except Backlog' : PROGRESS_LABEL[state.progress]), clear: function(){ state.progress='all'; setSeg('progress-seg','all'); } });
     state.platforms.forEach(function(p) {
       chips.push({ label: 'Platform: ' + p, clear: function(){
         state.platforms = state.platforms.filter(function(x){ return x !== p; });
@@ -1926,7 +1931,8 @@
       if (state.q && g.name.toLowerCase().indexOf(state.q) === -1) return false;
       if (state.status === 'owned' && !g.owned) return false;
       if (state.status === 'wishlist' && g.owned) return false;
-      if (state.progress !== 'all' && g.progress !== state.progress) return false;
+      if (state.progress === '!backlog') { if (g.progress === 'backlog') return false; }
+      else if (state.progress !== 'all' && g.progress !== state.progress) return false;
       if (state.platforms.length && !state.platforms.some(function(p){ return g.platforms.indexOf(p) > -1; })) return false;
       if (state.genres.length) {
         var has = g.genres.some(function(gt) { return state.genres.indexOf(gt) > -1; });
@@ -2667,7 +2673,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788898297', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788898537', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
