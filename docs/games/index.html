@@ -1487,6 +1487,10 @@
       resetFilters();
       return;
     }
+    // Clears whatever filters were already active before applying this one, so a stat
+    // click always shows exactly the titles behind that number -- not that intersected
+    // with a leftover search/genre/hours/rating filter from before.
+    clearFilterState();
     if (f === 'owned' || f === 'wishlist') {
       state.status = f;
       statusMiniEl.value = f;
@@ -1895,7 +1899,10 @@
     });
   }
 
-  function resetFilters() {
+  // Resets every filter's state + UI control without re-rendering/re-filtering -- split out
+  // from resetFilters() so the stat-box click handler above can clear whatever filters were
+  // already active before applying its own single filter, rather than adding to them.
+  function clearFilterState() {
     state.q = ''; state.status = 'all'; state.platforms = []; state.progress = 'all'; state.genres = [];
     state.hoursBucket = null;
     state.ratingFilter = null;
@@ -1904,6 +1911,9 @@
     ratingFilterEl.value = '';
     statusMiniEl.value = 'all'; updatePlatformFilterButton(); setSeg('progress-seg','all');
     updateGenreButton();
+  }
+  function resetFilters() {
+    clearFilterState();
     renderChips();
     applyFilters();
   }
@@ -2657,7 +2667,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788898059', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788898297', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
