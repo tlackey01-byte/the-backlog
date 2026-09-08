@@ -1436,26 +1436,26 @@
   function platformStatCount(key) {
     return key === 'any' ? ownedGamesList().length : platformCountNow(key);
   }
-  // Every stat below except Time Played maps onto a single, discrete filter state this
-  // page already has (an ownership/progress value, or "clear everything") -- `filter` is
-  // that value, read back out by the delegated click handler below. Time Played has no
-  // such discrete counterpart (there's no "has recorded hours" toggle anywhere else in the
-  // UI), so it's left as a plain, non-clickable figure rather than inventing one.
+  // Every stat below maps onto a single, discrete filter state this page already has (an
+  // ownership/progress value, a synthetic "everything except backlog", or "clear
+  // everything") -- `filter` is that value, read back out by the delegated click handler
+  // below.
   function buildStats() {
     var stats = [
-      { num: fmtInt(totalCount()), label: 'Total titles', cls: '', filter: 'total' },
-      { num: fmtInt(ownedGamesList().length), label: 'Owned', cls: 'accent-owned', id: 'stat-owned', filter: 'owned' },
-      { num: fmtInt(wishlistCountNow()), label: 'Wishlist', cls: 'accent-wish', id: 'stat-wishlist', filter: 'wishlist' },
-      { num: fmtInt(countProgress('beaten')), label: 'Beaten', cls: 'accent-beaten', id: 'stat-beaten', filter: 'beaten' },
-      { num: fmtInt(countProgress('100')), label: '100%’d', cls: 'accent-hundred', id: 'stat-hundred', filter: '100' },
-      { num: fmtInt(countProgress('dnf')), label: 'DNF', cls: 'accent-dnf', id: 'stat-dnf', filter: 'dnf' },
       { num: fmtInt(Math.round(backlogHours())) + 'h', label: 'Backlog hours', cls: 'accent-hours', id: 'stat-backlog-hours', filter: 'backlog' },
       // Time Played sums hours across every non-backlog game (playing/DNF/beaten/100%'d all
       // have logged time; backlog never does), so "everything except backlog" is the group
       // this figure actually represents -- filter: '!backlog' is a synthetic progress value
       // (see computeFiltered()/renderChips()) meaning exactly that, distinct from any real
-      // g.progress value.
-      { num: fmtInt(Math.round(timePlayed())) + 'h', label: 'Time Played', cls: 'accent-beaten', id: 'stat-played-hours', filter: '!backlog' }
+      // g.progress value. Kept immediately beside Backlog hours since together they cover
+      // every game's hours exactly once.
+      { num: fmtInt(Math.round(timePlayed())) + 'h', label: 'Time Played', cls: 'accent-beaten', id: 'stat-played-hours', filter: '!backlog' },
+      { num: fmtInt(totalCount()), label: 'Total titles', cls: '', filter: 'total' },
+      { num: fmtInt(wishlistCountNow()), label: 'Wishlist', cls: 'accent-wish', id: 'stat-wishlist', filter: 'wishlist' },
+      { num: fmtInt(ownedGamesList().length), label: 'Owned', cls: 'accent-owned', id: 'stat-owned', filter: 'owned' },
+      { num: fmtInt(countProgress('beaten')), label: 'Beaten', cls: 'accent-beaten', id: 'stat-beaten', filter: 'beaten' },
+      { num: fmtInt(countProgress('100')), label: '100%’d', cls: 'accent-hundred', id: 'stat-hundred', filter: '100' },
+      { num: fmtInt(countProgress('dnf')), label: 'DNF', cls: 'accent-dnf', id: 'stat-dnf', filter: 'dnf' }
     ];
     return stats;
   }
@@ -2693,7 +2693,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788899429', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788899680', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
