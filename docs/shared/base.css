@@ -21,6 +21,8 @@
   --wishlist-ink: #efedfc;
   --backlog: #5b6072;
   --backlog-ink: #eaecf1;
+  --playing: #0f7a7a;
+  --playing-ink: #e1f4f4;
   --beaten: #2f6fb0;
   --beaten-ink: #e6f0fa;
   --hundred: #b23a72;
@@ -56,6 +58,8 @@
     --wishlist-ink: #221f3a;
     --backlog: #a2a8bc;
     --backlog-ink: #262a35;
+    --playing: #5cd6d6;
+    --playing-ink: #123333;
     --beaten: #6fa8e0;
     --beaten-ink: #142943;
     --hundred: #e881b3;

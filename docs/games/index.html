@@ -39,6 +39,8 @@
     --wishlist-ink: #efedfc;
     --backlog: #5b6072;
     --backlog-ink: #eaecf1;
+    --playing: #0f7a7a;
+    --playing-ink: #e1f4f4;
     --beaten: #2f6fb0;
     --beaten-ink: #e6f0fa;
     --hundred: #b23a72;
@@ -74,6 +76,8 @@
       --wishlist-ink: #221f3a;
       --backlog: #a2a8bc;
       --backlog-ink: #262a35;
+      --playing: #5cd6d6;
+      --playing-ink: #123333;
       --beaten: #6fa8e0;
       --beaten-ink: #142943;
       --hundred: #e881b3;
@@ -708,6 +712,7 @@
     background-repeat: no-repeat;
   }
   .progress-select.p-backlog { background-color: var(--backlog-ink); color: var(--backlog); }
+  .progress-select.p-playing { background-color: var(--playing-ink); color: var(--playing); }
   .progress-select.p-beaten { background-color: var(--beaten-ink); color: var(--beaten); }
   .progress-select.p-hundred { background-color: var(--hundred-ink); color: var(--hundred); }
   .progress-select.p-dnf { background-color: var(--dnf-ink); color: var(--dnf); }
@@ -877,6 +882,7 @@
       <div class="segmented" id="progress-seg">
         <button data-val="all" class="active">Any</button>
         <button data-val="backlog">Backlog</button>
+        <button data-val="playing">Playing</button>
         <button data-val="dnf">DNF</button>
         <button data-val="beaten">Beaten</button>
         <button data-val="100">100%</button>
@@ -1191,7 +1197,7 @@
   function patchProgressRow(g) {
     var cls = progressClass(g.progress);
     Array.prototype.forEach.call(document.querySelectorAll('.progress-select[data-id="' + g.id + '"]'), function(el) {
-      el.classList.remove('p-backlog', 'p-dnf', 'p-beaten', 'p-hundred');
+      el.classList.remove('p-backlog', 'p-playing', 'p-dnf', 'p-beaten', 'p-hundred');
       el.classList.add(cls);
       el.value = g.progress;
     });
@@ -1400,8 +1406,8 @@
     sortDir: 'asc'
   };
 
-  var PROGRESS_LABEL = { backlog: 'Backlog', dnf: 'DNF', beaten: 'Beaten', '100': '100%' };
-  var PROGRESS_RANK = { backlog: 0, dnf: 1, beaten: 2, '100': 3 };
+  var PROGRESS_LABEL = { backlog: 'Backlog', playing: 'Playing', dnf: 'DNF', beaten: 'Beaten', '100': '100%' };
+  var PROGRESS_RANK = { backlog: 0, playing: 1, dnf: 2, beaten: 3, '100': 4 };
   // 10, 9.5, 9, ... 0.5, 0 -- built from an integer loop rather than hand-typed to avoid
   // floating-point drift (i/2 for integer i always lands on an exact half) and to keep a
   // single source of truth shared by the per-game rating dropdown and the filter dropdown.
@@ -1769,10 +1775,11 @@
       '<option value="owned"' + (g.owned ? ' selected' : '') + '>Owned</option>' +
       '</select>';
   }
-  function progressClass(p) { return p === 'beaten' ? 'p-beaten' : p === '100' ? 'p-hundred' : p === 'dnf' ? 'p-dnf' : 'p-backlog'; }
+  function progressClass(p) { return p === 'beaten' ? 'p-beaten' : p === '100' ? 'p-hundred' : p === 'dnf' ? 'p-dnf' : p === 'playing' ? 'p-playing' : 'p-backlog'; }
   function progressControl(g) {
     return '<select class="progress-select ' + progressClass(g.progress) + '" data-id="' + g.id + '" aria-label="Progress for ' + escHtml(g.name) + '">' +
       '<option value="backlog"' + (g.progress === 'backlog' ? ' selected' : '') + '>Backlog</option>' +
+      '<option value="playing"' + (g.progress === 'playing' ? ' selected' : '') + '>Playing</option>' +
       '<option value="dnf"' + (g.progress === 'dnf' ? ' selected' : '') + '>DNF</option>' +
       '<option value="beaten"' + (g.progress === 'beaten' ? ' selected' : '') + '>Beaten</option>' +
       '<option value="100"' + (g.progress === '100' ? ' selected' : '') + '>100%</option>' +
@@ -2176,7 +2183,7 @@
     saveState();
     var cls = progressClass(val);
     Array.prototype.forEach.call(document.querySelectorAll('.progress-select[data-id="' + id + '"]'), function(el) {
-      el.classList.remove('p-backlog', 'p-dnf', 'p-beaten', 'p-hundred');
+      el.classList.remove('p-backlog', 'p-playing', 'p-dnf', 'p-beaten', 'p-hundred');
       el.classList.add(cls);
       if (el !== sel) el.value = val;
     });
@@ -2391,7 +2398,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788892771', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788893043', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
