@@ -1264,6 +1264,11 @@
   var GAMES = RAW.map(function(r, i) {
     var owned = Object.prototype.hasOwnProperty.call(ownedOverrides, r.n) ? ownedOverrides[r.n] : !!r.o;
     var platforms = Object.prototype.hasOwnProperty.call(platformOverrides, r.n) ? platformOverrides[r.n] : (r.p || []);
+    // A game with no real platform recorded defaults to 'Wishlist' -- same pattern as
+    // progress's 'backlog' default just below, computed at read time rather than written
+    // back to platformOverrides/Firestore until the user actually touches this game's
+    // platforms themselves.
+    if (!platforms.length) platforms = ['Wishlist'];
     var progress = progressOverrides[r.n] || r.pr || 'backlog';
     var importedDefault = r.ph != null ? r.ph : null;
     return {
@@ -1287,7 +1292,16 @@
   var gameByName = {};
   GAMES.forEach(function(g) { gameByName[g.name] = g; });
 
+  // 'Wishlist' is a stand-in for "not actually owned on any real platform" rather than a
+  // platform itself -- the default every game with no platform data falls back to (see
+  // GAMES construction below), and mutually exclusive with every real platform in the
+  // per-game editor (see its change handler): picking Wishlist there clears every other
+  // platform, and picking a real platform clears Wishlist. The toolbar filter checklist
+  // doesn't enforce that same exclusivity since a filter is a query, not a game's data --
+  // "Wishlist or Steam" is a perfectly legitimate thing to filter for even though no single
+  // game could ever match both sides of it.
   var PLATFORMS = [
+    { key: 'Wishlist', label: 'Wishlist', short: 'Wishlist' },
     { key: 'Steam', label: 'Steam', short: 'Steam' },
     { key: 'Emulation', label: 'Emulation', short: 'Emulation' },
     { key: 'PlayStation', label: 'PS5', short: 'PS5' },
@@ -1433,6 +1447,7 @@
     Object.keys(data.platforms || {}).forEach(function(name) {
       var g = gameByName[name];
       var incoming = data.platforms[name] || [];
+      if (!incoming.length) incoming = ['Wishlist'];
       if (!g || JSON.stringify(platformOverrides[name] || []) === JSON.stringify(incoming)) return;
       platformOverrides[name] = g.platforms = incoming.slice();
       patchPlatformRow(g);
@@ -2635,12 +2650,30 @@
     var g = GAMES[platEditGameId];
     if (!g) return;
     var plat = e.target.value;
-    var idx = g.platforms.indexOf(plat);
-    if (e.target.checked && idx === -1) g.platforms.push(plat);
-    if (!e.target.checked && idx > -1) g.platforms.splice(idx, 1);
+    if (e.target.checked) {
+      if (plat === 'Wishlist') {
+        // Wishlist means "not actually owned anywhere" -- mutually exclusive with every
+        // real platform, so picking it replaces whatever else was checked.
+        g.platforms = ['Wishlist'];
+      } else {
+        if (g.platforms.indexOf(plat) === -1) g.platforms.push(plat);
+        var wIdx = g.platforms.indexOf('Wishlist');
+        if (wIdx > -1) g.platforms.splice(wIdx, 1);
+      }
+    } else {
+      var idx = g.platforms.indexOf(plat);
+      if (idx > -1) g.platforms.splice(idx, 1);
+      // Unchecking the last real platform falls back to the same default every other
+      // never-set game gets, rather than leaving this one showing no platform at all.
+      if (!g.platforms.length) g.platforms = ['Wishlist'];
+    }
     platformOverrides[g.name] = g.platforms.slice();
     saveState();
     patchPlatformRow(g);
+    // Mutual exclusivity can change other checkboxes' state too (e.g. checking Wishlist
+    // un-checks every real platform) -- re-render so the list reflects that, not just the
+    // one checkbox the browser already toggled natively.
+    renderPlatEditList(g, document.getElementById('plat-edit-search').value);
     refreshOwnershipStats();
     if (state.platforms.length || state.sortKey === 'plat') {
       applyFilters();
@@ -2745,7 +2778,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788900892', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788901125', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
