@@ -30,15 +30,22 @@
   }
   measure();
 
+  var startX = null;
   var startY = null;
   var pulling = false;
+  // null = not yet decided, 'vertical' = committed to pull-tracking, 'horizontal' =
+  // committed to "this is a sideways swipe, ignore it for the rest of this touch."
+  var direction = null;
+  var DIRECTION_LOCK_PX = 8;
 
   function atTop() {
     return (window.scrollY || document.documentElement.scrollTop || 0) <= 0;
   }
 
   function reset() {
+    startX = null;
     startY = null;
+    direction = null;
     if (!pulling) return;
     pulling = false;
     indicator.style.transform = "";
@@ -51,9 +58,12 @@
   document.addEventListener(
     "touchstart",
     function (e) {
-      startY = atTop() ? e.touches[0].clientY : null;
+      var eligible = atTop();
+      startX = eligible ? e.touches[0].clientX : null;
+      startY = eligible ? e.touches[0].clientY : null;
+      direction = null;
       pulling = false;
-      if (startY != null) measure();
+      if (eligible) measure();
     },
     { passive: true }
   );
@@ -70,12 +80,27 @@
       // It's also unnecessary: during a real overscroll pull, the document's scrollTop
       // stays pinned at 0 throughout (the pull is an elastic bounce, not real scrolling),
       // so the touchstart-time check above already covers the only case that matters.
-      var delta = e.touches[0].clientY - startY;
-      if (delta <= 0) { reset(); return; }
+      var t = e.touches[0];
+      var dx = t.clientX - startX;
+      var dy = t.clientY - startY;
+
+      // Direction lock: the nav bar's tab row sits right at the top of the page (where
+      // atTop() is also true) and scrolls horizontally, so without this, swiping it
+      // sideways got misread as a downward pull the moment the touch had *any* vertical
+      // component -- even a few stray pixels from a not-perfectly-horizontal finger drag
+      // -- which was reloading the page mid-swipe. Wait for enough movement to be sure,
+      // then commit to one interpretation for the rest of this touch.
+      if (direction == null) {
+        if (Math.abs(dx) < DIRECTION_LOCK_PX && Math.abs(dy) < DIRECTION_LOCK_PX) return;
+        direction = Math.abs(dx) >= Math.abs(dy) ? "horizontal" : "vertical";
+        if (direction === "horizontal") { reset(); return; }
+      }
+
+      if (dy <= 0) { reset(); return; }
       pulling = true;
       // Square-root easing: quick to start responding, harder to keep pulling past the
       // threshold, so it doesn't feel like it's about to fire the instant you touch the screen.
-      var damped = Math.min(maxPull, Math.sqrt(delta) * 8);
+      var damped = Math.min(maxPull, Math.sqrt(dy) * 8);
       var threshold = maxPull * THRESHOLD_RATIO;
       indicator.style.transform = "translateY(" + damped + "px)";
       indicator.style.opacity = String(Math.min(1, damped / threshold));
