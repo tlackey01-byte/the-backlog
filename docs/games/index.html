@@ -223,7 +223,7 @@
     align-items: center;
   }
   .search-box svg { position: absolute; left: 10px; width: 15px; height: 15px; color: var(--text-faint); pointer-events: none; }
-  input[type="search"], input[type="text"], input[type="number"] {
+  input[type="search"], input[type="text"], input[type="number"], input[type="date"], textarea {
     font-family: var(--font-body);
     background: var(--surface-2);
     border: 1px solid var(--border);
@@ -234,8 +234,9 @@
     outline: none;
     transition: border-color .15s ease, background .15s ease;
   }
+  textarea { resize: vertical; min-height: 78px; line-height: 1.4; }
   input[type="search"] { padding-left: 34px; width: 100%; }
-  input[type="search"]:focus, input[type="text"]:focus, input[type="number"]:focus, select:focus, button:focus-visible {
+  input[type="search"]:focus, input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, textarea:focus, select:focus, button:focus-visible {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
   }
@@ -506,6 +507,44 @@
   .detail-stats { margin: 0 0 8px; }
   .detail-note { color: var(--text-faint); font-size: 14.5px; margin-top: 14px; }
 
+  /* ---------- Per-game journal ---------- */
+  .detail-journal {
+    margin-top: 32px; padding-top: 28px; border-top: 1px solid var(--border);
+  }
+  .detail-journal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-bottom: 16px;
+  }
+  .detail-journal-title {
+    font-family: var(--font-display); font-weight: 800; font-size: 22px;
+    letter-spacing: -0.01em; margin: 0;
+  }
+  .journal-form {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-l);
+    box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .journal-form textarea { width: 100%; }
+  .journal-form-actions { display: flex; gap: 10px; }
+  .journal-list {
+    display: flex; flex-direction: column; gap: 10px;
+    max-height: 420px; overflow-y: auto; padding-right: 2px;
+  }
+  .journal-entry {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-m);
+    box-shadow: var(--shadow); padding: 14px 16px;
+  }
+  .journal-entry-date {
+    font-family: var(--font-display); font-weight: 700; font-size: 15.5px; color: var(--text);
+    margin-bottom: 6px;
+  }
+  .journal-entry-summary {
+    font-size: 15px; color: var(--text); line-height: 1.5; white-space: pre-wrap;
+  }
+  .journal-entry-timestamp {
+    font-size: 12.5px; color: var(--text-faint); margin-top: 10px;
+  }
+
   .progress-select, .status-select {
     font-family: var(--font-body);
     background: var(--surface-2);
@@ -598,7 +637,7 @@
 
     /* iOS Safari auto-zooms the page on focusing a text input under 16px -- these are
        this page's own copies of the shared rule in base.css, so they need the same fix. */
-    input[type="search"], input[type="text"], input[type="number"] { font-size: 16px; }
+    input[type="search"], input[type="text"], input[type="number"], input[type="date"], textarea { font-size: 16px; }
 
     /* Every card repeats these controls, so at phone width they're the most-tapped
        targets on the page -- worth sizing well past their desktop density even though
@@ -630,6 +669,11 @@
     .detail-fields .plat-toggle { font-size: 15.5px; }
     .detail-fields .played-input { font-size: 17px; }
     .detail-hint, .detail-note { font-size: 15px; }
+    .detail-journal-title { font-size: 24px; }
+    .journal-list { max-height: 340px; }
+    .journal-entry-date { font-size: 17px; }
+    .journal-entry-summary { font-size: 16px; }
+    .journal-entry-timestamp { font-size: 13.5px; }
   }
 
   footer.foot {
@@ -843,6 +887,14 @@
     }
   } catch (e) { deletedNames = {}; }
 
+  // Per-game journal entries: { "<game name>": [ {date, summary, createdAt}, ... ] }.
+  // No localStorage read here (unlike the overrides above, which still carry one for
+  // historical reasons) -- this site's own origin never persisted anything there to begin
+  // with, so a read would always just return nothing; applyRemoteState() below populates
+  // this from Firestore once signed in, the same as every other override in practice.
+  var journalOverrides = {};
+  function journalEntriesFor(name) { return journalOverrides[name] || []; }
+
   // ---- Firestore persistence ----
   // Every override change writes the *whole* state object back via setDoc -- never
   // updateDoc() with dotted field-path strings, since game names can contain '.', which
@@ -857,6 +909,7 @@
       played: playedOverrides,
       platforms: platformOverrides,
       deleted: Object.keys(deletedNames),
+      journal: journalOverrides,
       totals: computeTotals()
     };
   }
@@ -1042,6 +1095,18 @@
       platformOverrides[name] = g.platforms = incoming.slice();
       patchPlatformRow(g);
       statsChanged = true;
+    });
+
+    // Journal entries only ever show on the detail page for the one game they belong to
+    // (never in the list/card rows), so unlike the overrides above there's no per-row DOM
+    // to patch -- just refresh the journal section itself, and only when it's the game
+    // currently open.
+    Object.keys(data.journal || {}).forEach(function(name) {
+      var g = gameByName[name];
+      var incoming = data.journal[name] || [];
+      if (!g || JSON.stringify(journalOverrides[name] || []) === JSON.stringify(incoming)) return;
+      journalOverrides[name] = incoming;
+      refreshJournalSectionIfOpen(g);
     });
 
     if (statsChanged) {
@@ -1528,6 +1593,84 @@
     '</div>';
   }
 
+  // ---- Per-game journal ----
+  function todayDateInputValue() {
+    var d = new Date();
+    var mm = String(d.getMonth() + 1);
+    if (mm.length < 2) mm = '0' + mm;
+    var dd = String(d.getDate());
+    if (dd.length < 2) dd = '0' + dd;
+    return d.getFullYear() + '-' + mm + '-' + dd;
+  }
+  // Parsed as a local date (year/month/day components), not via `new Date(dateStr)` --
+  // that parses "YYYY-MM-DD" as UTC midnight, which renders as the *previous* day once
+  // formatted in any timezone behind UTC. createdAt below is a full ISO instant (date and
+  // time), so that one parses correctly with new Date() directly.
+  function fmtEntryDate(dateStr) {
+    var parts = (dateStr || '').split('-');
+    if (parts.length !== 3) return dateStr || '';
+    var d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  function fmtTimestamp(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  function journalEntryHtml(e) {
+    return '<div class="journal-entry">' +
+      '<div class="journal-entry-date">' + escHtml(fmtEntryDate(e.date)) + '</div>' +
+      '<div class="journal-entry-summary">' + escHtml(e.summary) + '</div>' +
+      '<div class="journal-entry-timestamp">Logged ' + escHtml(fmtTimestamp(e.createdAt)) + '</div>' +
+    '</div>';
+  }
+
+  // Newest first by the entry's own date (the day it's about), falling back to creation
+  // order for same-day entries.
+  function journalSectionHtml(g) {
+    var entries = journalEntriesFor(g.name).slice().sort(function(a, b) {
+      return (b.date || '').localeCompare(a.date || '') || (b.createdAt || '').localeCompare(a.createdAt || '');
+    });
+    var listHtml = entries.map(journalEntryHtml).join('');
+    return '<div class="detail-journal" id="journal-section" data-name="' + escHtml(g.name) + '">' +
+      '<div class="detail-journal-head">' +
+        '<h2 class="detail-journal-title">Journal</h2>' +
+        '<button class="btn" type="button" id="journal-add-btn">+ Add Entry</button>' +
+      '</div>' +
+      '<div class="journal-form" id="journal-form" hidden>' +
+        '<div class="field"><label>Date</label><input type="date" id="journal-date-input" value="' + todayDateInputValue() + '"></div>' +
+        '<div class="field"><label>Summary</label><textarea id="journal-summary-input" rows="3" placeholder="What happened..."></textarea></div>' +
+        '<div class="journal-form-actions">' +
+          '<button class="btn primary" type="button" id="journal-save-btn">Save Entry</button>' +
+          '<button class="btn" type="button" id="journal-cancel-btn">Cancel</button>' +
+        '</div>' +
+      '</div>' +
+      (listHtml ? '<div class="journal-list" id="journal-list">' + listHtml + '</div>' : '') +
+    '</div>';
+  }
+
+  // Re-renders just the journal section -- called after a local add, and by
+  // applyRemoteState() when another device changes this same game's journal -- but only
+  // when this exact game's detail page is the one currently open; entries never show
+  // anywhere else, so there's nothing to patch when it isn't.
+  function refreshJournalSectionIfOpen(g) {
+    var openGame = getGameFromHash();
+    if (!openGame || openGame.id !== g.id) return;
+    var container = document.getElementById('journal-section');
+    if (!container) return;
+    container.outerHTML = journalSectionHtml(g);
+  }
+
+  function addJournalEntry(g, dateStr, summaryText) {
+    var list = journalOverrides[g.name] ? journalOverrides[g.name].slice() : [];
+    list.push({ date: dateStr, summary: summaryText, createdAt: new Date().toISOString() });
+    journalOverrides[g.name] = list;
+    saveState();
+    refreshJournalSectionIfOpen(g);
+  }
+
   function renderDetail(g) {
     var tagsHtml = g.genres.length
       ? g.genres.map(function(t) { return '<span class="g-chip">' + escHtml(t) + '</span>'; }).join('')
@@ -1564,7 +1707,8 @@
       '</div>' +
       fieldsHtml +
       '<div class="stats detail-stats">' + statTiles + '</div>' +
-      '<div class="detail-note">Main / Main+Extra / Completionist are HowLongToBeat estimates. Played is real Steam playtime where imported, 0 while it\'s in your backlog, and otherwise blank (the greyed number is just a hint, not counted) until you log it yourself — edit it above any time.</div>';
+      '<div class="detail-note">Main / Main+Extra / Completionist are HowLongToBeat estimates. Played is real Steam playtime where imported, 0 while it\'s in your backlog, and otherwise blank (the greyed number is just a hint, not counted) until you log it yourself — edit it above any time.</div>' +
+      journalSectionHtml(g);
   }
 
   function getGameFromHash() {
@@ -1603,6 +1747,43 @@
       if (window.confirm('Remove "' + g.name + '" from the backlog? This can\'t be undone from here.')) {
         deleteGame(g.name);
       }
+      return;
+    }
+
+    if (e.target.closest('#journal-add-btn')) {
+      var jForm = document.getElementById('journal-form');
+      var jAddBtn = document.getElementById('journal-add-btn');
+      if (!jForm) return;
+      jForm.hidden = false;
+      if (jAddBtn) jAddBtn.hidden = true;
+      var jDateInput = document.getElementById('journal-date-input');
+      if (jDateInput) jDateInput.value = todayDateInputValue();
+      var jSummaryInput = document.getElementById('journal-summary-input');
+      if (jSummaryInput) { jSummaryInput.value = ''; jSummaryInput.focus(); }
+      return;
+    }
+    if (e.target.closest('#journal-cancel-btn')) {
+      var jForm2 = document.getElementById('journal-form');
+      var jAddBtn2 = document.getElementById('journal-add-btn');
+      if (jForm2) jForm2.hidden = true;
+      if (jAddBtn2) jAddBtn2.hidden = false;
+      return;
+    }
+    if (e.target.closest('#journal-save-btn')) {
+      var jContainer = document.getElementById('journal-section');
+      var jName = jContainer ? jContainer.getAttribute('data-name') : null;
+      var jGame = jName ? gameByName[jName] : null;
+      if (!jGame) return;
+      var jDateEl = document.getElementById('journal-date-input');
+      var jSummaryEl = document.getElementById('journal-summary-input');
+      var jDateVal = (jDateEl && jDateEl.value) || todayDateInputValue();
+      var jSummaryVal = ((jSummaryEl && jSummaryEl.value) || '').trim();
+      if (!jSummaryVal) {
+        if (jSummaryEl) jSummaryEl.focus();
+        return;
+      }
+      addJournalEntry(jGame, jDateVal, jSummaryVal);
+      return;
     }
   });
 
