@@ -198,6 +198,25 @@
   .stat.accent-hundred .num { color: var(--hundred); }
   .stat.accent-dnf .num { color: var(--dnf); }
 
+  /* Stands in for the plain-text .label on the one configurable platform stat box, styled
+     to match it as closely a <select> can (see .label above) so it doesn't stand out as an
+     interactive control in an otherwise static-looking row until hovered/focused. */
+  .stat-platform-select {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    max-width: 100%;
+  }
+  .stat-platform-select:hover, .stat-platform-select:focus-visible { color: var(--text); }
+
   /* ---------- Toolbar ---------- */
   .toolbar {
     background: var(--surface);
@@ -1187,22 +1206,22 @@
   GAMES.forEach(function(g) { gameByName[g.name] = g; });
 
   var PLATFORMS = [
-    { key: 'Steam', label: 'Steam', short: 'Steam', statLabel: 'On Steam', statId: 'stat-steam' },
-    { key: 'Emulation', label: 'Emulation', short: 'Emulation', statLabel: 'On Emulation', statId: 'stat-emu' },
-    { key: 'PlayStation', label: 'PS5', short: 'PS5', statLabel: 'On PS5', statId: 'stat-ps' },
-    { key: 'PS4', label: 'PlayStation 4', short: 'PS4', statLabel: 'On PS4', statId: 'stat-ps4' },
-    { key: 'PS3', label: 'PlayStation 3', short: 'PS3', statLabel: 'On PS3', statId: 'stat-ps3' },
-    { key: 'PS2', label: 'PlayStation 2', short: 'PS2', statLabel: 'On PS2', statId: 'stat-ps2' },
-    { key: 'PS1', label: 'PlayStation 1', short: 'PS1', statLabel: 'On PS1', statId: 'stat-ps1' },
-    { key: 'Switch2', label: 'Switch 2', short: 'Switch 2', statLabel: 'On Switch 2', statId: 'stat-switch2' },
-    { key: 'Nintendo', label: 'Switch', short: 'Switch', statLabel: 'On Switch', statId: 'stat-nintendo' },
-    { key: 'Wii', label: 'Wii', short: 'Wii', statLabel: 'On Wii', statId: 'stat-wii' },
-    { key: 'GameCube', label: 'GameCube', short: 'GameCube', statLabel: 'On GameCube', statId: 'stat-gamecube' },
-    { key: 'SNES', label: 'SNES', short: 'SNES', statLabel: 'On SNES', statId: 'stat-snes' },
-    { key: 'NES', label: 'NES', short: 'NES', statLabel: 'On NES', statId: 'stat-nes' },
-    { key: 'XboxOne', label: 'Xbox One', short: 'Xbox One', statLabel: 'On Xbox One', statId: 'stat-xbox-one' },
-    { key: 'Xbox360', label: 'Xbox 360', short: 'Xbox 360', statLabel: 'On Xbox 360', statId: 'stat-xbox360' },
-    { key: 'Xbox', label: 'Xbox', short: 'Xbox', statLabel: 'On Xbox', statId: 'stat-xbox' }
+    { key: 'Steam', label: 'Steam', short: 'Steam' },
+    { key: 'Emulation', label: 'Emulation', short: 'Emulation' },
+    { key: 'PlayStation', label: 'PS5', short: 'PS5' },
+    { key: 'PS4', label: 'PlayStation 4', short: 'PS4' },
+    { key: 'PS3', label: 'PlayStation 3', short: 'PS3' },
+    { key: 'PS2', label: 'PlayStation 2', short: 'PS2' },
+    { key: 'PS1', label: 'PlayStation 1', short: 'PS1' },
+    { key: 'Switch2', label: 'Switch 2', short: 'Switch 2' },
+    { key: 'Nintendo', label: 'Switch', short: 'Switch' },
+    { key: 'Wii', label: 'Wii', short: 'Wii' },
+    { key: 'GameCube', label: 'GameCube', short: 'GameCube' },
+    { key: 'SNES', label: 'SNES', short: 'SNES' },
+    { key: 'NES', label: 'NES', short: 'NES' },
+    { key: 'XboxOne', label: 'Xbox One', short: 'Xbox One' },
+    { key: 'Xbox360', label: 'Xbox 360', short: 'Xbox 360' },
+    { key: 'Xbox', label: 'Xbox', short: 'Xbox' }
   ];
   var PLATFORMS_BY_KEY = {};
   PLATFORMS.forEach(function(p) { PLATFORMS_BY_KEY[p.key] = p; });
@@ -1381,6 +1400,13 @@
   function fmtInt(n) { return n.toLocaleString('en-US'); }
 
   var statsEl = document.getElementById('stats');
+  // Backing state for the single configurable platform stat box below -- 'any' means
+  // "owned regardless of platform" (the same figure as the Owned stat), which is why it's
+  // the default rather than defaulting to whichever platform happens to be first in the list.
+  var platformStatKey = 'any';
+  function platformStatCount(key) {
+    return key === 'any' ? ownedGamesList().length : platformCountNow(key);
+  }
   function buildStats() {
     var stats = [
       { num: fmtInt(totalCount()), label: 'Total titles', cls: '' },
@@ -1388,19 +1414,35 @@
       { num: fmtInt(wishlistCountNow()), label: 'Wishlist', cls: 'accent-wish', id: 'stat-wishlist' },
       { num: fmtInt(countProgress('beaten')), label: 'Beaten', cls: 'accent-beaten', id: 'stat-beaten' },
       { num: fmtInt(countProgress('100')), label: '100%’d', cls: 'accent-hundred', id: 'stat-hundred' },
-      { num: fmtInt(countProgress('dnf')), label: 'DNF', cls: 'accent-dnf', id: 'stat-dnf' }
+      { num: fmtInt(countProgress('dnf')), label: 'DNF', cls: 'accent-dnf', id: 'stat-dnf' },
+      { num: fmtInt(Math.round(backlogHours())) + 'h', label: 'Backlog hours', cls: 'accent-hours', id: 'stat-backlog-hours' },
+      { num: fmtInt(Math.round(timePlayed())) + 'h', label: 'Time Played', cls: 'accent-beaten', id: 'stat-played-hours' }
     ];
-    PLATFORMS.forEach(function(p) {
-      stats.push({ num: fmtInt(platformCountNow(p.key)), label: p.statLabel, cls: '', id: p.statId });
-    });
-    stats.push({ num: fmtInt(Math.round(backlogHours())) + 'h', label: 'Backlog hours', cls: 'accent-hours', id: 'stat-backlog-hours' });
-    stats.push({ num: fmtInt(Math.round(timePlayed())) + 'h', label: 'Time Played', cls: 'accent-beaten', id: 'stat-played-hours' });
     return stats;
   }
+  function platformStatOptionsHtml() {
+    var opts = '<option value="any"' + (platformStatKey === 'any' ? ' selected' : '') + '>Any Platform</option>';
+    opts += PLATFORMS.map(function(p) {
+      return '<option value="' + p.key + '"' + (platformStatKey === p.key ? ' selected' : '') + '>' + escHtml(p.label) + '</option>';
+    }).join('');
+    return opts;
+  }
   function renderStats() {
-    statsEl.innerHTML = buildStats().map(function(s) {
+    var html = buildStats().map(function(s) {
       return '<div class="stat ' + s.cls + '"><span class="num" ' + (s.id ? 'id="' + s.id + '-num"' : '') + '>' + s.num + '</span><span class="label">' + s.label + '</span></div>';
     }).join('');
+    // One configurable box replaces the old one-card-per-platform strip -- with 16 platforms
+    // now defined, showing all of them at once no longer fit "at a glance" the way the rest
+    // of this row does. The select stands in for the plain-text .label the other cards use.
+    html += '<div class="stat" id="stat-platform">' +
+      '<span class="num" id="stat-platform-num">' + fmtInt(platformStatCount(platformStatKey)) + '</span>' +
+      '<select class="stat-platform-select" id="stat-platform-select" aria-label="Platform for this stat">' + platformStatOptionsHtml() + '</select>' +
+    '</div>';
+    statsEl.innerHTML = html;
+    document.getElementById('stat-platform-select').addEventListener('change', function(e) {
+      platformStatKey = e.target.value;
+      document.getElementById('stat-platform-num').textContent = fmtInt(platformStatCount(platformStatKey));
+    });
   }
   renderStats();
   function refreshProgressStats() {
@@ -1418,12 +1460,10 @@
   function refreshOwnershipStats() {
     var ownedEl = document.getElementById('stat-owned-num');
     var wishlistEl = document.getElementById('stat-wishlist-num');
+    var platformStatEl = document.getElementById('stat-platform-num');
     if (ownedEl) ownedEl.textContent = fmtInt(ownedGamesList().length);
     if (wishlistEl) wishlistEl.textContent = fmtInt(wishlistCountNow());
-    PLATFORMS.forEach(function(p) {
-      var el = document.getElementById(p.statId + '-num');
-      if (el) el.textContent = fmtInt(platformCountNow(p.key));
-    });
+    if (platformStatEl) platformStatEl.textContent = fmtInt(platformStatCount(platformStatKey));
   }
   document.getElementById('eyebrow-count').textContent = fmtInt(totalCount()) + ' titles tracked';
 
@@ -2566,7 +2606,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788895730', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788895992', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
