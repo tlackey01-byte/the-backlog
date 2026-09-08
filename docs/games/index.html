@@ -772,18 +772,36 @@
   .progress-select:focus, .status-select:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
 
   /* Trigger button for the per-game platform editor popover -- opens the shared
-     #plat-edit-popover repositioned next to whichever row/card's button was clicked. */
+     #plat-edit-popover repositioned next to whichever row/card's button was clicked. Styled
+     as the same rounded pill-with-arrow shape as .progress-select/.status-select beside it
+     (down to reusing their currentColor double-chevron trick) so all three read as one
+     family of dropdown-like controls instead of Platform looking like a plain flat button
+     next to two colored pills. */
   .plat-trigger-btn {
     font-family: var(--font-body);
-    border: 1px solid var(--border);
     background: var(--surface-2);
+    border: 1px solid var(--border);
     color: var(--text-faint);
-    font-size: 14px; font-weight: 600;
-    padding: 4px 10px; border-radius: 5px;
+    border-radius: 20px;
+    padding: 5px 26px 5px 12px;
+    font-size: 14.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
     cursor: pointer;
-    transition: background .15s ease, color .15s ease, border-color .15s ease;
+    -webkit-appearance: none; appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: right 12px top 55%, right 8px top 55%;
+    background-size: 4px 4px, 4px 4px;
+    background-repeat: no-repeat;
+    transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
   }
-  .plat-trigger-btn:hover { border-color: var(--border-strong); background: var(--surface-3); }
+  .plat-trigger-btn:hover { border-color: var(--border-strong); background-color: var(--surface-3); }
   .plat-trigger-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .plat-trigger-btn.has-value { color: var(--text); }
 
@@ -820,14 +838,14 @@
     }
     .card-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
     .card-top-text { flex: 1; min-width: 0; }
-    /* Ownership and Platform sit together on the top row, right-aligned next to the
-       cover/title, rather than Platform being down with Progress in the row below. */
-    .card-top-controls { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
+    /* Ownership, Progress, and Platform stack together on the top row, right-aligned next
+       to the cover/title -- Progress directly under Ownership, Platform below that. */
+    /* max-width caps how wide a game owned on many platforms' long comma-joined list can
+       push this corner stack -- .plat-trigger-btn's own max-width:100%/ellipsis (above)
+       then takes over inside that cap, rather than ever squeezing the title/cover next to it. */
+    .card-top-controls { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; max-width: 42%; }
     .card-title { font-weight: 700; font-size: 18.5px; }
     .card-tags { color: var(--text-faint); font-size: 14px; margin-top: 4px; }
-    /* Progress gets its own row -- a plain wrapper rather than an inline style, but with no
-       extra visual weight of its own since the pill's status color already carries it. */
-    .card-progress-row { margin-bottom: 10px; }
     /* Numeric fields (Rating/Played/Main/+Extra/Complete) as a clean label-over-value grid
        instead of flex-wrapped "Label value" pairs of mismatched widths -- the previous
        layout was the main source of a cluttered, unevenly-wrapping card. Mirrors the
@@ -1332,7 +1350,7 @@
     });
   }
   function platformSummary(g) {
-    if (!g.platforms.length) return '—';
+    if (!g.platforms.length) return 'Set Platform';
     return g.platforms.map(function(key) {
       var p = PLATFORMS_BY_KEY[key];
       return p ? p.short : key;
@@ -2092,9 +2110,8 @@
       '<div class="card-top">' +
         '<button class="game-link cover-link" data-open="' + g.id + '" aria-label="' + escHtml(g.name) + '">' + coverThumb(g, 'cover-card') + '</button>' +
         '<div class="card-top-text"><button class="game-link card-title" data-open="' + g.id + '">' + escHtml(g.name) + '</button><div class="card-tags">' + escHtml(tagStr) + '</div></div>' +
-        '<div class="card-top-controls">' + ownedControl(g) + platformControl(g) + '</div>' +
+        '<div class="card-top-controls">' + ownedControl(g) + progressControl(g) + platformControl(g) + '</div>' +
       '</div>' +
-      '<div class="card-progress-row">' + progressControl(g) + '</div>' +
       '<div class="card-meta">' +
         '<div class="card-stat"><span class="card-stat-label">Rating</span>' + ratingControl(g) + '</div>' +
         '<div class="card-stat"><span class="card-stat-label">Played</span><span class="card-stat-value">' + playedControl(g) + 'h</span></div>' +
@@ -2719,7 +2736,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788900119', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788900604', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
