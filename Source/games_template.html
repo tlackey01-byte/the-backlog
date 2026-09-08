@@ -740,7 +740,7 @@
      parent, fine for the single toolbar instances) since this one popover is shared and
      repositioned via JS next to whichever trigger button was clicked, scattered across
      many rows/cards. */
-  .popover.popover-fixed { position: fixed; width: 220px; max-height: none; }
+  .popover.popover-fixed { position: fixed; width: 220px; max-height: 320px; }
 
   .empty-state { padding: 60px 20px; text-align: center; color: var(--text-muted); font-size: 15px; }
   .empty-state .big { font-family: var(--font-display); font-size: 28px; color: var(--text); margin-bottom: 6px; font-weight: 700; }
@@ -882,6 +882,9 @@
       <label>Platform owned on</label>
       <button class="btn" id="platform-filter-btn">Any platform <span class="count-badge" id="platform-filter-count" style="display:none">0</span></button>
       <div class="popover" id="platform-filter-popover">
+        <div class="popover-search">
+          <input type="text" id="platform-filter-search" placeholder="Filter platforms…">
+        </div>
         <div class="popover-list" id="platform-filter-list"></div>
         <div class="popover-footer">
           <button class="clear-link" id="platform-filter-clear-btn">Clear</button>
@@ -949,6 +952,9 @@
        whichever trigger was clicked. Checkbox changes apply immediately (no Done button),
        unlike the toolbar filter above, since editing one game isn't an expensive re-filter. -->
   <div class="popover popover-fixed" id="plat-edit-popover">
+    <div class="popover-search">
+      <input type="text" id="plat-edit-search" placeholder="Filter platforms…">
+    </div>
     <div class="popover-list" id="plat-edit-list"></div>
   </div>
 
@@ -1158,10 +1164,22 @@
   GAMES.forEach(function(g) { gameByName[g.name] = g; });
 
   var PLATFORMS = [
-    { key: 'PlayStation', label: 'PS5', short: 'PS5', cls: 'ps', statLabel: 'On PS5', statId: 'stat-ps' },
-    { key: 'Steam', label: 'Steam', short: 'Steam', cls: 'steam', statLabel: 'On Steam', statId: 'stat-steam' },
-    { key: 'Nintendo', label: 'Switch', short: 'Switch', cls: 'nintendo', statLabel: 'On Switch', statId: 'stat-nintendo' },
-    { key: 'Emulation', label: 'Emulation', short: 'Emulation', cls: 'emu', statLabel: 'On Emulation', statId: 'stat-emu' }
+    { key: 'Steam', label: 'Steam', short: 'Steam', statLabel: 'On Steam', statId: 'stat-steam' },
+    { key: 'Emulation', label: 'Emulation', short: 'Emulation', statLabel: 'On Emulation', statId: 'stat-emu' },
+    { key: 'PlayStation', label: 'PS5', short: 'PS5', statLabel: 'On PS5', statId: 'stat-ps' },
+    { key: 'PS4', label: 'PlayStation 4', short: 'PS4', statLabel: 'On PS4', statId: 'stat-ps4' },
+    { key: 'PS3', label: 'PlayStation 3', short: 'PS3', statLabel: 'On PS3', statId: 'stat-ps3' },
+    { key: 'PS2', label: 'PlayStation 2', short: 'PS2', statLabel: 'On PS2', statId: 'stat-ps2' },
+    { key: 'PS1', label: 'PlayStation 1', short: 'PS1', statLabel: 'On PS1', statId: 'stat-ps1' },
+    { key: 'Switch2', label: 'Switch 2', short: 'Switch 2', statLabel: 'On Switch 2', statId: 'stat-switch2' },
+    { key: 'Nintendo', label: 'Switch', short: 'Switch', statLabel: 'On Switch', statId: 'stat-nintendo' },
+    { key: 'Wii', label: 'Wii', short: 'Wii', statLabel: 'On Wii', statId: 'stat-wii' },
+    { key: 'GameCube', label: 'GameCube', short: 'GameCube', statLabel: 'On GameCube', statId: 'stat-gamecube' },
+    { key: 'SNES', label: 'SNES', short: 'SNES', statLabel: 'On SNES', statId: 'stat-snes' },
+    { key: 'NES', label: 'NES', short: 'NES', statLabel: 'On NES', statId: 'stat-nes' },
+    { key: 'XboxOne', label: 'Xbox One', short: 'Xbox One', statLabel: 'On Xbox One', statId: 'stat-xbox-one' },
+    { key: 'Xbox360', label: 'Xbox 360', short: 'Xbox 360', statLabel: 'On Xbox 360', statId: 'stat-xbox360' },
+    { key: 'Xbox', label: 'Xbox', short: 'Xbox', statLabel: 'On Xbox', statId: 'stat-xbox' }
   ];
   var PLATFORMS_BY_KEY = {};
   PLATFORMS.forEach(function(p) { PLATFORMS_BY_KEY[p.key] = p; });
@@ -1521,17 +1539,20 @@
   var platformFilterListEl = document.getElementById('platform-filter-list');
   var pendingPlatformFilters = [];
 
-  function renderPlatformFilterList() {
-    platformFilterListEl.innerHTML = PLATFORMS.map(function(p) {
+  function renderPlatformFilterList(filterText) {
+    var ft = (filterText || '').toLowerCase();
+    var items = PLATFORMS.filter(function(p) { return p.label.toLowerCase().indexOf(ft) > -1; });
+    platformFilterListEl.innerHTML = items.map(function(p) {
       var checked = pendingPlatformFilters.indexOf(p.key) > -1 ? 'checked' : '';
       return '<label class="genre-row"><input type="checkbox" value="' + p.key + '" ' + checked + '>' +
         '<span class="gname">' + p.label + '</span></label>';
-    }).join('');
+    }).join('') || '<div style="padding:14px;color:var(--text-faint);font-size:13px;">No matching platforms</div>';
   }
   document.getElementById('platform-filter-btn').addEventListener('click', function(e) {
     e.stopPropagation();
     pendingPlatformFilters = state.platforms.slice();
-    renderPlatformFilterList();
+    document.getElementById('platform-filter-search').value = '';
+    renderPlatformFilterList('');
     platformFilterPopover.classList.toggle('open');
   });
   document.addEventListener('click', function(e) {
@@ -1546,9 +1567,12 @@
     if (e.target.checked && idx === -1) pendingPlatformFilters.push(v);
     if (!e.target.checked && idx > -1) pendingPlatformFilters.splice(idx, 1);
   });
+  document.getElementById('platform-filter-search').addEventListener('input', function(e) {
+    renderPlatformFilterList(e.target.value);
+  });
   document.getElementById('platform-filter-clear-btn').addEventListener('click', function() {
     pendingPlatformFilters = [];
-    renderPlatformFilterList();
+    renderPlatformFilterList(document.getElementById('platform-filter-search').value);
   });
   document.getElementById('platform-filter-apply-btn').addEventListener('click', function() {
     state.platforms = pendingPlatformFilters.slice();
@@ -2318,12 +2342,14 @@
   var platEditListEl = document.getElementById('plat-edit-list');
   var platEditGameId = null;
 
-  function renderPlatEditList(g) {
-    platEditListEl.innerHTML = PLATFORMS.map(function(p) {
+  function renderPlatEditList(g, filterText) {
+    var ft = (filterText || '').toLowerCase();
+    var items = PLATFORMS.filter(function(p) { return p.label.toLowerCase().indexOf(ft) > -1; });
+    platEditListEl.innerHTML = items.map(function(p) {
       var checked = g.platforms.indexOf(p.key) > -1 ? 'checked' : '';
       return '<label class="genre-row"><input type="checkbox" value="' + p.key + '" ' + checked + '>' +
         '<span class="gname">' + p.label + '</span></label>';
-    }).join('');
+    }).join('') || '<div style="padding:14px;color:var(--text-faint);font-size:13px;">No matching platforms</div>';
   }
 
   function positionPlatEditPopover(triggerEl) {
@@ -2345,7 +2371,8 @@
 
   function openPlatEditPopover(triggerEl, g) {
     platEditGameId = g.id;
-    renderPlatEditList(g);
+    document.getElementById('plat-edit-search').value = '';
+    renderPlatEditList(g, '');
     platEditPopover.classList.add('open');
     positionPlatEditPopover(triggerEl);
   }
@@ -2382,6 +2409,12 @@
     if (state.platforms.length || state.sortKey === 'plat') {
       applyFilters();
     }
+  });
+  document.getElementById('plat-edit-search').addEventListener('input', function(e) {
+    if (platEditGameId == null) return;
+    var g = GAMES[platEditGameId];
+    if (!g) return;
+    renderPlatEditList(g, e.target.value);
   });
 
   var sentinel = document.getElementById('sentinel');
@@ -2476,7 +2509,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788894640', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788895288', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
