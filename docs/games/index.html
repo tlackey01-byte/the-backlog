@@ -198,6 +198,26 @@
   .stat.accent-hundred .num { color: var(--hundred); }
   .stat.accent-dnf .num { color: var(--dnf); }
 
+  /* Most stat boxes double as filter shortcuts (see the delegated click handler in the
+     script below) -- rendered as <button> rather than <div> for that reason, so this resets
+     the button-element defaults .stat's own rules above don't already cover. */
+  .stat.stat-clickable {
+    font: inherit;
+    text-align: left;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .stat.stat-clickable:hover, .stat.stat-clickable:focus-visible { background: var(--surface-2); }
+  /* The one stat box that isn't itself a button (it also hosts the platform <select>) --
+     only the number inside is clickable, filtering to whichever platform the select shows. */
+  .stat-platform-num-btn {
+    background: none; border: none; padding: 0; margin: 0; text-align: left;
+    font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .stat-platform-num-btn:hover .num, .stat-platform-num-btn:focus-visible .num { text-decoration: underline; }
+
   /* Stands in for the plain-text .label on the one configurable platform stat box, styled
      to match it as closely a <select> can (see .label above) so it doesn't stand out as an
      interactive control in an otherwise static-looking row until hovered/focused. */
@@ -1405,15 +1425,20 @@
   function platformStatCount(key) {
     return key === 'any' ? ownedGamesList().length : platformCountNow(key);
   }
+  // Every stat below except Time Played maps onto a single, discrete filter state this
+  // page already has (an ownership/progress value, or "clear everything") -- `filter` is
+  // that value, read back out by the delegated click handler below. Time Played has no
+  // such discrete counterpart (there's no "has recorded hours" toggle anywhere else in the
+  // UI), so it's left as a plain, non-clickable figure rather than inventing one.
   function buildStats() {
     var stats = [
-      { num: fmtInt(totalCount()), label: 'Total titles', cls: '' },
-      { num: fmtInt(ownedGamesList().length), label: 'Owned', cls: 'accent-owned', id: 'stat-owned' },
-      { num: fmtInt(wishlistCountNow()), label: 'Wishlist', cls: 'accent-wish', id: 'stat-wishlist' },
-      { num: fmtInt(countProgress('beaten')), label: 'Beaten', cls: 'accent-beaten', id: 'stat-beaten' },
-      { num: fmtInt(countProgress('100')), label: '100%’d', cls: 'accent-hundred', id: 'stat-hundred' },
-      { num: fmtInt(countProgress('dnf')), label: 'DNF', cls: 'accent-dnf', id: 'stat-dnf' },
-      { num: fmtInt(Math.round(backlogHours())) + 'h', label: 'Backlog hours', cls: 'accent-hours', id: 'stat-backlog-hours' },
+      { num: fmtInt(totalCount()), label: 'Total titles', cls: '', filter: 'total' },
+      { num: fmtInt(ownedGamesList().length), label: 'Owned', cls: 'accent-owned', id: 'stat-owned', filter: 'owned' },
+      { num: fmtInt(wishlistCountNow()), label: 'Wishlist', cls: 'accent-wish', id: 'stat-wishlist', filter: 'wishlist' },
+      { num: fmtInt(countProgress('beaten')), label: 'Beaten', cls: 'accent-beaten', id: 'stat-beaten', filter: 'beaten' },
+      { num: fmtInt(countProgress('100')), label: '100%’d', cls: 'accent-hundred', id: 'stat-hundred', filter: '100' },
+      { num: fmtInt(countProgress('dnf')), label: 'DNF', cls: 'accent-dnf', id: 'stat-dnf', filter: 'dnf' },
+      { num: fmtInt(Math.round(backlogHours())) + 'h', label: 'Backlog hours', cls: 'accent-hours', id: 'stat-backlog-hours', filter: 'backlog' },
       { num: fmtInt(Math.round(timePlayed())) + 'h', label: 'Time Played', cls: 'accent-beaten', id: 'stat-played-hours' }
     ];
     return stats;
@@ -1427,13 +1452,22 @@
   }
   function renderStats() {
     var html = buildStats().map(function(s) {
-      return '<div class="stat ' + s.cls + '"><span class="num" ' + (s.id ? 'id="' + s.id + '-num"' : '') + '>' + s.num + '</span><span class="label">' + s.label + '</span></div>';
+      var numSpan = '<span class="num" ' + (s.id ? 'id="' + s.id + '-num"' : '') + '>' + s.num + '</span>';
+      var labelSpan = '<span class="label">' + s.label + '</span>';
+      if (s.filter) {
+        return '<button type="button" class="stat stat-clickable ' + s.cls + '" data-stat-filter="' + s.filter + '">' + numSpan + labelSpan + '</button>';
+      }
+      return '<div class="stat ' + s.cls + '">' + numSpan + labelSpan + '</div>';
     }).join('');
     // One configurable box replaces the old one-card-per-platform strip -- with 16 platforms
     // now defined, showing all of them at once no longer fit "at a glance" the way the rest
-    // of this row does. The select stands in for the plain-text .label the other cards use.
+    // of this row does. The select stands in for the plain-text .label the other cards use;
+    // the number itself is a separate clickable control that filters to whichever platform
+    // the select currently shows (see the delegated click handler below).
     html += '<div class="stat" id="stat-platform">' +
-      '<span class="num" id="stat-platform-num">' + fmtInt(platformStatCount(platformStatKey)) + '</span>' +
+      '<button type="button" class="stat-platform-num-btn" id="stat-platform-num-btn" data-stat-filter="platform" aria-label="Filter to this platform">' +
+        '<span class="num" id="stat-platform-num">' + fmtInt(platformStatCount(platformStatKey)) + '</span>' +
+      '</button>' +
       '<select class="stat-platform-select" id="stat-platform-select" aria-label="Platform for this stat">' + platformStatOptionsHtml() + '</select>' +
     '</div>';
     statsEl.innerHTML = html;
@@ -1443,6 +1477,29 @@
     });
   }
   renderStats();
+  // Delegated on the (never-recreated) container rather than the buttons themselves, since
+  // renderStats() replaces those wholesale on every deletion/theme-of-stats refresh.
+  statsEl.addEventListener('click', function(e) {
+    var btn = e.target.closest('[data-stat-filter]');
+    if (!btn) return;
+    var f = btn.getAttribute('data-stat-filter');
+    if (f === 'total') {
+      resetFilters();
+      return;
+    }
+    if (f === 'owned' || f === 'wishlist') {
+      state.status = f;
+      statusMiniEl.value = f;
+    } else if (f === 'beaten' || f === '100' || f === 'dnf' || f === 'backlog') {
+      state.progress = f;
+      setSeg('progress-seg', f);
+    } else if (f === 'platform') {
+      state.platforms = platformStatKey === 'any' ? [] : [platformStatKey];
+      updatePlatformFilterButton();
+    }
+    renderChips();
+    applyFilters();
+  });
   function refreshProgressStats() {
     var beatenEl = document.getElementById('stat-beaten-num');
     var hundredEl = document.getElementById('stat-hundred-num');
@@ -1838,7 +1895,7 @@
     });
   }
 
-  document.getElementById('clear-all').addEventListener('click', function() {
+  function resetFilters() {
     state.q = ''; state.status = 'all'; state.platforms = []; state.progress = 'all'; state.genres = [];
     state.hoursBucket = null;
     state.ratingFilter = null;
@@ -1849,7 +1906,8 @@
     updateGenreButton();
     renderChips();
     applyFilters();
-  });
+  }
+  document.getElementById('clear-all').addEventListener('click', resetFilters);
 
   // ---- Filtering + sorting ----
   function computeFiltered() {
@@ -2599,7 +2657,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788897224', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788897578', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
