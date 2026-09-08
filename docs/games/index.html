@@ -2148,6 +2148,7 @@
       : '<span class="g-chip" style="color:var(--text-faint);">Genre unknown</span>';
 
     var fieldsHtml = '<div class="detail-fields">' +
+        '<div class="field"><label>Platform</label>' + platformControl(g) + '</div>' +
         '<div class="field"><label>Progress</label>' + progressControl(g) + '</div>' +
         '<div class="field"><label>Rating</label>' + ratingControl(g) + '</div>' +
         '<div class="field"><label>Hours Played</label>' + playedControl(g) + '</div>' +
@@ -2173,7 +2174,6 @@
           '<h1 class="detail-title">' + escHtml(g.name) + '</h1>' +
           '<div class="detail-badges">' +
             ownedControl(g) +
-            platformControl(g) +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -2606,7 +2606,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788895992', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788896203', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
