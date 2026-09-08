@@ -278,6 +278,10 @@
     outline: none;
     cursor: pointer;
   }
+  /* Hours basis / Hours to beat / Rating -- the three toolbar filter dropdowns
+     specifically, kept deliberately more compact than the base `select` size above so
+     the filter row takes up less vertical/horizontal space overall. */
+  .filter-select { padding: 5px 7px; font-size: 13px; }
 
   .btn {
     font-family: var(--font-body);
@@ -406,6 +410,13 @@
   tbody tr:hover td { background: var(--surface-2); }
   td.num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-muted); }
   td.num.basis { color: var(--text); font-weight: 600; }
+  /* Card view's equivalent of td.num.basis above -- the table highlights the selected
+     basis by making its column's normally-muted text full-color+bold; cards need their
+     own version since .card-meta already bolds every hours number's <b> the same way
+     regardless of basis, so nothing there previously distinguished the selected one at
+     all when this class was never applied. */
+  .card-meta .basis { color: var(--accent); }
+  .card-meta .basis b { color: var(--accent); }
 
   .played-input {
     width: 68px;
@@ -875,7 +886,7 @@
 
     <div class="field">
       <label>Hours basis</label>
-      <select id="hours-basis">
+      <select id="hours-basis" class="filter-select">
         <option value="m">Main Story</option>
         <option value="e" selected>Main + Extra</option>
         <option value="c">Completionist</option>
@@ -884,7 +895,7 @@
 
     <div class="field">
       <label>Hours to beat</label>
-      <select id="hours-filter">
+      <select id="hours-filter" class="filter-select">
         <option value="">Any length</option>
         <option value="0">Under 2 hours</option>
         <option value="1">2-10 Hours</option>
@@ -898,7 +909,7 @@
 
     <div class="field">
       <label>Rating</label>
-      <select id="rating-filter">
+      <select id="rating-filter" class="filter-select">
         <option value="">Any rating</option>
       </select>
     </div>
@@ -1748,6 +1759,7 @@
       '</tr>';
   }
   function cardHtml(g) {
+    var basis = state.hoursBasis;
     var tagStr = g.genres.slice(0, 4).join(' · ') || 'Genre unknown';
     return '<div class="card">' +
       '<div class="card-top">' +
@@ -1759,9 +1771,9 @@
       '<div class="card-meta">' +
         '<span style="display:flex;align-items:center;gap:5px;">Rating ' + ratingControl(g) + '</span>' +
         '<span style="display:flex;align-items:center;gap:5px;">Played ' + playedControl(g) + 'h</span>' +
-        '<span>Main <b>' + fmtHours(g.main) + 'h</b></span>' +
-        '<span>+Extra <b>' + fmtHours(g.extra) + 'h</b></span>' +
-        '<span>Complete <b>' + fmtHours(g.completionist) + 'h</b></span>' +
+        '<span class="' + (basis === 'm' ? 'basis' : '') + '">Main <b>' + fmtHours(g.main) + 'h</b></span>' +
+        '<span class="' + (basis === 'e' ? 'basis' : '') + '">+Extra <b>' + fmtHours(g.extra) + 'h</b></span>' +
+        '<span class="' + (basis === 'c' ? 'basis' : '') + '">Complete <b>' + fmtHours(g.completionist) + 'h</b></span>' +
       '</div>' +
     '</div>';
   }
@@ -2324,7 +2336,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788889244', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788890038', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
