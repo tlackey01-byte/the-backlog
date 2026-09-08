@@ -18,6 +18,15 @@ What it does:
    template/logic edit, a CSS tweak -- all of it changes this hash). Always run this
    through build.py rather than hand-editing CACHE_NAME; a manual bump is easy to forget
    and was exactly how a real page fix once shipped invisibly to already-visited devices.
+5. Appends a fresh ?v=<timestamp> to the service worker registration URL in both pages.
+   GitHub Pages serves everything, sw.js included, with Cache-Control: max-age=600 and
+   there's no way to override that on GitHub Pages (no custom response headers) -- so for
+   up to 10 minutes after a deploy, a browser's own HTTP cache (a separate, lower-level
+   thing from the Cache Storage API CACHE_NAME above) can hand back stale bytes when it
+   checks sw.js for updates, and neither a soft nor a hard refresh reliably works around
+   that since it's the background update-check fetch that's affected, not the page
+   navigation itself. A version query string makes that fetch a different URL every
+   deploy, which the 600s cache can never have a hit for.
 
 games_template.html *is* the deployed games page's structure and logic (Firebase login
 gate, saveState()/onSnapshot wiring, the deletion banner, etc.) -- edit it, never
@@ -32,6 +41,7 @@ import hashlib
 import json
 import os
 import re
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MASTER_PATH = os.path.join(HERE, "master_games_final.json")
@@ -85,6 +95,24 @@ def build_games_page(compact_json_str):
     print(f"Wrote games page -> {GAMES_PAGE_OUT_PATH}")
 
 
+SW_REGISTRATION_PATTERN = re.compile(r"register\('/the-backlog/sw\.js(?:\?v=\d+)?'")
+
+
+def bump_sw_registration_version():
+    version = str(int(time.time()))
+    replacement = "register('/the-backlog/sw.js?v=%s'" % version
+    for path in (TEMPLATE_PATH, HOMEPAGE_PATH):
+        with open(path, encoding="utf-8") as f:
+            content = f.read()
+        new_content, count = SW_REGISTRATION_PATTERN.subn(replacement, content)
+        if count != 1:
+            raise RuntimeError("Could not find service worker registration in " + path)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(new_content)
+    print(f"Bumped service worker registration cache-buster -> ?v={version}")
+    return version
+
+
 def update_service_worker_cache_name():
     shell_paths = [GAMES_PAGE_OUT_PATH, HOMEPAGE_PATH, BASE_CSS_PATH, FIREBASE_INIT_PATH, PULL_TO_REFRESH_PATH]
     h = hashlib.sha256()
@@ -109,6 +137,7 @@ def update_service_worker_cache_name():
 
 
 if __name__ == "__main__":
+    bump_sw_registration_version()
     compact = build_compact()
     with open(COMPACT_PATH, encoding="utf-8") as f:
         compact_json_str = f.read()
