@@ -884,12 +884,16 @@
 
     <div class="field">
       <label>Hours to beat</label>
-      <div class="hours-range">
-        <input type="number" id="hours-min" min="0" placeholder="0">
-        <span class="to">–</span>
-        <input type="number" id="hours-max" min="0" placeholder="max">
-        <span class="to" id="hours-cap"></span>
-      </div>
+      <select id="hours-filter">
+        <option value="">Any length</option>
+        <option value="0">Under 2 hours</option>
+        <option value="1">2-10 Hours</option>
+        <option value="2">10-20 Hours</option>
+        <option value="3">20-40 Hours</option>
+        <option value="4">40-100 Hours</option>
+        <option value="5">100-150 Hours</option>
+        <option value="6">150+</option>
+      </select>
     </div>
 
     <div class="field">
@@ -1348,19 +1352,11 @@
     progress: 'all',
     genres: [],
     hoursBasis: 'e',
-    hoursMin: null,
-    hoursMax: null,
+    hoursBucket: null,
     ratingFilter: null,
     sortKey: 'n',
     sortDir: 'asc'
   };
-  var maxHoursByBasis = { m: 0, e: 0, c: 0 };
-  GAMES.forEach(function(g) {
-    ['m','e','c'].forEach(function(k){
-      var v = k === 'm' ? g.main : k === 'e' ? g.extra : g.completionist;
-      if (v != null && v > maxHoursByBasis[k]) maxHoursByBasis[k] = v;
-    });
-  });
 
   var PROGRESS_LABEL = { backlog: 'Backlog', dnf: 'DNF', beaten: 'Beaten', '100': '100%' };
   var PROGRESS_RANK = { backlog: 0, dnf: 1, beaten: 2, '100': 3 };
@@ -1369,6 +1365,20 @@
   // single source of truth shared by the per-game rating dropdown and the filter dropdown.
   var RATING_VALUES = [];
   for (var ratingStep = 20; ratingStep >= 0; ratingStep--) RATING_VALUES.push(ratingStep / 2);
+  // Preset length buckets for the "Hours to beat" filter -- max: null means no upper
+  // bound. Each game's Main+Extra hours (g.extra) is what's checked against these,
+  // regardless of whatever the separate "Hours basis" selector is set to display/sort by
+  // in the table -- that basis only ever affects which hours column is highlighted there,
+  // never what this filter actually filters on.
+  var HOURS_BUCKETS = [
+    { label: 'Under 2 hours', min: 0, max: 2 },
+    { label: '2-10 Hours', min: 2, max: 10 },
+    { label: '10-20 Hours', min: 10, max: 20 },
+    { label: '20-40 Hours', min: 20, max: 40 },
+    { label: '40-100 Hours', min: 40, max: 100 },
+    { label: '100-150 Hours', min: 100, max: 150 },
+    { label: '150+', min: 150, max: null }
+  ];
 
   var renderBatchSize = 60;
   var renderedCount = 0;
@@ -1490,38 +1500,22 @@
   });
 
   // ---- Hours ----
+  // hoursBasisEl only ever controls which hours column is bolded/highlighted in the
+  // table (see rowHtml()'s use of state.hoursBasis) -- it's unrelated to hoursFilterEl
+  // below, which always filters on Main+Extra regardless of this selector.
   var hoursBasisEl = document.getElementById('hours-basis');
-  var hoursMinEl = document.getElementById('hours-min');
-  var hoursMaxEl = document.getElementById('hours-max');
-  var hoursCapEl = document.getElementById('hours-cap');
-
-  function refreshHoursCap() {
-    var cap = maxHoursByBasis[state.hoursBasis];
-    hoursCapEl.textContent = 'of ~' + fmtHours(cap) + 'h max';
-    hoursMinEl.placeholder = '0';
-    hoursMaxEl.placeholder = fmtHours(cap);
-  }
   hoursBasisEl.addEventListener('change', function(e) {
     state.hoursBasis = e.target.value;
-    refreshHoursCap();
+    applyFilters();
+  });
+
+  var hoursFilterEl = document.getElementById('hours-filter');
+  hoursFilterEl.addEventListener('change', function() {
+    var v = hoursFilterEl.value === '' ? null : parseInt(hoursFilterEl.value, 10);
+    state.hoursBucket = (v != null && !isNaN(v)) ? v : null;
     renderChips();
     applyFilters();
   });
-  var hoursDebounce;
-  function onHoursInput() {
-    clearTimeout(hoursDebounce);
-    hoursDebounce = setTimeout(function() {
-      var minV = hoursMinEl.value === '' ? null : parseFloat(hoursMinEl.value);
-      var maxV = hoursMaxEl.value === '' ? null : parseFloat(hoursMaxEl.value);
-      state.hoursMin = (minV != null && !isNaN(minV)) ? minV : null;
-      state.hoursMax = (maxV != null && !isNaN(maxV)) ? maxV : null;
-      renderChips();
-      applyFilters();
-    }, 250);
-  }
-  hoursMinEl.addEventListener('input', onHoursInput);
-  hoursMaxEl.addEventListener('input', onHoursInput);
-  refreshHoursCap();
 
   // ---- Rating filter ---- "X" means "rated X or higher" (a minimum threshold), not an
   // exact match -- options are populated from RATING_VALUES so this list can never drift
@@ -1589,10 +1583,9 @@
         updateGenreButton();
       }});
     });
-    if (state.hoursMin != null || state.hoursMax != null) {
-      var basisName = { m: 'Main', e: 'Main+Extra', c: 'Completionist' }[state.hoursBasis];
-      chips.push({ label: basisName + ': ' + (state.hoursMin != null ? state.hoursMin : 0) + '–' + (state.hoursMax != null ? state.hoursMax : '∞') + 'h', clear: function(){
-        state.hoursMin = null; state.hoursMax = null; hoursMinEl.value = ''; hoursMaxEl.value = '';
+    if (state.hoursBucket != null) {
+      chips.push({ label: HOURS_BUCKETS[state.hoursBucket].label, clear: function(){
+        state.hoursBucket = null; hoursFilterEl.value = '';
       }});
     }
     if (state.ratingFilter != null) {
@@ -1622,10 +1615,10 @@
 
   document.getElementById('clear-all').addEventListener('click', function() {
     state.q = ''; state.status = 'all'; state.platforms = []; state.progress = 'all'; state.genres = [];
-    state.hoursMin = null; state.hoursMax = null;
+    state.hoursBucket = null;
     state.ratingFilter = null;
     document.getElementById('search').value = '';
-    hoursMinEl.value = ''; hoursMaxEl.value = '';
+    hoursFilterEl.value = '';
     ratingFilterEl.value = '';
     setSeg('status-seg','all'); renderPlatformSeg(); setSeg('progress-seg','all');
     updateGenreButton();
@@ -1634,13 +1627,7 @@
   });
 
   // ---- Filtering + sorting ----
-  function hoursVal(g, basis) {
-    return basis === 'm' ? g.main : basis === 'e' ? g.extra : g.completionist;
-  }
-
   function computeFiltered() {
-    var basis = state.hoursBasis;
-    var useHoursFilter = state.hoursMin != null || state.hoursMax != null;
     var list = GAMES.filter(function(g) {
       if (g.deleted) return false;
       if (state.q && g.name.toLowerCase().indexOf(state.q) === -1) return false;
@@ -1652,11 +1639,12 @@
         var has = g.genres.some(function(gt) { return state.genres.indexOf(gt) > -1; });
         if (!has) return false;
       }
-      if (useHoursFilter) {
-        var v = hoursVal(g, basis);
-        if (v == null) return false;
-        if (state.hoursMin != null && v < state.hoursMin) return false;
-        if (state.hoursMax != null && v > state.hoursMax) return false;
+      if (state.hoursBucket != null) {
+        var bucket = HOURS_BUCKETS[state.hoursBucket];
+        var hv = g.extra; // always Main+Extra, regardless of the "Hours basis" selector
+        if (hv == null) return false;
+        if (hv < bucket.min) return false;
+        if (bucket.max != null && hv >= bucket.max) return false;
       }
       if (state.ratingFilter != null && (g.rating == null || g.rating < state.ratingFilter)) return false;
       return true;
@@ -2336,7 +2324,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788888824', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788889244', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
