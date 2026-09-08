@@ -587,10 +587,16 @@
   .journal-ts-time-label {
     font-family: var(--font-mono); font-weight: 600; color: var(--text); margin-right: 8px;
   }
-  /* Composing time stamps in the "new entry" modal, before the entry itself is saved. */
-  .journal-ts-row { display: flex; gap: 8px; }
-  .journal-ts-time-field { flex: 0 0 92px; font-family: var(--font-mono); }
-  .journal-ts-row input:not(.journal-ts-time-field) { flex: 1 1 auto; min-width: 0; }
+  /* Composing time stamps in the "new entry" modal, before the entry itself is saved.
+     Time stacks above the (larger) description field rather than sitting side by side --
+     a time code only ever needs a few characters, so giving it equal width to the
+     description just wasted the room the description actually needs. */
+  .journal-ts-time-field {
+    width: 84px; font-family: var(--font-mono); display: block; margin-bottom: 8px;
+  }
+  .journal-ts-desc-field {
+    width: 100%; display: block; margin-bottom: 10px; min-height: 64px;
+  }
   .journal-ts-preview {
     list-style: none; margin: 10px 0 0; padding: 0;
     display: flex; flex-direction: column; gap: 6px;
@@ -1716,7 +1722,7 @@
     var listHtml = entries.map(journalEntryHtml).join('');
     return '<div class="detail-journal" id="journal-section" data-name="' + escHtml(g.name) + '">' +
       '<div class="detail-journal-head">' +
-        '<h2 class="detail-journal-title">Journal</h2>' +
+        '<h2 class="detail-journal-title">Journal Entries</h2>' +
         '<button class="btn" type="button" id="journal-add-btn">+ Add Entry</button>' +
       '</div>' +
       '<div class="journal-modal-overlay" id="journal-form" hidden>' +
@@ -1729,11 +1735,9 @@
           '<div class="field"><label>Summary</label><textarea id="journal-summary-input" rows="4" placeholder="What happened..."></textarea></div>' +
           '<div class="field">' +
             '<label>Time Stamps</label>' +
-            '<div class="journal-ts-row">' +
-              '<input type="text" id="journal-ts-time-input" class="journal-ts-time-field" placeholder="12:34">' +
-              '<input type="text" id="journal-ts-desc-input" placeholder="What happens here...">' +
-              '<button type="button" class="btn" id="journal-ts-add-btn">Add</button>' +
-            '</div>' +
+            '<input type="text" id="journal-ts-time-input" class="journal-ts-time-field" placeholder="12:34">' +
+            '<textarea id="journal-ts-desc-input" class="journal-ts-desc-field" rows="2" placeholder="What happened..."></textarea>' +
+            '<button type="button" class="btn" id="journal-ts-add-btn">Add Time Stamp</button>' +
             '<ul class="journal-ts-preview" id="journal-ts-preview"></ul>' +
           '</div>' +
           '<div class="journal-form-actions">' +
