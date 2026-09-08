@@ -1016,8 +1016,8 @@
             <th data-sort="n" class="sorted">Title <span class="arrow">▲</span></th>
             <th data-sort="genre">Genre <span class="arrow">▲</span></th>
             <th data-sort="status">Owned <span class="arrow">▲</span></th>
-            <th data-sort="progress">Progress <span class="arrow">▲</span></th>
             <th data-sort="plat">Platform <span class="arrow">▲</span></th>
+            <th data-sort="progress">Progress <span class="arrow">▲</span></th>
             <th data-sort="rating" class="num">Rating <span class="arrow">▼</span></th>
             <th data-sort="played" class="num">Played <span class="arrow">▼</span></th>
             <th data-sort="m" class="num">Main <span class="arrow">▼</span></th>
@@ -1963,8 +1963,8 @@
       '<td class="name-cell"><button class="game-link" data-open="' + g.id + '">' + escHtml(g.name) + '</button></td>' +
       '<td style="color:var(--text-muted);font-size:12.5px;">' + escHtml(tagStr) + '</td>' +
       '<td>' + ownedControl(g) + '</td>' +
-      '<td>' + progressControl(g) + '</td>' +
       '<td>' + platformControl(g) + '</td>' +
+      '<td>' + progressControl(g) + '</td>' +
       '<td class="num">' + ratingControl(g) + '</td>' +
       '<td class="num">' + playedControl(g) + '</td>' +
       '<td class="num ' + (basis === 'm' ? 'basis' : '') + '">' + fmtHours(g.main) + '</td>' +
@@ -2606,7 +2606,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788896589', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788896882', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
