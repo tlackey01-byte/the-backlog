@@ -553,8 +553,12 @@
      triggers iOS Safari's auto-zoom on focus (the same rule the mobile media query below
      sets for inputs generally -- this class-selector override was specific enough to have
      been silently winning over it and undoing the fix for this one input specifically). */
-  .card-meta .played-input { width: 38px; padding: 2px 3px; font-size: 16px; }
-  .card-meta .rating-input { width: 44px; padding: 2px 15px 2px 3px; font-size: 12.5px; background-position: right 5px top 55%, right 1px top 55%; }
+  /* Text-align left + zeroed left padding on both so their digits start flush with the
+     grid cell's left edge, lining up with the plain-text Main/+Extra/Complete HLTB values
+     beside them (.card-stat-value has no padding of its own) instead of played-input's
+     inherited text-align:right or rating-input's small left inset. */
+  .card-meta .played-input { width: 38px; padding: 2px 3px 2px 0; text-align: left; font-size: 16px; }
+  .card-meta .rating-input { width: 44px; padding: 2px 15px 2px 0; text-align: left; font-size: 12.5px; background-position: right 5px top 55%, right 1px top 55%; }
   td.name-cell { font-weight: 600; max-width: 340px; }
   td.name-cell .gtags { font-weight: 400; color: var(--text-faint); font-size: 14.5px; margin-top: 2px; white-space: normal; }
 
@@ -778,6 +782,7 @@
   .progress-select.p-dnf { background-color: var(--dnf-ink); color: var(--dnf); }
   .status-select.owned { background-color: var(--owned-ink); color: var(--owned); }
   .status-select.wishlist { background-color: var(--surface-3); color: var(--text-faint); }
+  .status-select { text-align: center; }
   .progress-select:focus, .status-select:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
 
   /* Trigger button for the per-game platform editor popover -- opens the shared
