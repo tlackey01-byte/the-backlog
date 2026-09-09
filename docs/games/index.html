@@ -564,7 +564,11 @@
      .card-top-controls) -- CSS grid stretches every .card-meta cell to match its tallest
      sibling, so that floor was forcing all five stat cells to ~57px when the plain-text
      ones only need ~30px. */
-  .card-meta .played-input { width: 38px; padding: 2px 3px 2px 0; text-align: left; font-size: 16px; min-height: 0; }
+  /* line-height: normal (the UA default for inputs, not inherited from body's 1.5) renders
+     ~4-5px taller than .card-stat-value's text at this required 16px font-size, so even
+     with matching top edges the digit's visual center sits noticeably lower than the
+     HLTB values beside it -- line-height:1 brings the box down to line up with them. */
+  .card-meta .played-input { width: 38px; padding: 1px 3px 1px 0; text-align: left; font-size: 16px; line-height: 1; min-height: 0; }
   .card-meta .rating-input { width: 44px; padding: 2px 15px 2px 0; text-align: left; font-size: 12.5px; background-position: right 5px top 55%, right 1px top 55%; min-height: 0; }
   td.name-cell { font-weight: 600; max-width: 340px; }
   td.name-cell .gtags { font-weight: 400; color: var(--text-faint); font-size: 14.5px; margin-top: 2px; white-space: normal; }
