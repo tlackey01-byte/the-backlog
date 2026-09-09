@@ -807,6 +807,11 @@
   }
   .plat-trigger-btn:hover { border-color: var(--border-strong); background-color: var(--surface-3); }
   .plat-trigger-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* In the table's Platform column, pin the trigger button to the Owned column's
+     .status-select width (a native <select> sizes itself to its widest option, "Wishlist",
+     which renders ~117px here) so both columns read as evenly sized pills regardless of how
+     many platforms a given row lists -- the existing ellipsis above absorbs the overflow. */
+  .table-shell .plat-trigger-btn { width: 117px; }
   .plat-trigger-btn.has-value { color: var(--text); }
 
   /* Overrides .popover's default `position: absolute` (which anchors to a .popover-wrap
