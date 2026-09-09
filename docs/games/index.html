@@ -850,11 +850,10 @@
     .card-top-controls { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; max-width: 56%; }
     .card-title { font-weight: 700; font-size: 18.5px; }
     .card-tags { color: var(--text-faint); font-size: 14px; margin-top: 4px; }
-    /* Ownership toggle: a small pill under the genre tags, always labeled "Owned" -- solid
-       fill means owned; wishlisted is just a colored outline with no fill (var(--accent),
+    /* Ownership toggle: a small pill under the genre tags, labeled "Owned" or "Unowned" --
+       solid fill means owned; wishlisted is just a colored outline with no fill (var(--accent),
        the app's orange -- the same color +Extra's hours turn when it's the selected basis),
-       reading as a lighter-weight "not yet" state rather than a plain button, so the two
-       states read at a glance without needing two different words. */
+       reading as a lighter-weight "not yet" state rather than a plain button. */
     .owned-badge {
       display: inline-block;
       margin-top: 6px;
@@ -1377,6 +1376,7 @@
     });
     Array.prototype.forEach.call(document.querySelectorAll('.owned-badge[data-id="' + g.id + '"]'), function(el) {
       el.classList.toggle('wishlist', !g.owned);
+      el.textContent = g.owned ? 'Owned' : 'Unowned';
       el.setAttribute('aria-label', 'Ownership for ' + g.name + ': ' + (g.owned ? 'Owned' : 'Wishlist') + ' -- tap to toggle');
     });
   }
@@ -2113,11 +2113,10 @@
       '</select>';
   }
   // Card view's compact stand-in for ownedControl() -- a single toggle badge under the
-  // cover instead of a dropdown. The label always reads "Owned"; only the fill communicates
-  // which state it's in (solid = owned, translucent = wishlist) rather than the text itself
-  // changing, so tapping it never involves reading two different words.
+  // cover instead of a dropdown. Reads "Owned" or "Unowned" depending on state, and the
+  // fill reinforces it (solid = owned, translucent = wishlist/unowned).
   function ownedBadgeHtml(g) {
-    return '<button type="button" class="owned-badge' + (g.owned ? '' : ' wishlist') + '" data-id="' + g.id + '" aria-label="Ownership for ' + escHtml(g.name) + ': ' + (g.owned ? 'Owned' : 'Wishlist') + ' -- tap to toggle">Owned</button>';
+    return '<button type="button" class="owned-badge' + (g.owned ? '' : ' wishlist') + '" data-id="' + g.id + '" aria-label="Ownership for ' + escHtml(g.name) + ': ' + (g.owned ? 'Owned' : 'Wishlist') + ' -- tap to toggle">' + (g.owned ? 'Owned' : 'Unowned') + '</button>';
   }
   function progressClass(p) { return p === 'beaten' ? 'p-beaten' : p === '100' ? 'p-hundred' : p === 'dnf' ? 'p-dnf' : p === 'playing' ? 'p-playing' : 'p-backlog'; }
   function progressControl(g) {
