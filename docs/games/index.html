@@ -817,6 +817,10 @@
      which renders ~117px here) so both columns read as evenly sized pills regardless of how
      many platforms a given row lists -- the existing ellipsis above absorbs the overflow. */
   .table-shell .plat-trigger-btn { width: 117px; }
+  /* Same fix as .table-shell above, for the card layout's own pairing: the trigger button
+     sits beside .progress-select there instead of .status-select, and at the card
+     breakpoint's font-size/padding that select renders ~118px wide. */
+  .card-top-controls .plat-trigger-btn { width: 118px; }
   .plat-trigger-btn.has-value { color: var(--text); }
 
   /* Overrides .popover's default `position: absolute` (which anchors to a .popover-wrap
