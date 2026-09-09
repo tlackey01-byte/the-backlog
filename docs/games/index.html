@@ -498,7 +498,12 @@
      basis, so nothing there would otherwise distinguish the selected one at all. */
   .card-stat.basis .card-stat-value { color: var(--accent); }
 
-  .played-input {
+  /* input[type="number"] (above) sets a 9px 11px padding at 0,1,1 specificity, which beats
+     a bare .played-input class rule (0,1,0) regardless of source order -- "input" here ties
+     that specificity so this rule's later position in the file wins instead. Kept at exactly
+     0,1,1 (not [type="number"].played-input's 0,2,1) so it still loses, as intended, to the
+     0,2,0 .card-meta/.detail-fields overrides below. */
+  input.played-input {
     width: 68px;
     font-family: var(--font-mono);
     font-size: 15px;
@@ -507,7 +512,7 @@
     border: 1px solid transparent;
     border-radius: var(--radius-s);
     color: var(--text-faint);
-    padding: 6px 7px;
+    padding: 2px 7px;
     outline: none;
     font-variant-numeric: tabular-nums;
     transition: border-color .15s ease, background .15s ease, color .15s ease;
