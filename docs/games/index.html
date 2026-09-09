@@ -556,9 +556,13 @@
   /* Text-align left + zeroed left padding on both so their digits start flush with the
      grid cell's left edge, lining up with the plain-text Main/+Extra/Complete HLTB values
      beside them (.card-stat-value has no padding of its own) instead of played-input's
-     inherited text-align:right or rating-input's small left inset. */
-  .card-meta .played-input { width: 38px; padding: 2px 3px 2px 0; text-align: left; font-size: 16px; }
-  .card-meta .rating-input { width: 44px; padding: 2px 15px 2px 0; text-align: left; font-size: 12.5px; background-position: right 5px top 55%, right 1px top 55%; }
+     inherited text-align:right or rating-input's small left inset. min-height:0 undoes the
+     mobile 38px touch-target floor below (meant for the larger controls up in
+     .card-top-controls) -- CSS grid stretches every .card-meta cell to match its tallest
+     sibling, so that floor was forcing all five stat cells to ~57px when the plain-text
+     ones only need ~30px. */
+  .card-meta .played-input { width: 38px; padding: 2px 3px 2px 0; text-align: left; font-size: 16px; min-height: 0; }
+  .card-meta .rating-input { width: 44px; padding: 2px 15px 2px 0; text-align: left; font-size: 12.5px; background-position: right 5px top 55%, right 1px top 55%; min-height: 0; }
   td.name-cell { font-weight: 600; max-width: 340px; }
   td.name-cell .gtags { font-weight: 400; color: var(--text-faint); font-size: 14.5px; margin-top: 2px; white-space: normal; }
 
