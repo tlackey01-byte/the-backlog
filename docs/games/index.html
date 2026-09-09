@@ -844,7 +844,7 @@
     .sort-control { display: flex; }
     .card {
       background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-m);
-      padding: 14px; box-shadow: var(--shadow);
+      padding: 10px; box-shadow: var(--shadow);
       /* An unfiltered list keeps appending 60-card batches as you scroll toward the
          bottom (see the sentinel/IntersectionObserver below), so a long scroll session
          can leave thousands of cards in the DOM. content-visibility skips layout/paint
@@ -855,7 +855,7 @@
       content-visibility: auto;
       contain-intrinsic-size: auto 150px;
     }
-    .card-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+    .card-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
     .card-top-text { flex: 1; min-width: 0; }
     /* Progress and Platform stack together on the top row, right-aligned next to the
        cover/title -- Progress directly above Platform. */
@@ -871,7 +871,7 @@
        reading as a lighter-weight "not yet" state rather than a plain button. */
     .owned-badge {
       display: inline-block;
-      margin-top: 6px;
+      margin-top: 4px;
       font-family: var(--font-body);
       font-size: 10px;
       font-weight: 700;
@@ -897,9 +897,9 @@
     .card-meta {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
-      gap: 10px 12px;
-      margin-top: 10px;
-      padding-top: 10px;
+      gap: 6px 12px;
+      margin-top: 8px;
+      padding-top: 8px;
       border-top: 1px solid var(--border);
     }
     .card-stat { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
