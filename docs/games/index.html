@@ -447,7 +447,10 @@
      since that's what leaves mobile with no other way to change sort. */
   .sort-control { display: none; align-items: center; gap: 6px; }
   .sort-control select { width: auto; }
-  .sort-dir-btn { padding: 5px 10px; font-size: 15px; line-height: 1; }
+  /* base.css's shared mobile touch-target rule (`.btn { min-height: 44px }` under
+     max-width:720px) is meant for the toolbar's normal-sized buttons -- it was quietly
+     inflating this one well past the compact .filter-select it sits beside. */
+  .sort-dir-btn { padding: 7px 10px; font-size: 15px; line-height: 1; min-height: 0; }
 
   /* ---------- Table ---------- */
   .table-shell {
