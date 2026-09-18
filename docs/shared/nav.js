@@ -2,13 +2,16 @@
 //
 // SECTIONS is the one place sections are declared. To launch a new section: build its
 // page, then flip `enabled` to true here -- every page's navigation picks it up with no
-// layout changes. Phones get a bottom tab bar (one equal-width slot per enabled section,
-// so 2 or 5 tabs lay out the same way); wide screens get the same list as inline links in
-// the header's #section-nav-slot. Both stay hidden while only one section is enabled,
-// since a one-tab bar is just noise.
+// layout changes.
+//
+// - Wide screens (>=1100px) get a left sidebar: brand, Home, then every section.
+//   Sections not built yet show dimmed with a "Soon" tag and aren't clickable.
+// - Phones get a bottom tab bar (one equal-width slot per *enabled* section), shown only
+//   once 2+ sections are enabled, since a one-tab bar is just noise.
 //
 // Usage: <script src="<root>shared/nav.js" data-active="games" data-root="../"></script>
-// (data-root is the path from the page back to the site root, "" on the homepage).
+// (data-active is the section key, "" on the homepage; data-root is the path from the page
+// back to the site root, "" on the homepage).
 (function () {
   "use strict";
 
@@ -21,6 +24,8 @@
   ];
 
   var ICON_PATHS = {
+    home: '<path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/>',
+    panel: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
     game: '<rect x="2.5" y="7" width="19" height="11" rx="5.5"/><path d="M7.5 11v3M6 12.5h3"/><circle cx="15.5" cy="12" r=".9"/><circle cx="17.8" cy="14" r=".9"/>',
     book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/>',
     film: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>',
@@ -38,23 +43,64 @@
 
   window.BacklogNav = { SECTIONS: SECTIONS, icon: icon };
 
+  // Collapsed/expanded sidebar is a per-device preference. Applied right away (this script
+  // runs before first paint) so the page never flashes the other width on load.
+  var COLLAPSE_KEY = "backlog-sidenav-collapsed";
+  var collapsed = false;
+  try { collapsed = localStorage.getItem(COLLAPSE_KEY) === "1"; } catch (e) {}
+  if (document.body) document.body.classList.toggle("sidenav-collapsed", collapsed);
+
+  function sideItem(href, label, iconName, isActive, enabled) {
+    if (!enabled) {
+      return '<span class="side-link disabled" aria-disabled="true" title="' + label + ' (coming soon)">' + icon(iconName, 20) +
+        '<span class="side-label">' + label + '</span><span class="side-soon">Soon</span></span>';
+    }
+    return '<a class="side-link' + (isActive ? " active" : "") + '" href="' + href + '" title="' + label + '"' +
+      (isActive ? ' aria-current="page"' : "") + ">" + icon(iconName, 20) + '<span class="side-label">' + label + "</span></a>";
+  }
+
   function mount() {
+    // Left sidebar (wide screens only -- CSS hides it below 1100px).
+    var side = document.createElement("aside");
+    side.className = "side-nav";
+    side.setAttribute("aria-label", "Sections");
+    side.innerHTML =
+      '<div class="side-top"><a class="side-brand" href="' + (root || "./") + '">The Backlog</a>' +
+        '<button type="button" class="side-toggle" id="side-toggle">' + icon("panel", 20) + '</button></div>' +
+      '<nav class="side-links">' +
+        sideItem(root || "./", "Home", "home", !active, true) +
+        '<div class="side-group">Library</div>' +
+        SECTIONS.map(function (s) { return sideItem(root + s.href, s.label, s.icon, s.key === active, s.enabled); }).join("") +
+      "</nav>";
+    document.body.appendChild(side);
+    document.body.classList.add("has-sidenav");
+    document.body.classList.toggle("sidenav-collapsed", collapsed);
+    var toggle = document.getElementById("side-toggle");
+    function syncToggle() {
+      var label = collapsed ? "Expand sidebar" : "Collapse sidebar";
+      toggle.setAttribute("aria-label", label);
+      toggle.title = label;
+      toggle.setAttribute("aria-expanded", String(!collapsed));
+    }
+    syncToggle();
+    toggle.addEventListener("click", function () {
+      collapsed = !collapsed;
+      document.body.classList.toggle("sidenav-collapsed", collapsed);
+      try { localStorage.setItem(COLLAPSE_KEY, collapsed ? "1" : "0"); } catch (e) {}
+      syncToggle();
+    });
+
+    // Phone tab bar: only once there's more than one section to switch between.
     var enabled = SECTIONS.filter(function (s) { return s.enabled; });
     if (enabled.length < 2) return;
-
-    var links = enabled.map(function (s) {
+    var bar = document.createElement("nav");
+    bar.className = "section-tabbar";
+    bar.setAttribute("aria-label", "Sections");
+    bar.innerHTML = enabled.map(function (s) {
       var on = s.key === active;
       return '<a class="section-link' + (on ? " active" : "") + '" href="' + root + s.href + '"' +
         (on ? ' aria-current="page"' : "") + ">" + icon(s.icon, 22) + "<span>" + s.label + "</span></a>";
     }).join("");
-
-    var slot = document.getElementById("section-nav-slot");
-    if (slot) slot.innerHTML = '<nav class="section-links" aria-label="Sections">' + links + "</nav>";
-
-    var bar = document.createElement("nav");
-    bar.className = "section-tabbar";
-    bar.setAttribute("aria-label", "Sections");
-    bar.innerHTML = links;
     document.body.appendChild(bar);
     document.body.classList.add("has-tabbar");
   }

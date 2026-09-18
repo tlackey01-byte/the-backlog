@@ -182,8 +182,8 @@ input[type="email"]:focus, input[type="password"]:focus, select:focus, button:fo
 a, button, select, input { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 
 /* ---------- App header (shared across homepage + every section) ----------
-   Sticky compact bar: brand (links Home), the desktop section links (#section-nav-slot,
-   filled by shared/nav.js), and the page's own action buttons. Pages can add a second row
+   Sticky compact bar: brand (links Home) and the page's own action buttons. On wide
+   screens the brand moves into the left sidebar (shared/nav.js). Pages can add a second row
    (the games page's search + Filters) inside .app-header-inner. */
 .app-header {
   position: sticky; top: 0; z-index: 50;
@@ -198,7 +198,6 @@ a, button, select, input { -webkit-tap-highlight-color: transparent; touch-actio
   font-family: var(--font-display); font-weight: 800; font-size: 26px; line-height: 1;
   letter-spacing: -0.01em; color: var(--text); text-decoration: none; flex: none;
 }
-#section-nav-slot { flex: 1; min-width: 0; }
 .app-actions { display: flex; gap: 8px; margin-left: auto; flex: none; position: relative; }
 .icon-btn {
   width: 44px; height: 44px; border-radius: 12px; flex: none;
@@ -226,9 +225,12 @@ a, button, select, input { -webkit-tap-highlight-color: transparent; touch-actio
 .app-menu a:hover, .app-menu button:hover { background: var(--surface-2); }
 .app-menu hr { border: 0; border-top: 1px solid var(--border); margin: 6px 4px; }
 
-/* Section navigation (shared/nav.js): bottom tab bar on phones, inline links on wide
-   screens. Only rendered at all once 2+ sections are enabled. */
-.section-links { display: none; }
+/* Section navigation (shared/nav.js).
+   Phones: bottom tab bar, only rendered once 2+ sections are enabled.
+   Wide screens (>=1100px): a fixed left sidebar with the brand, Home, and every section
+   (unbuilt ones dimmed with a "Soon" tag). The header's own brand hides there, since the
+   sidebar carries it. Below 1100px the sidebar stays hidden so the games table keeps its
+   room. */
 .section-tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
   display: flex; padding: 6px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
@@ -242,16 +244,79 @@ a, button, select, input { -webkit-tap-highlight-color: transparent; touch-actio
 }
 .section-tabbar .section-link.active { color: var(--accent); font-weight: 600; }
 body.has-tabbar { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
+
+.side-nav { display: none; }
 @media (min-width: 900px) {
   .section-tabbar { display: none; }
   body.has-tabbar { padding-bottom: 0; }
-  .section-links { display: flex; gap: 4px; }
-  .section-links .section-link {
-    display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border-radius: var(--radius-s);
-    color: var(--text-muted); text-decoration: none; font-size: 15px; font-weight: 500;
+}
+@media (min-width: 1100px) {
+  /* Scales with the window (18vw) between 232px and 300px, or a 72px icon rail when
+     collapsed; one variable keeps the sidebar and the page's left offset in step. */
+  body { --side-w: clamp(232px, 18vw, 300px); }
+  body.sidenav-collapsed { --side-w: 72px; }
+  body.has-sidenav { padding-left: var(--side-w); transition: padding-left .2s ease; }
+  /* Page content: centered on the whole window when there's room beside the sidebar,
+     otherwise sitting just right of it -- instead of centered in the leftover space,
+     which read as pushed right. 640px = half the 1280px max content width. */
+  body.has-sidenav .wrap, body.has-sidenav .app-header-inner, body.has-sidenav .home {
+    margin-left: max(24px, calc(50vw - 640px - var(--side-w))); margin-right: auto;
   }
-  .section-links .section-link:hover { background: var(--surface-2); color: var(--text); }
-  .section-links .section-link.active { color: var(--accent); font-weight: 600; }
+  body.has-sidenav .app-brand { display: none; }
+  /* With the brand in the sidebar, the header's top row would only hold the action
+     buttons -- fold it and the page's second row (e.g. search) into one line instead. */
+  body.has-sidenav .app-header-inner { flex-direction: row; align-items: center; gap: 8px; }
+  body.has-sidenav .app-header-inner > .app-header-row { order: 2; flex: none; }
+  body.has-sidenav .app-header-inner > .app-header-row:only-child { flex: 1; } /* e.g. Home: keep actions right */
+  body.has-sidenav .app-header-inner > :not(.app-header-row) { order: 1; flex: 1; min-width: 0; }
+  .side-nav {
+    display: flex; flex-direction: column; gap: 4px;
+    position: fixed; top: 0; bottom: 0; left: 0; width: var(--side-w); z-index: 45; /* under the login gate (100) and sheets (150) */
+    transition: width .2s ease; overflow-x: hidden;
+    padding: max(8px, env(safe-area-inset-top)) 16px 20px;
+    background: var(--surface); border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .side-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+  .side-toggle {
+    width: 40px; height: 40px; flex: none; border-radius: 10px; border: 0; background: none; cursor: pointer;
+    color: var(--text-faint); display: inline-flex; align-items: center; justify-content: center;
+  }
+  .side-toggle:hover { background: var(--surface-2); color: var(--text); }
+  .side-brand {
+    display: flex; align-items: center; min-height: 44px; padding: 0 12px; white-space: nowrap;
+    font-family: var(--font-display); font-weight: 800; font-size: 26px; line-height: 1; letter-spacing: -0.01em;
+    color: var(--text); text-decoration: none;
+  }
+  .side-links { display: flex; flex-direction: column; gap: 2px; }
+  .side-group {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text-faint); padding: 18px 12px 8px;
+  }
+  .side-link {
+    display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 10px;
+    color: var(--text-muted); text-decoration: none; font-size: 15px; font-weight: 500;
+    transition: background .15s ease, color .15s ease;
+  }
+  .side-link svg { flex: none; }
+  .side-label { flex: 1; }
+  a.side-link:hover { background: var(--surface-2); color: var(--text); }
+  .side-link.active { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-weight: 600; }
+  .side-link.disabled { color: var(--text-faint); cursor: default; opacity: .7; }
+  .side-soon {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 2px 6px; border-radius: 6px; background: var(--surface-2); color: var(--text-faint);
+  }
+  .side-link, .side-group { white-space: nowrap; }
+  /* Collapsed: an icon rail. Labels, "Soon" tags and the brand hide; the "Library"
+     heading becomes a thin divider; each icon keeps its name as a hover tooltip. */
+  body.sidenav-collapsed .side-nav { padding-left: 12px; padding-right: 12px; }
+  body.sidenav-collapsed .side-top { justify-content: center; }
+  body.sidenav-collapsed .side-brand,
+  body.sidenav-collapsed .side-label,
+  body.sidenav-collapsed .side-soon { display: none; }
+  body.sidenav-collapsed .side-link { justify-content: center; padding: 0; }
+  body.sidenav-collapsed .side-group { font-size: 0; padding: 0; margin: 12px 8px; border-top: 1px solid var(--border); }
 }
 
 /* ---------- Bottom sheets ----------

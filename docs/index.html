@@ -43,7 +43,6 @@
     <div class="app-header-inner">
       <div class="app-header-row">
         <a class="app-brand" href=".">The Backlog</a>
-        <div id="section-nav-slot"></div>
         <div class="app-actions">
           <button type="button" class="icon-btn" id="menu-btn" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
@@ -119,7 +118,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1789763954', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1789764543', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
