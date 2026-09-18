@@ -5,7 +5,12 @@
 // under a different name, so this hash changing is what actually invalidates stale
 // copies after a deploy; if you edit this file directly, build.py will overwrite this
 // line the next time it runs anyway.
-const CACHE_NAME = 'the-backlog-shell-6391360785c0';
+const CACHE_NAME = 'the-backlog-shell-5a0191754ef0';
+
+// Cover images (docs/games/covers/<content hash>.jpg) live in their own cache that
+// survives deploys: their names are content hashes, so a cached file can never go stale,
+// and re-downloading ~2,000 covers on every CACHE_NAME bump would waste phone data.
+const COVERS_CACHE = 'the-backlog-covers-v1';
 
 const SHELL_ASSETS = [
   '/the-backlog/',
@@ -15,6 +20,7 @@ const SHELL_ASSETS = [
   '/the-backlog/shared/base.css',
   '/the-backlog/shared/firebase-init.js',
   '/the-backlog/shared/pull-to-refresh.js',
+  '/the-backlog/shared/nav.js',
   '/the-backlog/manifest.json',
   '/the-backlog/icons/icon-192.png',
   '/the-backlog/icons/icon-512.png',
@@ -23,7 +29,9 @@ const SHELL_ASSETS = [
 self.addEventListener('install', function (event) {
   event.waitUntil(
     caches.open(CACHE_NAME).then(function (cache) {
-      return cache.addAll(SHELL_ASSETS);
+      // cache: 'reload' skips the browser's HTTP cache (GitHub Pages serves max-age=600),
+      // so a fresh install can't lock in a stale base.css/nav.js until the next deploy.
+      return cache.addAll(SHELL_ASSETS.map(function (u) { return new Request(u, { cache: 'reload' }); }));
     }).then(function () {
       return self.skipWaiting();
     })
@@ -34,7 +42,7 @@ self.addEventListener('activate', function (event) {
   event.waitUntil(
     caches.keys().then(function (names) {
       return Promise.all(
-        names.filter(function (name) { return name !== CACHE_NAME; })
+        names.filter(function (name) { return name !== CACHE_NAME && name !== COVERS_CACHE; })
           .map(function (name) { return caches.delete(name); })
       );
     }).then(function () {
@@ -74,6 +82,21 @@ self.addEventListener('fetch', function (event) {
             ? '/the-backlog/games/index.html'
             : '/the-backlog/index.html'
         );
+      })
+    );
+    return;
+  }
+
+  if (url.pathname.startsWith('/the-backlog/games/covers/')) {
+    event.respondWith(
+      caches.open(COVERS_CACHE).then(function (cache) {
+        return cache.match(request).then(function (cached) {
+          if (cached) return cached;
+          return fetch(request).then(function (response) {
+            if (response && response.ok) cache.put(request, response.clone());
+            return response;
+          });
+        });
       })
     );
     return;

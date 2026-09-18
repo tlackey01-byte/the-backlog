@@ -14,100 +14,98 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="shared/base.css">
 <style>
-  .home-header { padding: 40px 0 8px; }
-  .home-header h1 {
-    font-family: var(--font-display); font-weight: 800;
-    font-size: clamp(42px, 6.5vw, 62px); letter-spacing: -0.01em; margin: 0 0 8px;
-    line-height: 0.98;
+  .home { max-width: 1280px; margin: 0 auto; padding: 20px max(16px, env(safe-area-inset-right)) 40px max(16px, env(safe-area-inset-left)); }
+  .home-label {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text-faint); margin: 8px 0 10px;
   }
-  .home-header p { color: var(--text-muted); font-size: 17px; max-width: 56ch; margin: 0 0 32px; }
-
-  .section-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 16px; margin-bottom: 40px;
-  }
+  .section-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
   .section-card {
-    display: block; background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius-l); padding: 24px; text-decoration: none; color: var(--text);
-    box-shadow: var(--shadow); transition: border-color .15s ease, transform .15s ease;
+    display: flex; gap: 16px; align-items: center; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-l); padding: 18px; text-decoration: none; color: var(--text);
+    transition: border-color .15s ease;
   }
-  a.section-card:hover { border-color: var(--accent); transform: translateY(-1px); }
-  .section-card.coming-soon { opacity: .55; }
-  .section-card-icon { font-size: 32px; margin-bottom: 10px; }
-  .section-card h2 {
-    font-family: var(--font-display); font-weight: 700; font-size: 24px; margin: 0 0 10px;
+  a.section-card:hover { border-color: var(--accent); }
+  .section-card.coming-soon { opacity: .5; }
+  .section-card-icon {
+    width: 52px; height: 52px; border-radius: 14px; flex: none; display: flex; align-items: center; justify-content: center;
+    background: var(--surface-2); color: var(--accent);
   }
-  .section-card-stats { display: flex; flex-direction: column; gap: 4px; font-size: 15px; color: var(--text-muted); }
+  .section-card.coming-soon .section-card-icon { color: var(--text-faint); }
+  .section-card h2 { font-family: var(--font-display); font-weight: 800; font-size: 24px; line-height: 1; margin: 0 0 6px; }
+  .section-card-stats { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 14px; color: var(--text-muted); }
   .section-card-stats b { color: var(--text); font-family: var(--font-mono); font-weight: 600; }
 </style>
 </head>
 <body>
 <div id="app" style="display:none">
-  <nav class="site-nav">
-    <a class="site-nav-brand" href=".">The Backlog</a>
-    <div class="site-nav-links">
-      <a class="site-nav-link active" href=".">Home</a>
-      <a class="site-nav-link" href="games/">Games</a>
-      <span class="site-nav-link coming-soon">Books</span>
-      <span class="site-nav-link coming-soon">Movies</span>
-      <span class="site-nav-link coming-soon">TV</span>
-      <span class="site-nav-link coming-soon">Music</span>
+  <header class="app-header">
+    <div class="app-header-inner">
+      <div class="app-header-row">
+        <a class="app-brand" href=".">The Backlog</a>
+        <div id="section-nav-slot"></div>
+        <div class="app-actions">
+          <button type="button" class="icon-btn" id="menu-btn" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+          </button>
+          <div class="app-menu" id="app-menu" hidden>
+            <button type="button" id="menu-signout">Sign out</button>
+          </div>
+        </div>
+      </div>
     </div>
-  </nav>
-  <div class="wrap">
-    <header class="home-header">
-      <h1>The Backlog</h1>
-      <p>Everything you own, want, or are partway through, synced across every device. Games today, more media types on the way.</p>
-    </header>
+  </header>
+  <main class="home">
+    <div class="home-label">Your sections</div>
     <div class="section-grid" id="section-grid"></div>
-  </div>
+  </main>
 </div>
+<script src="shared/nav.js" data-active="" data-root=""></script>
 <script type="module">
-  import { requireLogin, db, doc, onSnapshot } from "./shared/firebase-init.js";
+  import { requireLogin, db, doc, onSnapshot, signOutUser } from "./shared/firebase-init.js";
 
   var gridEl = document.getElementById("section-grid");
-  var COMING_SOON = [
-    { name: "Books", icon: "📚" },
-    { name: "Movies", icon: "🎬" },
-    { name: "TV", icon: "📺" },
-    { name: "Music", icon: "🎵" }
-  ];
 
   function fmt(n) {
     return n != null ? n.toLocaleString("en-US") : "—";
   }
 
-  // The games section (docs/games/) writes a small `totals` summary into this same
-  // state doc whenever it loads or saves, since the homepage intentionally never loads
-  // the full ~13MB game catalog just to compute a stat card. Totals read as "—" until
-  // that section has been visited at least once.
+  // The games section (docs/games/) writes a small `totals` summary into its state doc
+  // whenever it loads or saves, so this page never has to load the game catalog just to
+  // show a stat card. Totals read as "—" until that section has been visited once.
+  // Cards come from the same SECTIONS list as the navigation (shared/nav.js), so enabling
+  // a section there turns its "Coming soon" card into a live link here too.
   function renderCards(totals) {
     var t = totals || {};
-    var gamesCard =
-      '<a class="section-card" href="games/">' +
-        '<div class="section-card-icon">🎮</div>' +
-        "<h2>Games</h2>" +
-        '<div class="section-card-stats">' +
-          "<span><b>" + fmt(t.total) + "</b> total</span>" +
-          "<span><b>" + fmt(t.owned) + "</b> owned</span>" +
-          "<span><b>" + fmt(t.wishlist) + "</b> wishlist</span>" +
-        "</div>" +
-      "</a>";
-
-    var comingSoonCards = COMING_SOON.map(function (s) {
-      return (
-        '<div class="section-card coming-soon">' +
-          '<div class="section-card-icon">' + s.icon + "</div>" +
-          "<h2>" + s.name + "</h2>" +
-          '<div class="section-card-stats"><span>Coming soon</span></div>' +
-        "</div>"
-      );
+    gridEl.innerHTML = window.BacklogNav.SECTIONS.map(function (s) {
+      var icon = '<div class="section-card-icon">' + window.BacklogNav.icon(s.icon, 28) + "</div>";
+      if (!s.enabled) {
+        return '<div class="section-card coming-soon">' + icon +
+          '<div><h2>' + s.label + '</h2><div class="section-card-stats"><span>Coming soon</span></div></div></div>';
+      }
+      var stats = s.key === "games"
+        ? "<span><b>" + fmt(t.total) + "</b> total</span><span><b>" + fmt(t.owned) + "</b> owned</span><span><b>" + fmt(t.wishlist) + "</b> wishlist</span>"
+        : "";
+      return '<a class="section-card" href="' + s.href + '">' + icon +
+        '<div><h2>' + s.label + '</h2><div class="section-card-stats">' + stats + "</div></div></a>";
     }).join("");
-
-    gridEl.innerHTML = gamesCard + comingSoonCards;
   }
 
   renderCards(null);
+
+  var menuBtn = document.getElementById("menu-btn");
+  var menuEl = document.getElementById("app-menu");
+  menuBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    menuEl.hidden = !menuEl.hidden;
+    menuBtn.setAttribute("aria-expanded", String(!menuEl.hidden));
+  });
+  document.addEventListener("click", function (e) {
+    if (!menuEl.hidden && !menuEl.contains(e.target)) { menuEl.hidden = true; menuBtn.setAttribute("aria-expanded", "false"); }
+  });
+  document.getElementById("menu-signout").addEventListener("click", function () {
+    signOutUser().then(function () { location.reload(); });
+  });
 
   requireLogin(document.body, function (user) {
     document.getElementById("app").style.display = "";
@@ -121,7 +119,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1789758504', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1789763954', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the

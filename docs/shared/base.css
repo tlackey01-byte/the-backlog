@@ -86,6 +86,16 @@
   --owned-ink: #0e2a20;
   --wishlist: #a79bf0;
   --wishlist-ink: #221f3a;
+  --backlog: #a2a8bc;
+  --backlog-ink: #262a35;
+  --playing: #5cd6d6;
+  --playing-ink: #123333;
+  --beaten: #6fa8e0;
+  --beaten-ink: #142943;
+  --hundred: #e881b3;
+  --hundred-ink: #3a1a2a;
+  --dnf: #e08a5a;
+  --dnf-ink: #3a2214;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
 }
 
@@ -171,40 +181,124 @@ input[type="email"]:focus, input[type="password"]:focus, select:focus, button:fo
    immediately instead of briefly waiting to see if a second tap is coming. */
 a, button, select, input { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 
-/* ---------- Site nav (shared across homepage + every section) ---------- */
-.site-nav {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: max(16px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 16px max(20px, env(safe-area-inset-left));
-  max-width: 1280px; margin: 0 auto;
+/* ---------- App header (shared across homepage + every section) ----------
+   Sticky compact bar: brand (links Home), the desktop section links (#section-nav-slot,
+   filled by shared/nav.js), and the page's own action buttons. Pages can add a second row
+   (the games page's search + Filters) inside .app-header-inner. */
+.app-header {
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
+  padding: max(8px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
 }
-.site-nav-brand {
-  font-family: var(--font-display); font-weight: 800; font-size: 22px;
-  letter-spacing: -0.01em; color: var(--text); text-decoration: none;
-  flex-shrink: 0;
+.app-header-inner { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+.app-header-row { display: flex; align-items: center; gap: 12px; min-height: 44px; }
+.app-brand {
+  font-family: var(--font-display); font-weight: 800; font-size: 26px; line-height: 1;
+  letter-spacing: -0.01em; color: var(--text); text-decoration: none; flex: none;
 }
-/* min-width: 0 is load-bearing: without it, a flex item defaults to never shrinking
-   below its content's natural width, so overflow-x here would never actually trigger --
-   the row would just overflow .site-nav (and used to get silently clipped by the
-   overflow-x: clip safety net on html/body, which is what was cutting off the last tab).
-   With it, this scrolls internally instead, so every tab stays reachable regardless of
-   how many there are or how wide the screen is. */
-.site-nav-links {
-  display: flex; align-items: center; gap: 4px;
-  flex: 1 1 auto; min-width: 0; overflow-x: auto;
-  scrollbar-width: none; -ms-overflow-style: none;
+#section-nav-slot { flex: 1; min-width: 0; }
+.app-actions { display: flex; gap: 8px; margin-left: auto; flex: none; position: relative; }
+.icon-btn {
+  width: 44px; height: 44px; border-radius: 12px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+  cursor: pointer; padding: 0; transition: background .15s ease, border-color .15s ease;
 }
-.site-nav-links::-webkit-scrollbar { display: none; }
-.site-nav-link {
-  font-size: 15.5px; font-weight: 500; color: var(--text-muted);
-  text-decoration: none; padding: 7px 12px; border-radius: var(--radius-s);
-  transition: background .15s ease, color .15s ease;
-  white-space: nowrap; flex-shrink: 0;
+.icon-btn:hover { background: var(--surface-3); border-color: var(--border-strong); }
+.icon-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.icon-btn.primary:hover { background: var(--accent-strong); }
+.icon-btn svg { display: block; }
+
+/* The ⋯ menu: a small dropdown anchored under its button. */
+.app-menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; min-width: 200px;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-m);
+  box-shadow: var(--shadow); padding: 6px; display: flex; flex-direction: column;
 }
-.site-nav-link:hover { background: var(--surface-2); color: var(--text); }
-.site-nav-link.active { color: var(--accent); font-weight: 600; }
-.site-nav-link.coming-soon {
-  color: var(--text-faint); cursor: default; pointer-events: none;
+.app-menu[hidden] { display: none; }
+.app-menu a, .app-menu button {
+  display: flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 8px;
+  font: inherit; font-size: 15.5px; color: var(--text); text-decoration: none; text-align: left;
+  background: none; border: 0; cursor: pointer;
+}
+.app-menu a:hover, .app-menu button:hover { background: var(--surface-2); }
+.app-menu hr { border: 0; border-top: 1px solid var(--border); margin: 6px 4px; }
+
+/* Section navigation (shared/nav.js): bottom tab bar on phones, inline links on wide
+   screens. Only rendered at all once 2+ sections are enabled. */
+.section-links { display: none; }
+.section-tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  display: flex; padding: 6px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  border-top: 1px solid var(--border);
+}
+.section-tabbar .section-link {
+  flex: 1; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  color: var(--text-faint); text-decoration: none; font-size: 11px; font-weight: 500;
+}
+.section-tabbar .section-link.active { color: var(--accent); font-weight: 600; }
+body.has-tabbar { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
+@media (min-width: 900px) {
+  .section-tabbar { display: none; }
+  body.has-tabbar { padding-bottom: 0; }
+  .section-links { display: flex; gap: 4px; }
+  .section-links .section-link {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border-radius: var(--radius-s);
+    color: var(--text-muted); text-decoration: none; font-size: 15px; font-weight: 500;
+  }
+  .section-links .section-link:hover { background: var(--surface-2); color: var(--text); }
+  .section-links .section-link.active { color: var(--accent); font-weight: 600; }
+}
+
+/* ---------- Bottom sheets ----------
+   Slide up from the bottom on phones; a centered dialog on wide screens. Sheets close only
+   through their own explicit controls (X / Done / picking an option), never a tap on the
+   backdrop -- a stray tap shouldn't throw away anything half-entered. */
+.sheet-backdrop {
+  position: fixed; inset: 0; z-index: 150; background: rgba(8, 9, 12, 0.62);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.sheet-backdrop[hidden] { display: none; }
+.sheet {
+  width: 100%; max-height: calc(100dvh - max(24px, env(safe-area-inset-top)) - 24px);
+  background: var(--surface); border: 1px solid var(--border-strong); border-bottom: 0;
+  border-radius: 16px 16px 0 0; box-shadow: var(--shadow);
+  display: flex; flex-direction: column; overflow: hidden;
+  animation: sheet-up .22s ease-out;
+}
+.sheet.tall { height: calc(100dvh - max(24px, env(safe-area-inset-top)) - 24px); }
+@keyframes sheet-up { from { transform: translateY(40px); opacity: .4; } to { transform: none; opacity: 1; } }
+.sheet-grip { display: flex; justify-content: center; padding: 8px 0 2px; flex: none; }
+.sheet-grip::before { content: ""; width: 38px; height: 5px; border-radius: 3px; background: var(--border-strong); }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 8px 4px 20px; min-height: 52px; flex: none; }
+.sheet-title {
+  font-family: var(--font-display); font-weight: 800; font-size: 24px; line-height: 1.1; margin: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sheet-sub { padding: 0 20px 10px; font-size: 14px; color: var(--text-muted); line-height: 1.45; flex: none; }
+.sheet-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.sheet-foot { padding: 12px 20px max(16px, env(safe-area-inset-bottom)); border-top: 1px solid var(--border); flex: none; }
+.sheet-close {
+  width: 44px; height: 44px; border: 0; background: none; color: var(--text-muted); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; flex: none;
+}
+.sheet-close:hover { background: var(--surface-2); color: var(--text); }
+.btn-block {
+  width: 100%; min-height: 52px; border-radius: 12px; border: 0; cursor: pointer;
+  background: var(--accent); color: var(--accent-ink); font: inherit; font-size: 16px; font-weight: 700;
+}
+.btn-block:hover { background: var(--accent-strong); }
+.btn-block:disabled { opacity: .6; cursor: default; }
+@media (min-width: 720px) {
+  .sheet-backdrop { align-items: center; padding: 24px; }
+  .sheet { max-width: 480px; border-radius: 16px; border-bottom: 1px solid var(--border-strong); max-height: calc(100dvh - 48px); }
+  .sheet.tall { height: min(760px, calc(100dvh - 48px)); }
+  .sheet-grip { display: none; }
+  .sheet-head { padding-top: 10px; }
 }
 
 /* ---------- Login gate ---------- */
@@ -242,7 +336,7 @@ a, button, select, input { -webkit-tap-highlight-color: transparent; touch-actio
   input[type="email"], input[type="password"], select {
     font-size: 16px;
   }
-  .site-nav-link, .btn { min-height: 44px; display: inline-flex; align-items: center; }
+  .btn { min-height: 44px; display: inline-flex; align-items: center; }
   .login-submit { min-height: 44px; }
 }
 

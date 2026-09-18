@@ -37,6 +37,7 @@ and docs/sw.js, then push -- GitHub Pages redeploys within about a minute. There
 claude.ai artifact or vault copy to keep in sync anymore; the deployed site is the one true
 copy.
 """
+import base64
 import hashlib
 import json
 import os
@@ -53,13 +54,39 @@ HOMEPAGE_PATH = os.path.join(DOCS_DIR, "index.html")
 BASE_CSS_PATH = os.path.join(DOCS_DIR, "shared", "base.css")
 FIREBASE_INIT_PATH = os.path.join(DOCS_DIR, "shared", "firebase-init.js")
 PULL_TO_REFRESH_PATH = os.path.join(DOCS_DIR, "shared", "pull-to-refresh.js")
+NAV_PATH = os.path.join(DOCS_DIR, "shared", "nav.js")
 SW_PATH = os.path.join(DOCS_DIR, "sw.js")
+COVERS_DIR = os.path.join(DOCS_DIR, "games", "covers")
+
+
+def write_cover(data_uri, written):
+    """Writes one base64 cover out as docs/games/covers/<content hash>.jpg and returns the
+    page-relative path the compact record points at instead of the inline data URI.
+
+    Inlining ~1,950 covers made the games page ~13MB, which was slow to load and laggy on
+    phones. As separate files they load lazily as rows scroll into view and get cached by
+    the service worker (see sw.js's covers cache). Naming by content hash means an
+    unchanged cover keeps its URL forever (cache stays valid across deploys), and a changed
+    one gets a new URL automatically."""
+    header, b64 = data_uri.split(",", 1)
+    raw = base64.b64decode(b64)
+    ext = "png" if "image/png" in header else "jpg"
+    name = hashlib.sha1(raw).hexdigest()[:16] + "." + ext
+    if name not in written:
+        path = os.path.join(COVERS_DIR, name)
+        if not os.path.exists(path):
+            with open(path, "wb") as f:
+                f.write(raw)
+        written.add(name)
+    return "covers/" + name
 
 
 def build_compact():
     with open(MASTER_PATH, encoding="utf-8") as f:
         games = json.load(f)
 
+    os.makedirs(COVERS_DIR, exist_ok=True)
+    written_covers = set()
     compact = []
     for g in games:
         rec = {
@@ -76,13 +103,20 @@ def build_compact():
         if g.get("playedHours") is not None:
             rec["ph"] = g["playedHours"]
         if g.get("cover"):
-            rec["cv"] = g["cover"]
+            rec["cv"] = write_cover(g["cover"], written_covers)
         if g.get("developer"):
             rec["dv"] = g["developer"]
         compact.append(rec)
 
     with open(COMPACT_PATH, "w", encoding="utf-8") as f:
         json.dump(compact, f, ensure_ascii=False, separators=(",", ":"))
+
+    # Drop cover files no game references anymore (a game deleted from the master file,
+    # or its cover replaced -- names are content hashes, so a new image is a new file).
+    stale = [n for n in os.listdir(COVERS_DIR) if n not in written_covers]
+    for n in stale:
+        os.remove(os.path.join(COVERS_DIR, n))
+    print(f"Covers: {len(written_covers)} files in docs/games/covers ({len(stale)} stale removed)")
 
     print(f"Compacted {len(compact)} games -> {COMPACT_PATH}")
     return compact
@@ -116,7 +150,7 @@ def bump_sw_registration_version():
 
 
 def update_service_worker_cache_name():
-    shell_paths = [GAMES_PAGE_OUT_PATH, HOMEPAGE_PATH, BASE_CSS_PATH, FIREBASE_INIT_PATH, PULL_TO_REFRESH_PATH]
+    shell_paths = [GAMES_PAGE_OUT_PATH, HOMEPAGE_PATH, BASE_CSS_PATH, FIREBASE_INIT_PATH, PULL_TO_REFRESH_PATH, NAV_PATH]
     h = hashlib.sha256()
     for p in shell_paths:
         with open(p, "rb") as f:
