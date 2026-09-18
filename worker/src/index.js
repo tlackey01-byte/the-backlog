@@ -111,10 +111,14 @@ async function search(q, env) {
   if (q.trim().length < 2) return { source: 'hltb', results: [] };
   try {
     const data = await hltbSearch(q);
+    // Search results don't carry the developer; each game's own page does (~33KB, parsed
+    // in well under 1ms), so fetch them in parallel. A failed page just means no developer.
+    const pages = await Promise.all(data.map(g => hltbGamePage(g.game_id).catch(() => null)));
     return {
       source: 'hltb',
-      results: data.map(g => ({
+      results: data.map((g, i) => ({
         hltbId: g.game_id, name: g.game_name, year: g.release_world || null,
+        developer: (pages[i] && pages[i].profile_dev) || null,
         main: hrs(g.comp_main), extra: hrs(g.comp_plus), completionist: hrs(g.comp_100),
         platforms: g.profile_platform || '',
         thumb: g.game_image ? HLTB + '/games/' + encodeURIComponent(g.game_image) + '?width=100' : null
@@ -127,7 +131,7 @@ async function search(q, env) {
     return {
       source: 'sgdb', error: String(e.message || e),
       results: (data || []).slice(0, 10).map(g => ({
-        sgdbId: g.id, name: g.name, year: g.release_date ? new Date(g.release_date * 1000).getUTCFullYear() : null,
+        sgdbId: g.id, name: g.name, year: g.release_date ? new Date(g.release_date * 1000).getUTCFullYear() : null, developer: null,
         main: null, extra: null, completionist: null, platforms: '', thumb: null
       }))
     };

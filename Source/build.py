@@ -77,6 +77,8 @@ def build_compact():
             rec["ph"] = g["playedHours"]
         if g.get("cover"):
             rec["cv"] = g["cover"]
+        if g.get("developer"):
+            rec["dv"] = g["developer"]
         compact.append(rec)
 
     with open(COMPACT_PATH, "w", encoding="utf-8") as f:

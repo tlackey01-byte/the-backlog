@@ -702,6 +702,7 @@
   /* Add Game modal -- reuses .journal-modal-overlay/.journal-modal for the frame. The
      search step and preview step swap in place (hidden attr) rather than stacking. */
   .add-game-modal { max-width: 480px; }
+  .detail-developer { color: var(--text-muted); font-size: 15px; margin: -4px 0 10px; }
   .add-game-status { font-size: 13px; color: var(--text-faint); min-height: 18px; margin-top: 8px; }
   .add-game-status.error { color: var(--danger, #e5484d); }
   .add-game-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -1395,6 +1396,7 @@
       playedHours: effectivePlayed(progress, importedDefault, r.n),
       rating: Object.prototype.hasOwnProperty.call(ratingOverrides, r.n) ? ratingOverrides[r.n] : null,
       cover: r.cv || null,
+      developer: r.dv || null,
       deleted: !!deletedNames[r.n]
     };
   }
@@ -2451,6 +2453,7 @@
         '<div class="detail-hero-text">' +
           '<div class="detail-eyebrow">' + tagsHtml + '</div>' +
           '<h1 class="detail-title">' + escHtml(g.name) + '</h1>' +
+          (g.developer ? '<div class="detail-developer">' + escHtml(g.developer) + '</div>' : '') +
           '<div class="detail-badges">' +
             ownedControl(g) +
           '</div>' +
@@ -2950,7 +2953,7 @@
       var thumb = r.thumb
         ? '<img class="add-game-thumb" src="' + escHtml(r.thumb) + '" alt="" loading="lazy" referrerpolicy="no-referrer">'
         : '<span class="add-game-thumb"></span>';
-      var meta = [r.year, r.main != null ? 'Main ' + fmtAddHours(r.main) : null,
+      var meta = [r.year, r.developer, r.main != null ? 'Main ' + fmtAddHours(r.main) : null,
         r.extra != null ? '+Extra ' + fmtAddHours(r.extra) : null,
         r.completionist != null ? '100% ' + fmtAddHours(r.completionist) : null].filter(Boolean).join(' · ');
       return '<li><button type="button" class="add-game-result" data-i="' + i + '"' + (inBacklog ? ' disabled' : '') + '>' +
@@ -3010,7 +3013,8 @@
       '<div class="add-game-preview-top">' + coverHtml +
         '<div>' +
           '<h4 class="add-game-preview-name">' + escHtml(r.name) + '</h4>' +
-          '<div class="add-game-result-meta">' + escHtml([r.year, r.platforms].filter(Boolean).join(' · ')) + '</div>' +
+          '<div class="add-game-result-meta">' + escHtml([r.year, r.developer].filter(Boolean).join(' · ')) + '</div>' +
+          (r.platforms ? '<div class="add-game-result-meta">' + escHtml(r.platforms) + '</div>' : '') +
           '<div class="add-game-genres">' + genresHtml + '</div>' +
         '</div>' +
       '</div>' +
@@ -3103,6 +3107,7 @@
     if (progress !== 'backlog') rec.pr = progress;
     if (p.coverData) rec.cv = p.coverData;
     rec.addedAt = new Date().toISOString();
+    if (r.developer) rec.dv = r.developer;
     if (r.hltbId) rec.hltbId = r.hltbId;
     if (p.steamAppId) rec.steamAppId = p.steamAppId;
 
@@ -3165,6 +3170,7 @@
       var ph = Object.prototype.hasOwnProperty.call(playedOverrides, g.name) ? playedOverrides[g.name] : g.playedHoursDefault;
       if (ph != null) rec.ph = ph;
       if (g.cover) rec.cv = g.cover;
+      if (g.developer) rec.dv = g.developer;
       return rec;
     });
   }
@@ -3236,7 +3242,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1789756514', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1789758504', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the

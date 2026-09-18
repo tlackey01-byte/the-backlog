@@ -44,6 +44,8 @@ def compact_to_master(r):
         rec["playedHours"] = r["ph"]
     if r.get("cv"):
         rec["cover"] = r["cv"]
+    if r.get("dv"):
+        rec["developer"] = r["dv"]
     return rec
 
 
