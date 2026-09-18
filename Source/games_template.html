@@ -281,6 +281,7 @@
   .basis-mini-select {
     font-size: 10.5px; font-weight: 600;
     padding: 2px 6px; border-radius: var(--radius-s);
+    text-align: center;
   }
   .field { display: flex; flex-direction: column; gap: 6px; }
   .field label {
@@ -447,7 +448,10 @@
      since that's what leaves mobile with no other way to change sort. */
   .sort-control { display: none; align-items: center; gap: 6px; }
   .sort-control select { width: auto; }
-  .sort-dir-btn { padding: 5px 10px; font-size: 15px; line-height: 1; }
+  /* base.css's shared mobile touch-target rule (`.btn { min-height: 44px }` under
+     max-width:720px) is meant for the toolbar's normal-sized buttons -- it was quietly
+     inflating this one well past the compact .filter-select it sits beside. */
+  .sort-dir-btn { padding: 7px 10px; font-size: 15px; line-height: 1; min-height: 0; }
 
   /* ---------- Table ---------- */
   .table-shell {
@@ -498,7 +502,12 @@
      basis, so nothing there would otherwise distinguish the selected one at all. */
   .card-stat.basis .card-stat-value { color: var(--accent); }
 
-  .played-input {
+  /* input[type="number"] (above) sets a 9px 11px padding at 0,1,1 specificity, which beats
+     a bare .played-input class rule (0,1,0) regardless of source order -- "input" here ties
+     that specificity so this rule's later position in the file wins instead. Kept at exactly
+     0,1,1 (not [type="number"].played-input's 0,2,1) so it still loses, as intended, to the
+     0,2,0 .card-meta/.detail-fields overrides below. */
+  input.played-input {
     width: 68px;
     font-family: var(--font-mono);
     font-size: 15px;
@@ -507,7 +516,7 @@
     border: 1px solid transparent;
     border-radius: var(--radius-s);
     color: var(--text-faint);
-    padding: 6px 7px;
+    padding: 2px 7px;
     outline: none;
     font-variant-numeric: tabular-nums;
     transition: border-color .15s ease, background .15s ease, color .15s ease;
@@ -548,8 +557,20 @@
      triggers iOS Safari's auto-zoom on focus (the same rule the mobile media query below
      sets for inputs generally -- this class-selector override was specific enough to have
      been silently winning over it and undoing the fix for this one input specifically). */
-  .card-meta .played-input { width: 38px; padding: 2px 3px; font-size: 16px; }
-  .card-meta .rating-input { width: 44px; padding: 2px 15px 2px 3px; font-size: 12.5px; background-position: right 5px top 55%, right 1px top 55%; }
+  /* Text-align left + zeroed left padding on both so their digits start flush with the
+     grid cell's left edge, lining up with the plain-text Main/+Extra/Complete HLTB values
+     beside them (.card-stat-value has no padding of its own) instead of played-input's
+     inherited text-align:right or rating-input's small left inset. min-height:0 undoes the
+     mobile 38px touch-target floor below (meant for the larger controls up in
+     .card-top-controls) -- CSS grid stretches every .card-meta cell to match its tallest
+     sibling, so that floor was forcing all five stat cells to ~57px when the plain-text
+     ones only need ~30px. */
+  /* line-height: normal (the UA default for inputs, not inherited from body's 1.5) renders
+     ~4-5px taller than .card-stat-value's text at this required 16px font-size, so even
+     with matching top edges the digit's visual center sits noticeably lower than the
+     HLTB values beside it -- line-height:1 brings the box down to line up with them. */
+  .card-meta .played-input { width: 38px; padding: 1px 3px 1px 0; text-align: left; font-size: 16px; line-height: 1; min-height: 0; }
+  .card-meta .rating-input { width: 44px; padding: 3px 15px 3px 0; text-align: center; font-size: 14.5px; line-height: 1; background-position: right 5px top 55%, right 1px top 55%; min-height: 0; }
   td.name-cell { font-weight: 600; max-width: 340px; }
   td.name-cell .gtags { font-weight: 400; color: var(--text-faint); font-size: 14.5px; margin-top: 2px; white-space: normal; }
 
@@ -773,6 +794,7 @@
   .progress-select.p-dnf { background-color: var(--dnf-ink); color: var(--dnf); }
   .status-select.owned { background-color: var(--owned-ink); color: var(--owned); }
   .status-select.wishlist { background-color: var(--surface-3); color: var(--text-faint); }
+  .status-select { text-align: center; }
   .progress-select:focus, .status-select:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
 
   /* Trigger button for the per-game platform editor popover -- opens the shared
@@ -792,6 +814,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .04em;
+    text-align: center;
     cursor: pointer;
     -webkit-appearance: none; appearance: none;
     background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
@@ -807,6 +830,15 @@
   }
   .plat-trigger-btn:hover { border-color: var(--border-strong); background-color: var(--surface-3); }
   .plat-trigger-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* In the table's Platform column, pin the trigger button to the Owned column's
+     .status-select width (a native <select> sizes itself to its widest option, "Wishlist",
+     which renders ~117px here) so both columns read as evenly sized pills regardless of how
+     many platforms a given row lists -- the existing ellipsis above absorbs the overflow. */
+  .table-shell .plat-trigger-btn { width: 117px; }
+  /* Same fix as .table-shell above, for the card layout's own pairing: the trigger button
+     sits beside .progress-select there instead of .status-select, and at the card
+     breakpoint's font-size/padding that select renders ~118px wide. */
+  .card-top-controls .plat-trigger-btn { width: 118px; }
   .plat-trigger-btn.has-value { color: var(--text); }
 
   /* Overrides .popover's default `position: absolute` (which anchors to a .popover-wrap
@@ -829,7 +861,7 @@
     .sort-control { display: flex; }
     .card {
       background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-m);
-      padding: 14px; box-shadow: var(--shadow);
+      padding: 10px; box-shadow: var(--shadow);
       /* An unfiltered list keeps appending 60-card batches as you scroll toward the
          bottom (see the sentinel/IntersectionObserver below), so a long scroll session
          can leave thousands of cards in the DOM. content-visibility skips layout/paint
@@ -840,7 +872,7 @@
       content-visibility: auto;
       contain-intrinsic-size: auto 150px;
     }
-    .card-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+    .card-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
     .card-top-text { flex: 1; min-width: 0; }
     /* Progress and Platform stack together on the top row, right-aligned next to the
        cover/title -- Progress directly above Platform. */
@@ -850,14 +882,13 @@
     .card-top-controls { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; max-width: 56%; }
     .card-title { font-weight: 700; font-size: 18.5px; }
     .card-tags { color: var(--text-faint); font-size: 14px; margin-top: 4px; }
-    /* Ownership toggle: a small pill under the genre tags, always labeled "Owned" -- solid
-       fill means owned; wishlisted is just a colored outline with no fill (var(--accent),
+    /* Ownership toggle: a small pill under the genre tags, labeled "Owned" or "Unowned" --
+       solid fill means owned; wishlisted is just a colored outline with no fill (var(--accent),
        the app's orange -- the same color +Extra's hours turn when it's the selected basis),
-       reading as a lighter-weight "not yet" state rather than a plain button, so the two
-       states read at a glance without needing two different words. */
+       reading as a lighter-weight "not yet" state rather than a plain button. */
     .owned-badge {
       display: inline-block;
-      margin-top: 6px;
+      margin-top: 4px;
       font-family: var(--font-body);
       font-size: 10px;
       font-weight: 700;
@@ -883,9 +914,9 @@
     .card-meta {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
-      gap: 10px 12px;
-      margin-top: 10px;
-      padding-top: 10px;
+      gap: 6px 12px;
+      margin-top: 8px;
+      padding-top: 8px;
       border-top: 1px solid var(--border);
     }
     .card-stat { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
@@ -1377,6 +1408,7 @@
     });
     Array.prototype.forEach.call(document.querySelectorAll('.owned-badge[data-id="' + g.id + '"]'), function(el) {
       el.classList.toggle('wishlist', !g.owned);
+      el.textContent = g.owned ? 'Owned' : 'Unowned';
       el.setAttribute('aria-label', 'Ownership for ' + g.name + ': ' + (g.owned ? 'Owned' : 'Wishlist') + ' -- tap to toggle');
     });
   }
@@ -2113,11 +2145,10 @@
       '</select>';
   }
   // Card view's compact stand-in for ownedControl() -- a single toggle badge under the
-  // cover instead of a dropdown. The label always reads "Owned"; only the fill communicates
-  // which state it's in (solid = owned, translucent = wishlist) rather than the text itself
-  // changing, so tapping it never involves reading two different words.
+  // cover instead of a dropdown. Reads "Owned" or "Unowned" depending on state, and the
+  // fill reinforces it (solid = owned, translucent = wishlist/unowned).
   function ownedBadgeHtml(g) {
-    return '<button type="button" class="owned-badge' + (g.owned ? '' : ' wishlist') + '" data-id="' + g.id + '" aria-label="Ownership for ' + escHtml(g.name) + ': ' + (g.owned ? 'Owned' : 'Wishlist') + ' -- tap to toggle">Owned</button>';
+    return '<button type="button" class="owned-badge' + (g.owned ? '' : ' wishlist') + '" data-id="' + g.id + '" aria-label="Ownership for ' + escHtml(g.name) + ': ' + (g.owned ? 'Owned' : 'Wishlist') + ' -- tap to toggle">' + (g.owned ? 'Owned' : 'Unowned') + '</button>';
   }
   function progressClass(p) { return p === 'beaten' ? 'p-beaten' : p === '100' ? 'p-hundred' : p === 'dnf' ? 'p-dnf' : p === 'playing' ? 'p-playing' : 'p-backlog'; }
   function progressControl(g) {
@@ -2330,12 +2361,6 @@
     var jForm = document.getElementById('journal-form');
     if (jForm) jForm.hidden = true;
   }
-  // Escape closes the modal from anywhere, same as clicking the backdrop or the X.
-  document.addEventListener('keydown', function(e) {
-    if (e.key !== 'Escape') return;
-    var jForm = document.getElementById('journal-form');
-    if (jForm && !jForm.hidden) closeJournalModal();
-  });
 
   function renderDetail(g) {
     var tagsHtml = g.genres.length
@@ -2432,11 +2457,10 @@
       }
       return;
     }
-    // Closes on the X button, the Cancel button, or a click on the dimmed backdrop
-    // itself (but not a click inside the dialog card, which would otherwise bubble up
-    // and close it while someone's just clicking into the Summary field).
-    if (e.target.closest('#journal-cancel-btn') || e.target.closest('#journal-modal-close') ||
-        e.target.id === 'journal-form') {
+    // Closes only on an explicit X or Cancel -- deliberately not on a backdrop click (or
+    // Escape), which made a half-written entry vanish on a stray tap outside the card, or
+    // when a text selection drag started in the Summary field ended over the backdrop.
+    if (e.target.closest('#journal-cancel-btn') || e.target.closest('#journal-modal-close')) {
       closeJournalModal();
       return;
     }
@@ -2829,7 +2853,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788902073', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1789745876', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the

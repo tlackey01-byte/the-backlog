@@ -2361,12 +2361,6 @@
     var jForm = document.getElementById('journal-form');
     if (jForm) jForm.hidden = true;
   }
-  // Escape closes the modal from anywhere, same as clicking the backdrop or the X.
-  document.addEventListener('keydown', function(e) {
-    if (e.key !== 'Escape') return;
-    var jForm = document.getElementById('journal-form');
-    if (jForm && !jForm.hidden) closeJournalModal();
-  });
 
   function renderDetail(g) {
     var tagsHtml = g.genres.length
@@ -2463,11 +2457,10 @@
       }
       return;
     }
-    // Closes on the X button, the Cancel button, or a click on the dimmed backdrop
-    // itself (but not a click inside the dialog card, which would otherwise bubble up
-    // and close it while someone's just clicking into the Summary field).
-    if (e.target.closest('#journal-cancel-btn') || e.target.closest('#journal-modal-close') ||
-        e.target.id === 'journal-form') {
+    // Closes only on an explicit X or Cancel -- deliberately not on a backdrop click (or
+    // Escape), which made a half-written entry vanish on a stray tap outside the card, or
+    // when a text selection drag started in the Summary field ended over the backdrop.
+    if (e.target.closest('#journal-cancel-btn') || e.target.closest('#journal-modal-close')) {
       closeJournalModal();
       return;
     }
@@ -2860,7 +2853,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1788902073', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1789745876', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
