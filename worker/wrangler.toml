@@ -1,0 +1,8 @@
+name = "backlog-proxy"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[vars]
+FIREBASE_PROJECT_ID = "the-backlog-34b22"
+
+# Secrets (not in this file): npx wrangler secret put SGDB_KEY / ALLOWED_UID

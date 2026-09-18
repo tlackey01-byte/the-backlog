@@ -698,6 +698,36 @@
   }
   .journal-modal-close:hover { color: var(--text); background: var(--surface-2); }
   .journal-modal textarea { width: 100%; }
+
+  /* Add Game modal -- reuses .journal-modal-overlay/.journal-modal for the frame. The
+     search step and preview step swap in place (hidden attr) rather than stacking. */
+  .add-game-modal { max-width: 480px; }
+  .add-game-status { font-size: 13px; color: var(--text-faint); min-height: 18px; margin-top: 8px; }
+  .add-game-status.error { color: var(--danger, #e5484d); }
+  .add-game-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .add-game-result {
+    display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-m);
+    padding: 8px; color: var(--text); font: inherit; cursor: pointer;
+  }
+  .add-game-result:hover:not(:disabled) { border-color: var(--border-strong); background: var(--surface-3); }
+  .add-game-result:disabled { opacity: .55; cursor: default; }
+  .add-game-thumb { width: 40px; height: 53px; flex: none; object-fit: cover; border-radius: 4px; background: rgb(24, 26, 33); }
+  .add-game-result-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .add-game-result-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .add-game-result-meta { font-size: 12.5px; color: var(--text-faint); }
+  .add-game-preview-top { display: flex; gap: 14px; align-items: flex-start; }
+  .add-game-cover { width: 110px; height: 146px; flex: none; object-fit: cover; border-radius: var(--radius-m); background: rgb(24, 26, 33); }
+  .add-game-cover.cover-placeholder { display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--text-faint); }
+  .add-game-preview-name { font-family: var(--font-display); font-weight: 800; font-size: 19px; margin: 0 0 4px; }
+  .add-game-hours { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+  .add-game-hours .num { font-weight: 700; font-size: 16px; display: block; }
+  .add-game-hours .label { font-size: 11.5px; color: var(--text-faint); }
+  .add-game-hours input { width: 100%; }
+  .add-game-genres { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .add-game-preview-fields { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+  .add-game-platforms { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 4px 10px; }
+  .add-game-platforms label { display: flex; align-items: center; gap: 6px; font-size: 14px; text-transform: none; letter-spacing: 0; color: var(--text); }
   .journal-form-actions { display: flex; gap: 10px; }
   .journal-list {
     display: flex; flex-direction: column; gap: 10px;
@@ -1011,6 +1041,7 @@
     <p class="sub">Every game owned or wishlisted across PlayStation and Steam, with HowLongToBeat hours so you can actually plan what's next.</p>
     <div class="sync-bar" id="sync-bar">
       <span class="sync-status"><span class="sync-dot" id="sync-dot"></span><span id="sync-label"></span></span>
+      <button class="btn primary" id="add-game-btn" type="button">+ Add Game</button>
       <button class="btn" id="export-btn" type="button">Export backup (.json)</button>
     </div>
   </header>
@@ -1178,6 +1209,25 @@
 </div>
 
   <div id="detail-view" style="display:none"></div>
+  <!-- Add Game: search HowLongToBeat (via the backlog proxy Worker), preview, then add.
+       Same overlay/card as the journal modal; closes only on X or Cancel. -->
+  <div class="journal-modal-overlay" id="add-game-modal" hidden>
+    <div class="journal-modal add-game-modal" role="dialog" aria-modal="true" aria-label="Add a game">
+      <div class="journal-modal-head">
+        <h3 class="journal-modal-title" id="add-game-title">Add a Game</h3>
+        <button type="button" class="journal-modal-close" id="add-game-close" aria-label="Close">&times;</button>
+      </div>
+      <div id="add-game-search-step">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="search" id="add-game-query" placeholder="Search HowLongToBeat…" autocomplete="off">
+        </div>
+        <div class="add-game-status" id="add-game-status"></div>
+        <ul class="add-game-results" id="add-game-results"></ul>
+      </div>
+      <div id="add-game-preview-step" hidden></div>
+    </div>
+  </div>
 
   <footer class="foot">
     <span>Hours-to-beat data via HowLongToBeat. Genres via Steam &amp; community sources — treat as approximate. "Played" is real Steam playtime where imported, 0 for anything still in your backlog, and otherwise blank until you log it yourself — the greyed-out number is just a hint from the Main+Extra estimate, not a counted value.</span>
@@ -1318,7 +1368,10 @@
   // stable `id` (its index here), and a deleted game is instead flagged via `deleted:
   // true` below. Every stat/filter/render function that reads GAMES excludes flagged
   // games itself. This avoids ever needing to renumber ids when something is deleted.
-  var GAMES = RAW.map(function(r, i) {
+  //
+  // expandRecord() is shared with applyAddedGames() (games added from the site, which live
+  // in Firestore rather than this baked catalog) so both kinds of game come out identical.
+  function expandRecord(r, i) {
     var owned = Object.prototype.hasOwnProperty.call(ownedOverrides, r.n) ? ownedOverrides[r.n] : !!r.o;
     var platforms = Object.prototype.hasOwnProperty.call(platformOverrides, r.n) ? platformOverrides[r.n] : (r.p || []);
     // A game with no real platform recorded defaults to 'Wishlist' -- same pattern as
@@ -1344,7 +1397,8 @@
       cover: r.cv || null,
       deleted: !!deletedNames[r.n]
     };
-  });
+  }
+  var GAMES = RAW.map(expandRecord);
 
   var gameByName = {};
   GAMES.forEach(function(g) { gameByName[g.name] = g; });
@@ -1680,9 +1734,14 @@
       genreCounts[tag] = (genreCounts[tag] || 0) + 1;
     });
   });
-  var genreList = Object.keys(genreCounts).sort(function(a, b) {
-    return genreCounts[b] - genreCounts[a] || a.localeCompare(b);
-  });
+  var genreList;
+  // Re-run whenever a site-added game brings in a genre (or shifts the counts).
+  function rebuildGenreList() {
+    genreList = Object.keys(genreCounts).sort(function(a, b) {
+      return genreCounts[b] - genreCounts[a] || a.localeCompare(b);
+    });
+  }
+  rebuildGenreList();
 
   // ---- State ----
   var state = {
@@ -2777,6 +2836,320 @@
   // saveState() (above) doesn't need to change once that wiring lands.
   var syncDotEl = document.getElementById('sync-dot');
   var syncLabelEl = document.getElementById('sync-label');
+  // ---- Games added from the site ----
+  // Live in Firestore (users/{uid}/addedGames, one doc per game, compact-record shape) rather
+  // than the baked catalog, so they show up everywhere instantly with no rebuild. The module
+  // script at the bottom feeds every snapshot in here, ordered by addedAt so ids come out the
+  // same on every device. A doc whose name is already known is skipped -- that's what makes
+  // baking them into master_games_final.json later (Source/bake_added_games.py) safe without
+  // ever deleting the Firestore copies.
+  function applyAddedGames(records) {
+    var added = false;
+    records.forEach(function(r) {
+      if (!r || !r.n || gameByName[r.n]) return;
+      var g = expandRecord(r, GAMES.length);
+      GAMES.push(g);
+      gameByName[g.name] = g;
+      if (!g.deleted) g.genres.forEach(function(tag) { genreCounts[tag] = (genreCounts[tag] || 0) + 1; });
+      added = true;
+    });
+    if (!added) return;
+    rebuildGenreList();
+    renderStats();
+    document.getElementById('eyebrow-count').textContent = fmtInt(totalCount()) + ' titles tracked';
+    applyFilters();
+    // A deep link (#game-N) to a site-added game can't resolve until this first arrives.
+    if (getGameFromHash() && detailViewEl.style.display === 'none') route();
+  }
+  window.__applyAddedGames = applyAddedGames;
+
+  // Worker that proxies HowLongToBeat + SteamGridDB (see worker/src/index.js).
+  var PROXY_URL = 'https://backlog-proxy.tlackey01.workers.dev';
+
+  function normName(s) {
+    return String(s || '').toLowerCase().replace(/[™®©]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+  function findExistingGame(name) {
+    var key = normName(name);
+    for (var i = 0; i < GAMES.length; i++) if (normName(GAMES[i].name) === key) return GAMES[i];
+    return null;
+  }
+
+  function proxyFetch(path) {
+    if (!window.__getIdToken) return Promise.reject(new Error('Not signed in yet'));
+    return window.__getIdToken().then(function(token) {
+      return fetch(PROXY_URL + path, { headers: { Authorization: 'Bearer ' + token } });
+    }).then(function(res) {
+      if (!res.ok) throw new Error('Lookup failed (' + res.status + ')');
+      return res;
+    });
+  }
+
+  // Same processing the add-game skill applies (step 6), done in-browser: flatten onto the
+  // placeholder color, cap width at 200px, JPEG q65 -> data URI (~7KB).
+  function processCover(url) {
+    return proxyFetch('/cover?url=' + encodeURIComponent(url))
+      .then(function(res) { return res.blob(); })
+      .then(function(blob) { return createImageBitmap(blob); })
+      .then(function(bmp) {
+        var w = Math.min(200, bmp.width);
+        var h = Math.round(bmp.height * w / bmp.width);
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgb(24, 26, 33)';
+        ctx.fillRect(0, 0, w, h);
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(bmp, 0, 0, w, h);
+        return canvas.toDataURL('image/jpeg', 0.65);
+      });
+  }
+
+  var addModalEl = document.getElementById('add-game-modal');
+  var addQueryEl = document.getElementById('add-game-query');
+  var addStatusEl = document.getElementById('add-game-status');
+  var addResultsEl = document.getElementById('add-game-results');
+  var addSearchStepEl = document.getElementById('add-game-search-step');
+  var addPreviewStepEl = document.getElementById('add-game-preview-step');
+  var addResults = [];
+  var addSearchSource = 'hltb';
+  var addSearchTimer = null;
+  var addSearchSeq = 0;
+  var addPreview = null;   // { result, genres, coverUrl, coverData, steamAppId, loading }
+
+  function setAddStatus(text, isError) {
+    addStatusEl.textContent = text || '';
+    addStatusEl.classList.toggle('error', !!isError);
+  }
+  function showAddSearchStep() {
+    addPreview = null;
+    addPreviewStepEl.hidden = true;
+    addPreviewStepEl.innerHTML = '';
+    addSearchStepEl.hidden = false;
+    addQueryEl.focus();
+  }
+  function openAddGameModal() {
+    addModalEl.hidden = false;
+    addQueryEl.value = '';
+    addResults = [];
+    addResultsEl.innerHTML = '';
+    setAddStatus('');
+    showAddSearchStep();
+  }
+  function closeAddGameModal() {
+    addModalEl.hidden = true;
+    addSearchSeq++;   // drop any in-flight search/detail responses
+    clearTimeout(addSearchTimer);
+  }
+
+  function fmtAddHours(n) { return n == null ? '--' : fmtHours(n) + 'h'; }
+  function renderAddResults() {
+    addResultsEl.innerHTML = addResults.map(function(r, i) {
+      var existing = findExistingGame(r.name);
+      var inBacklog = existing && !existing.deleted;
+      var thumb = r.thumb
+        ? '<img class="add-game-thumb" src="' + escHtml(r.thumb) + '" alt="" loading="lazy" referrerpolicy="no-referrer">'
+        : '<span class="add-game-thumb"></span>';
+      var meta = [r.year, r.main != null ? 'Main ' + fmtAddHours(r.main) : null,
+        r.extra != null ? '+Extra ' + fmtAddHours(r.extra) : null,
+        r.completionist != null ? '100% ' + fmtAddHours(r.completionist) : null].filter(Boolean).join(' · ');
+      return '<li><button type="button" class="add-game-result" data-i="' + i + '"' + (inBacklog ? ' disabled' : '') + '>' +
+        thumb +
+        '<span class="add-game-result-text">' +
+          '<span class="add-game-result-name">' + escHtml(r.name) + '</span>' +
+          '<span class="add-game-result-meta">' + escHtml(inBacklog ? 'Already in backlog' : meta) + '</span>' +
+        '</span></button></li>';
+    }).join('');
+  }
+
+  function runAddSearch() {
+    var q = addQueryEl.value.trim();
+    var seq = ++addSearchSeq;
+    if (q.length < 3) { addResults = []; renderAddResults(); setAddStatus(''); return; }
+    setAddStatus('Searching…');
+    proxyFetch('/search?q=' + encodeURIComponent(q))
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (seq !== addSearchSeq) return;
+        addResults = data.results || [];
+        addSearchSource = data.source;
+        renderAddResults();
+        if (!addResults.length) setAddStatus('No matches.');
+        else if (data.source === 'sgdb') setAddStatus('HowLongToBeat is unavailable right now -- showing names only; you can enter hours yourself.', true);
+        else setAddStatus('');
+      })
+      .catch(function(err) {
+        if (seq !== addSearchSeq) return;
+        setAddStatus(err.message || 'Search failed.', true);
+      });
+  }
+
+  function platformChecklistHtml(selected) {
+    return PLATFORMS.map(function(p) {
+      return '<label><input type="checkbox" value="' + escHtml(p.key) + '"' + (selected.indexOf(p.key) > -1 ? ' checked' : '') + '> ' + escHtml(p.label) + '</label>';
+    }).join('');
+  }
+  function renderAddPreview() {
+    var p = addPreview;
+    var r = p.result;
+    var coverHtml = p.coverData
+      ? '<img class="add-game-cover" src="' + p.coverData + '" alt="">'
+      : '<span class="add-game-cover cover-placeholder">' + (p.loading ? 'Loading…' : 'No cover') + '</span>';
+    var hoursHtml = addSearchSource === 'sgdb'
+      ? ['main', 'extra', 'completionist'].map(function(k, i) {
+          return '<div><span class="label">' + ['Main', 'Main + Extra', 'Completionist'][i] + '</span>' +
+            '<input type="number" min="0" step="0.5" inputmode="decimal" data-hours="' + k + '" placeholder="hrs"></div>';
+        }).join('')
+      : [['Main', r.main], ['Main + Extra', r.extra], ['Completionist', r.completionist]].map(function(s) {
+          return '<div><span class="num">' + fmtAddHours(s[1]) + '</span><span class="label">' + s[0] + '</span></div>';
+        }).join('');
+    var genresHtml = p.loading ? '<span class="add-game-result-meta">Loading genres…</span>'
+      : (p.genres.length ? p.genres.map(function(t) { return '<span class="g-chip">' + escHtml(t) + '</span>'; }).join('')
+         : '<span class="g-chip" style="color:var(--text-faint);">Genre unknown</span>');
+    addPreviewStepEl.innerHTML =
+      '<div class="add-game-preview-top">' + coverHtml +
+        '<div>' +
+          '<h4 class="add-game-preview-name">' + escHtml(r.name) + '</h4>' +
+          '<div class="add-game-result-meta">' + escHtml([r.year, r.platforms].filter(Boolean).join(' · ')) + '</div>' +
+          '<div class="add-game-genres">' + genresHtml + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="add-game-hours">' + hoursHtml + '</div>' +
+      '<div class="add-game-preview-fields">' +
+        '<div class="field"><label>Ownership</label>' +
+          '<select class="status-select wishlist" id="add-game-owned"><option value="wishlist">Wishlist</option><option value="owned">Owned</option></select></div>' +
+        '<div class="field"><label>Status</label>' +
+          '<select class="progress-select p-backlog" id="add-game-progress">' +
+            '<option value="backlog">Backlog</option><option value="playing">Playing</option><option value="dnf">DNF</option>' +
+            '<option value="beaten">Beaten</option><option value="100">100%</option></select></div>' +
+        '<div class="field"><label>Platform</label><div class="add-game-platforms" id="add-game-platforms">' + platformChecklistHtml(['Wishlist']) + '</div></div>' +
+      '</div>' +
+      '<div class="add-game-status" id="add-game-save-status"></div>' +
+      '<div class="journal-form-actions">' +
+        '<button class="btn primary" type="button" id="add-game-save"' + (p.loading ? ' disabled' : '') + '>Add to Backlog</button>' +
+        '<button class="btn" type="button" id="add-game-back">Back to results</button>' +
+      '</div>';
+  }
+
+  function openAddPreview(r) {
+    var seq = addSearchSeq;
+    addPreview = { result: r, genres: [], coverData: null, steamAppId: null, loading: true };
+    addSearchStepEl.hidden = true;
+    addPreviewStepEl.hidden = false;
+    renderAddPreview();
+    var qs = r.hltbId ? 'hltbId=' + r.hltbId : 'sgdbId=' + r.sgdbId;
+    proxyFetch('/details?' + qs + '&name=' + encodeURIComponent(r.name) + '&year=' + encodeURIComponent(r.year || ''))
+      .then(function(res) { return res.json(); })
+      .then(function(d) {
+        if (seq !== addSearchSeq || !addPreview) return;
+        addPreview.genres = d.genres || [];
+        addPreview.steamAppId = d.steamAppId || null;
+        return d.coverUrl ? processCover(d.coverUrl).catch(function() { return null; }) : null;
+      })
+      .then(function(coverData) {
+        if (seq !== addSearchSeq || !addPreview) return;
+        addPreview.coverData = coverData || null;
+        addPreview.loading = false;
+        renderAddPreview();
+      })
+      .catch(function(err) {
+        if (seq !== addSearchSeq || !addPreview) return;
+        addPreview.loading = false;
+        renderAddPreview();
+        document.getElementById('add-game-save-status').textContent = 'Couldn’t load genres/cover (' + (err.message || 'error') + ') -- you can still add it.';
+      });
+  }
+
+  function saveAddedGame() {
+    var p = addPreview;
+    if (!p) return;
+    var r = p.result;
+    var saveBtn = document.getElementById('add-game-save');
+    var statusEl = document.getElementById('add-game-save-status');
+    var owned = document.getElementById('add-game-owned').value === 'owned';
+    var progress = document.getElementById('add-game-progress').value;
+    var platforms = Array.prototype.map.call(
+      addPreviewStepEl.querySelectorAll('#add-game-platforms input:checked'), function(el) { return el.value; });
+    if (!platforms.length) platforms = ['Wishlist'];
+    var hours = { main: r.main, extra: r.extra, completionist: r.completionist };
+    Array.prototype.forEach.call(addPreviewStepEl.querySelectorAll('[data-hours]'), function(el) {
+      var v = parseFloat(el.value);
+      hours[el.getAttribute('data-hours')] = isNaN(v) ? null : v;
+    });
+
+    // Re-adding something that's in the catalog (baked or site-added) but was deleted:
+    // un-delete it instead of creating a duplicate, applying the chosen settings as overrides.
+    var existing = findExistingGame(r.name);
+    if (existing) {
+      if (!existing.deleted) { statusEl.textContent = 'Already in your backlog.'; return; }
+      delete deletedNames[existing.name];
+      existing.deleted = false;
+      existing.genres.forEach(function(tag) { genreCounts[tag] = (genreCounts[tag] || 0) + 1; });
+      existing.owned = owned; ownedOverrides[existing.name] = owned;
+      existing.platforms = platforms; platformOverrides[existing.name] = platforms;
+      existing.progress = progress; progressOverrides[existing.name] = progress;
+      existing.playedHours = effectivePlayed(progress, existing.playedHoursDefault, existing.name);
+      saveState();
+      rebuildGenreList();
+      renderStats();
+      document.getElementById('eyebrow-count').textContent = fmtInt(totalCount()) + ' titles tracked';
+      applyFilters();
+      closeAddGameModal();
+      location.hash = 'game-' + existing.id;
+      return;
+    }
+
+    var rec = { n: r.name, m: hours.main, e: hours.extra, c: hours.completionist, o: owned, p: platforms, g: p.genres };
+    if (progress !== 'backlog') rec.pr = progress;
+    if (p.coverData) rec.cv = p.coverData;
+    rec.addedAt = new Date().toISOString();
+    if (r.hltbId) rec.hltbId = r.hltbId;
+    if (p.steamAppId) rec.steamAppId = p.steamAppId;
+
+    saveBtn.disabled = true;
+    statusEl.textContent = 'Adding…';
+    window.__addGameDoc(rec)
+      .then(function() {
+        // The snapshot listener usually beats this, but apply locally too so the
+        // redirect below always has the game to land on.
+        applyAddedGames([rec]);
+        closeAddGameModal();
+        var g = gameByName[rec.n];
+        if (g) location.hash = 'game-' + g.id;
+      })
+      .catch(function(err) {
+        saveBtn.disabled = false;
+        statusEl.textContent = 'Couldn’t save: ' + (err.message || err);
+      });
+  }
+
+  document.getElementById('add-game-btn').addEventListener('click', openAddGameModal);
+  addQueryEl.addEventListener('input', function() {
+    clearTimeout(addSearchTimer);
+    addSearchTimer = setTimeout(runAddSearch, 350);
+  });
+  addModalEl.addEventListener('click', function(e) {
+    if (e.target.closest('#add-game-close')) { closeAddGameModal(); return; }
+    if (e.target.closest('#add-game-back')) { addSearchSeq++; showAddSearchStep(); return; }
+    if (e.target.closest('#add-game-save')) { saveAddedGame(); return; }
+    var resultBtn = e.target.closest('.add-game-result');
+    if (resultBtn && !resultBtn.disabled) openAddPreview(addResults[+resultBtn.getAttribute('data-i')]);
+  });
+  addModalEl.addEventListener('change', function(e) {
+    var t = e.target;
+    if (t.id === 'add-game-owned') {
+      t.classList.remove('owned', 'wishlist');
+      t.classList.add(t.value);
+    } else if (t.id === 'add-game-progress') {
+      t.className = 'progress-select ' + progressClass(t.value);
+    } else if (t.closest('#add-game-platforms') && t.checked) {
+      // Same exclusivity as the per-game platform editor: Wishlist vs. any real platform.
+      Array.prototype.forEach.call(addPreviewStepEl.querySelectorAll('#add-game-platforms input'), function(el) {
+        if (el !== t && (t.value === 'Wishlist' || el.value === 'Wishlist')) el.checked = false;
+      });
+    }
+  });
+
   var exportBtn = document.getElementById('export-btn');
 
   function markDirty() {
@@ -2818,7 +3191,7 @@
 </script>
 
 <script type="module">
-  import { requireLogin, db, doc, setDoc, onSnapshot } from "../shared/firebase-init.js";
+  import { requireLogin, db, doc, setDoc, onSnapshot, collection, addDoc, query, orderBy } from "../shared/firebase-init.js";
   requireLogin(document.body, function (user) {
     document.getElementById("app").style.display = "";
     var stateRef = doc(db, "users", user.uid, "state", "games");
@@ -2839,6 +3212,16 @@
     // recomputing totals itself (e.g. a one-off maintenance script that only touches
     // `deleted`) -- the very next time this page loads, the stale cached number fixes
     // itself with no manual nudge needed.
+    // Games added from the site (see applyAddedGames() in the classic script). One doc per
+    // game so covers never bloat the state doc above, which is fully rewritten on every edit.
+    var addedGamesCol = collection(db, "users", user.uid, "addedGames");
+    window.__addGameDoc = function (rec) { return addDoc(addedGamesCol, rec); };
+    // Firebase ID token for the backlog proxy Worker, which only answers this one user.
+    window.__getIdToken = function () { return user.getIdToken(); };
+    onSnapshot(query(addedGamesCol, orderBy("addedAt")), function (snap) {
+      if (window.__applyAddedGames) window.__applyAddedGames(snap.docs.map(function (d) { return d.data(); }));
+    });
+
     var seededTotals = false;
     onSnapshot(stateRef, function (snap) {
       var data = snap.data();
@@ -2853,7 +3236,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1789745876', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1789756514', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
