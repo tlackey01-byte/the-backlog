@@ -48,7 +48,12 @@
   var COLLAPSE_KEY = "backlog-sidenav-collapsed";
   var collapsed = false;
   try { collapsed = localStorage.getItem(COLLAPSE_KEY) === "1"; } catch (e) {}
-  if (document.body) document.body.classList.toggle("sidenav-collapsed", collapsed);
+  // has-sidenav is set here too (not only in mount()), otherwise the page would lay out
+  // without the sidebar offset first and then visibly slide over once mount() runs.
+  if (document.body) {
+    document.body.classList.add("has-sidenav");
+    document.body.classList.toggle("sidenav-collapsed", collapsed);
+  }
 
   function sideItem(href, label, iconName, isActive, enabled) {
     if (!enabled) {

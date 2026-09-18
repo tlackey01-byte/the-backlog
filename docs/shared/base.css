@@ -252,15 +252,21 @@ body.has-tabbar { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
 }
 @media (min-width: 1100px) {
   /* Scales with the window (18vw) between 232px and 300px, or a 72px icon rail when
-     collapsed; one variable keeps the sidebar and the page's left offset in step. */
-  body { --side-w: clamp(232px, 18vw, 300px); }
+     collapsed; one variable keeps the sidebar and the page's left offset in step.
+     --side-anim is shared by everything that moves, so the sidebar and the page slide
+     together as one motion. */
+  body {
+    --side-w: clamp(232px, 18vw, 300px);
+    --side-anim: .28s cubic-bezier(.2, .8, .2, 1);
+  }
   body.sidenav-collapsed { --side-w: 72px; }
-  body.has-sidenav { padding-left: var(--side-w); transition: padding-left .2s ease; }
+  body.has-sidenav { padding-left: var(--side-w); transition: padding-left var(--side-anim); }
   /* Page content: centered on the whole window when there's room beside the sidebar,
      otherwise sitting just right of it -- instead of centered in the leftover space,
      which read as pushed right. 640px = half the 1280px max content width. */
   body.has-sidenav .wrap, body.has-sidenav .app-header-inner, body.has-sidenav .home {
     margin-left: max(24px, calc(50vw - 640px - var(--side-w))); margin-right: auto;
+    transition: margin-left var(--side-anim);
   }
   body.has-sidenav .app-brand { display: none; }
   /* With the brand in the sidebar, the header's top row would only hold the action
@@ -269,54 +275,70 @@ body.has-tabbar { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
   body.has-sidenav .app-header-inner > .app-header-row { order: 2; flex: none; }
   body.has-sidenav .app-header-inner > .app-header-row:only-child { flex: 1; } /* e.g. Home: keep actions right */
   body.has-sidenav .app-header-inner > :not(.app-header-row) { order: 1; flex: 1; min-width: 0; }
+
+  /* Geometry is identical in both states (12px side padding, 14px link padding), so every
+     icon sits at the same spot expanded or collapsed -- centered in the 72px rail -- and
+     only the width animates; text fades rather than snapping in or out. */
   .side-nav {
     display: flex; flex-direction: column; gap: 4px;
     position: fixed; top: 0; bottom: 0; left: 0; width: var(--side-w); z-index: 45; /* under the login gate (100) and sheets (150) */
-    transition: width .2s ease; overflow-x: hidden;
-    padding: max(8px, env(safe-area-inset-top)) 16px 20px;
+    padding: max(8px, env(safe-area-inset-top)) 12px 20px;
     background: var(--surface); border-right: 1px solid var(--border);
-    overflow-y: auto;
+    overflow-x: hidden; overflow-y: auto;
+    transition: width var(--side-anim);
   }
-  .side-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+  .side-top { position: relative; min-height: 44px; margin-bottom: 14px; }
+  /* Pinned to the sidebar's right edge, so it glides with the width change; 4px in from
+     the 48px content box also centers it in the collapsed rail. */
   .side-toggle {
-    width: 40px; height: 40px; flex: none; border-radius: 10px; border: 0; background: none; cursor: pointer;
+    position: absolute; top: 2px; right: 4px;
+    width: 40px; height: 40px; border-radius: 10px; border: 0; background: none; cursor: pointer;
     color: var(--text-faint); display: inline-flex; align-items: center; justify-content: center;
   }
   .side-toggle:hover { background: var(--surface-2); color: var(--text); }
   .side-brand {
-    display: flex; align-items: center; min-height: 44px; padding: 0 12px; white-space: nowrap;
+    display: flex; align-items: center; min-height: 44px; padding: 0 52px 0 14px; white-space: nowrap;
     font-family: var(--font-display); font-weight: 800; font-size: 26px; line-height: 1; letter-spacing: -0.01em;
     color: var(--text); text-decoration: none;
   }
   .side-links { display: flex; flex-direction: column; gap: 2px; }
   .side-group {
+    position: relative; white-space: nowrap;
     font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--text-faint); padding: 18px 12px 8px;
+    color: var(--text-faint); padding: 18px 14px 8px;
+  }
+  /* The divider the "Library" heading turns into when collapsed (same height, no jump). */
+  .side-group::before {
+    content: ""; position: absolute; left: 10px; right: 10px; top: calc(50% + 5px);
+    border-top: 1px solid var(--border); opacity: 0;
   }
   .side-link {
-    display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 10px;
-    color: var(--text-muted); text-decoration: none; font-size: 15px; font-weight: 500;
+    display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 10px;
+    color: var(--text-muted); text-decoration: none; font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden;
     transition: background .15s ease, color .15s ease;
   }
   .side-link svg { flex: none; }
   .side-label { flex: 1; }
   a.side-link:hover { background: var(--surface-2); color: var(--text); }
   .side-link.active { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-weight: 600; }
-  .side-link.disabled { color: var(--text-faint); cursor: default; opacity: .7; }
+  .side-link.disabled { color: var(--text-faint); cursor: default; }
+  .side-link.disabled svg, .side-link.disabled .side-label { opacity: .7; }
   .side-soon {
     font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
     padding: 2px 6px; border-radius: 6px; background: var(--surface-2); color: var(--text-faint);
   }
-  .side-link, .side-group { white-space: nowrap; }
-  /* Collapsed: an icon rail. Labels, "Soon" tags and the brand hide; the "Library"
-     heading becomes a thin divider; each icon keeps its name as a hover tooltip. */
-  body.sidenav-collapsed .side-nav { padding-left: 12px; padding-right: 12px; }
-  body.sidenav-collapsed .side-top { justify-content: center; }
-  body.sidenav-collapsed .side-brand,
-  body.sidenav-collapsed .side-label,
-  body.sidenav-collapsed .side-soon { display: none; }
-  body.sidenav-collapsed .side-link { justify-content: center; padding: 0; }
-  body.sidenav-collapsed .side-group { font-size: 0; padding: 0; margin: 12px 8px; border-top: 1px solid var(--border); }
+
+  /* Fading text: on expand it fades in slightly after the width starts opening (so it
+     never appears squeezed); on collapse it fades out right away, before the width closes. */
+  .side-brand, .side-label, .side-soon, .side-group {
+    transition: opacity .2s ease .1s, color .2s ease .1s;
+  }
+  .side-group::before { transition: opacity .15s ease; }
+  body.sidenav-collapsed .side-nav .side-brand,
+  body.sidenav-collapsed .side-nav .side-link .side-label,
+  body.sidenav-collapsed .side-nav .side-soon { opacity: 0; transition: opacity .1s ease; pointer-events: none; }
+  body.sidenav-collapsed .side-group { color: transparent; transition: color .1s ease; }
+  body.sidenav-collapsed .side-group::before { opacity: 1; transition: opacity .2s ease .1s; }
 }
 
 /* ---------- Bottom sheets ----------
