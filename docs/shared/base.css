@@ -181,6 +181,18 @@ input[type="email"]:focus, input[type="password"]:focus, select:focus, button:fo
    immediately instead of briefly waiting to see if a second tap is coming. */
 a, button, select, input { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 
+/* No typing cursor anywhere you can't type. Chrome's caret browsing (F7) otherwise drops a
+   blinking caret wherever you click on plain text; only real text fields show one. */
+body { caret-color: transparent; }
+input, textarea, select, [contenteditable="true"] { caret-color: auto; }
+/* App controls and lists behave like app UI, not a document: a click or double-click never
+   selects text. Journal entries and game details stay selectable for copying. */
+.app-header, .side-nav, .section-tabbar, .app-menu, .sheet-head, .pick-row, button,
+.g-row, .g-table, .stats-strip, .status-chips, .active-chips, .results-bar, .f-chip, .pill {
+  -webkit-user-select: none; user-select: none;
+}
+.app-header input, .sheet input, .sheet textarea { -webkit-user-select: text; user-select: text; }
+
 /* ---------- App header (shared across homepage + every section) ----------
    Sticky compact bar: brand (links Home) and the page's own action buttons. On wide
    screens the brand moves into the left sidebar (shared/nav.js). Pages can add a second row

@@ -64,6 +64,25 @@
   .s-chip .n { font-family: var(--font-mono); font-size: 12px; color: var(--text-faint); }
   .s-chip.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
   .s-chip.active .n { color: var(--accent-ink); opacity: .75; }
+  /* Totals and status buttons share one grid. Every totals box is the same width, every
+     status button is the same width, and contents are centered. Phones: the four totals
+     split the full row (no scrolling); status buttons keep scrolling. Wide screens: 6
+     status buttons of --chip-w, and 4 totals sized so both rows span exactly the same
+     width, left and right edges lined up. */
+  .stats-strip.hscroll { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; overflow: visible; }
+  .stat-chip { align-items: center; text-align: center; padding: 8px 6px; min-width: 0; }
+  .stat-chip .num { font-size: 20px; }
+  .s-chip { justify-content: center; }
+  @media (min-width: 900px) {
+    .stats-strip, .status-chips { --chip-w: 128px; --chip-gap: 8px; }
+    .status-chips.hscroll { display: grid; grid-template-columns: repeat(6, var(--chip-w)); gap: var(--chip-gap); overflow: visible; }
+    .stats-strip.hscroll {
+      grid-template-columns: repeat(4, calc((6 * var(--chip-w) + 5 * var(--chip-gap) - 3 * var(--chip-gap)) / 4));
+      gap: var(--chip-gap);
+    }
+    .stat-chip { padding: 10px 12px; }
+    .stat-chip .num { font-size: 24px; line-height: 26px; }
+  }
 
   /* ---- Active (non-status) filter chips + results bar ---- */
   .active-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 16px 0; }
@@ -1874,7 +1893,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1789764891', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1789765395', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
