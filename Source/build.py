@@ -70,7 +70,14 @@ def write_cover(data_uri, written):
     one gets a new URL automatically."""
     header, b64 = data_uri.split(",", 1)
     raw = base64.b64decode(b64)
-    ext = "png" if "image/png" in header else "jpg"
+    # Covers refreshed by refetch_covers.py are WebP; the original bake was JPEG, with a
+    # stray PNG or two. Read the type off the data URI so a mixed master file bakes cleanly
+    # -- a .jpg file holding WebP bytes would be served as image/jpeg and may not render.
+    ext = "jpg"
+    for mime, e in (("image/webp", "webp"), ("image/png", "png")):
+        if mime in header:
+            ext = e
+            break
     name = hashlib.sha1(raw).hexdigest()[:16] + "." + ext
     if name not in written:
         path = os.path.join(COVERS_DIR, name)
