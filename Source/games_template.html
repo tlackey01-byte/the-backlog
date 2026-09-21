@@ -138,10 +138,11 @@
   .g-list { border-top: 1px solid var(--border); }
   .g-row { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--border); cursor: pointer; }
   .g-row:hover { background: color-mix(in srgb, var(--surface) 60%, transparent); }
-  /* 2:3, the shape box art actually is. Thumbnails bake at 240x360, which covers 64px
-     wide at 3x on a phone and the 88px table cell at 2x. object-fit still applies for the
-     handful of legacy 3:4 covers that haven't been refreshed yet. */
-  .cover { width: 64px; height: 96px; border-radius: 6px; flex: none; object-fit: cover; display: block; background: var(--surface-2); }
+  /* Landscape Steam capsule art (baked 460x215), not the portrait grid: at list size the
+     wide shape reads better and nothing gets cropped. 460 covers 152px at 3x on a phone and
+     the 184px table cell at 2x. object-fit still matters for the legacy portrait covers of
+     games the cover refresh hasn't reached yet -- those do get cropped until it does. */
+  .cover { width: 152px; height: 71px; border-radius: 6px; flex: none; object-fit: cover; display: block; background: var(--surface-2); }
   .cover-ph {
     display: flex; align-items: center; justify-content: center; background: var(--surface-3); color: var(--text-faint);
     font-family: var(--font-display); font-weight: 800; font-size: 24px;
@@ -151,10 +152,11 @@
     font-size: 15px; font-weight: 600; line-height: 20px; overflow: hidden;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere;
   }
-  .g-meta { display: flex; align-items: center; gap: 10px; min-height: 44px; min-width: 0; }
-  .g-meta .plat-pill { max-width: calc(100% - 50px); }
+  /* Wraps: at 152px of cover the two pills and the hours don't always fit one line, and a
+     wrapped second line reads better than shrinking the pills into unreadable stubs. */
+  .g-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; min-height: 44px; min-width: 0; }
+  .g-meta .plat-pill { max-width: 100%; }
   .g-hours { font-family: var(--font-mono); font-size: 12px; color: var(--text-faint); white-space: nowrap; }
-  .g-side { min-height: 44px; display: flex; align-items: center; flex: none; }
 
   /* ---- Desktop table ---- */
   .g-table-wrap { padding: 0 16px; }
@@ -177,7 +179,7 @@
   .g-table td { padding: 10px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
   .g-table tbody tr { cursor: pointer; }
   .g-table tbody tr:hover { background: var(--surface); }
-  .g-table .cover { width: 88px; height: 132px; border-radius: 8px; }
+  .g-table .cover { width: 184px; height: 86px; border-radius: 8px; }
   .g-table .t-title { font-weight: 600; font-size: 17px; }
   .g-table .t-genre { font-size: 12.5px; color: var(--text-faint); margin-top: 2px; }
   .g-table td.num { font-family: var(--font-mono); font-size: 13.5px; color: var(--text-muted); white-space: nowrap; }
@@ -934,17 +936,21 @@
   var renderedCount = 0;
   var currentFiltered = [];
 
+  // Both pills sit on the meta line under the title. They used to be split -- platform on
+  // the meta line, status in its own right-hand column -- which stopped working once the
+  // cover went wide: 152px of art plus three columns left the title about 90px and squeezed
+  // the platform pill down to just its chevron.
   function rowHtml(g) {
     return '<div class="g-row" data-open="' + g.id + '">' + coverHtml(g) +
       '<div class="g-main"><div class="g-title">' + escHtml(g.name) + '</div>' +
-      '<div class="g-meta">' + platPill(g) + '<span class="g-hours">' + (g.main != null ? fmtHours(g.main) + 'h' : '') + '</span></div></div>' +
-      '<div class="g-side">' + statusPill(g) + '</div></div>';
+      '<div class="g-meta">' + platPill(g) + statusPill(g) +
+      '<span class="g-hours">' + (g.main != null ? fmtHours(g.main) + 'h' : '') + '</span></div></div></div>';
   }
   var TABLE_COLS = [
     // Title is capped at a share of the table so the pills sit near it; the number
     // columns have no width and split whatever is left evenly. Platform is wider than its
     // 124px pill so there's a clear gap before Status.
-    { key: null, label: '', w: '108px' },
+    { key: null, label: '', w: '200px' },
     { key: 'n', label: 'Title', w: '28%', title: true },
     { key: 'plat', label: 'Platform', w: '172px', pill: true },
     { key: 'progress', label: 'Status', w: '140px', pill: true },
@@ -1919,7 +1925,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1790023356', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1790025110', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
