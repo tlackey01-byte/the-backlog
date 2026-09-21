@@ -2,10 +2,11 @@
 
 Why: the covers baked into master_games_final.json are 130x195 JPEGs (a leftover from when
 every cover was inlined into the page as base64 and total page weight was the constraint).
-The detail hero shows a cover at 150x200 CSS px, which is 300x400 real pixels on a 2x
-display and 450x600 on a phone at 3x -- so a 130px-wide source gets upscaled 2-3x and looks
-soft. SteamGridDB serves 600x900 art; this pulls that and re-encodes at a size the screen
-can actually use.
+The detail hero shows a cover at 200x267 CSS px on desktop and 120x160 on a phone, which is
+400x533 real pixels on a 2x display and 360x480 on a phone at 3x -- so a 130px-wide source
+got upscaled 3x and looked soft. SteamGridDB serves 600x900 art; this pulls that and
+re-encodes at 400px wide, which covers both of those with room to spare. Raising the hero
+sizes past 200 CSS px means raising --width to match, or the blur comes back.
 
 Output is 3:4, not the source 2:3: every cover box in the UI is 3:4 and object-fit:cover
 already crops the art to that, so cropping here matches what you see and saves ~11% weight.
@@ -131,7 +132,7 @@ def main():
     ap.add_argument("--sample", type=int, help="N games spread evenly through the list")
     ap.add_argument("--limit", type=int, help="first N games")
     ap.add_argument("--out", help="directory for the new .webp files (dry run)")
-    ap.add_argument("--width", type=int, default=300)
+    ap.add_argument("--width", type=int, default=400)
     ap.add_argument("--quality", type=int, default=72)
     ap.add_argument("--ids-file", default=IDS_FILE)
     ap.add_argument("--apply", action="store_true", help="write covers back into master_games_final.json")

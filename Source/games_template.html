@@ -190,7 +190,10 @@
     color: var(--text); font: inherit; font-size: 16px; font-weight: 500; cursor: pointer; align-self: flex-start;
   }
   .detail-hero { display: flex; gap: 16px; align-items: flex-start; }
-  .detail-hero .cover { width: 104px; height: 139px; border-radius: 10px; }
+  /* 120x160 here and 200x267 on desktop are the largest the 400px-wide baked covers stay
+     sharp at (3x and 2x respectively). Going bigger means re-running refetch_covers.py
+     with a larger --width, not just editing these numbers. */
+  .detail-hero .cover { width: 120px; height: 160px; border-radius: 10px; }
   .detail-hero .cover-ph { font-size: 48px; }
   .detail-hero-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding-top: 2px; }
   .detail-genres { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
@@ -318,7 +321,7 @@
   @media (min-width: 900px) {
     .stats-strip, .status-chips, .active-chips { padding-left: 16px; padding-right: 16px; }
     .detail { padding-top: 20px; }
-    .detail-hero .cover { width: 150px; height: 200px; }
+    .detail-hero .cover { width: 200px; height: 267px; }
   }
 </style>
 </head>
@@ -1893,7 +1896,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1790015743', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1790021590', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
