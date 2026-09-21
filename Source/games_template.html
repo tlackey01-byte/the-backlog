@@ -138,7 +138,10 @@
   .g-list { border-top: 1px solid var(--border); }
   .g-row { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--border); cursor: pointer; }
   .g-row:hover { background: color-mix(in srgb, var(--surface) 60%, transparent); }
-  .cover { width: 52px; height: 70px; border-radius: 6px; flex: none; object-fit: cover; display: block; background: var(--surface-2); }
+  /* 2:3, the shape box art actually is. Thumbnails bake at 240x360, which covers 64px
+     wide at 3x on a phone and the 88px table cell at 2x. object-fit still applies for the
+     handful of legacy 3:4 covers that haven't been refreshed yet. */
+  .cover { width: 64px; height: 96px; border-radius: 6px; flex: none; object-fit: cover; display: block; background: var(--surface-2); }
   .cover-ph {
     display: flex; align-items: center; justify-content: center; background: var(--surface-3); color: var(--text-faint);
     font-family: var(--font-display); font-weight: 800; font-size: 24px;
@@ -174,7 +177,7 @@
   .g-table td { padding: 10px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
   .g-table tbody tr { cursor: pointer; }
   .g-table tbody tr:hover { background: var(--surface); }
-  .g-table .cover { width: 72px; height: 96px; border-radius: 8px; }
+  .g-table .cover { width: 88px; height: 132px; border-radius: 8px; }
   .g-table .t-title { font-weight: 600; font-size: 17px; }
   .g-table .t-genre { font-size: 12.5px; color: var(--text-faint); margin-top: 2px; }
   .g-table td.num { font-family: var(--font-mono); font-size: 13.5px; color: var(--text-muted); white-space: nowrap; }
@@ -189,11 +192,12 @@
     display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 8px 0 0; border: 0; background: none;
     color: var(--text); font: inherit; font-size: 16px; font-weight: 500; cursor: pointer; align-self: flex-start;
   }
-  .detail-hero { display: flex; gap: 16px; align-items: flex-start; }
-  /* 120x160 here and 200x267 on desktop are the largest the 400px-wide baked covers stay
-     sharp at (3x and 2x respectively). Going bigger means re-running refetch_covers.py
-     with a larger --width, not just editing these numbers. */
-  .detail-hero .cover { width: 120px; height: 160px; border-radius: 10px; }
+  /* Phone: title block first, then the cover centered under it -- a cover this size beside
+     the title would squeeze it to about 150px and wrap long names to four lines. Desktop
+     puts them side by side (see the 900px block). The 600x900 hero file is sharp up to
+     200px wide at 3x and 300px at 2x, which is exactly what these two sizes ask for. */
+  .detail-hero { display: flex; flex-direction: column; gap: 16px; align-items: stretch; }
+  .detail-hero .cover { width: 200px; height: 300px; border-radius: 12px; align-self: center; }
   .detail-hero .cover-ph { font-size: 48px; }
   .detail-hero-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding-top: 2px; }
   .detail-genres { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
@@ -321,7 +325,12 @@
   @media (min-width: 900px) {
     .stats-strip, .status-chips, .active-chips { padding-left: 16px; padding-right: 16px; }
     .detail { padding-top: 20px; }
-    .detail-hero .cover { width: 200px; height: 267px; }
+    .detail { max-width: 900px; }
+    .detail-hero { flex-direction: row; gap: 24px; align-items: flex-start; }
+    /* Text left, cover right -- the arrangement ggapp.io uses -- and big enough to be the
+       page's anchor rather than an icon. */
+    .detail-hero-text { flex: 1; padding-top: 6px; }
+    .detail-hero .cover { width: 300px; height: 450px; align-self: flex-start; }
   }
 </style>
 </head>
@@ -622,6 +631,7 @@
       playedHours: effectivePlayed(progress, importedDefault, r.n),
       rating: has(ratingOverrides, r.n) ? ratingOverrides[r.n] : null,
       cover: r.cv || null,
+      coverHero: r.hv || null,
       developer: r.dv || null,
       deleted: !!deletedNames[r.n]
     };
@@ -744,6 +754,14 @@
     }
     return '<button type="button" class="pill plat-pill' + (lg ? ' lg' : '') + '" data-plat="' + g.id + '" aria-label="Owned on ' + escHtml(platformSummary(g)) + ' -- change">' +
       '<span>' + escHtml(platformSummary(g)) + '</span>' + icon('chev', 14, 2.4) + '</button>';
+  }
+  // The detail page uses the game's hero file (600x900) when the cover refresh has produced
+  // one, and falls back to the list thumbnail otherwise. Not lazy: it's the thing you opened
+  // the page to look at.
+  function heroCoverHtml(g) {
+    var src = g.coverHero || g.cover;
+    if (!src) return coverHtml(g);
+    return '<img class="cover" src="' + escHtml(src) + '" alt="" decoding="async">';
   }
   function coverHtml(g) {
     if (g.cover) return '<img class="cover" src="' + escHtml(g.cover) + '" alt="" loading="lazy" decoding="async">';
@@ -926,7 +944,7 @@
     // Title is capped at a share of the table so the pills sit near it; the number
     // columns have no width and split whatever is left evenly. Platform is wider than its
     // 124px pill so there's a clear gap before Status.
-    { key: null, label: '', w: '92px' },
+    { key: null, label: '', w: '108px' },
     { key: 'n', label: 'Title', w: '28%', title: true },
     { key: 'plat', label: 'Platform', w: '172px', pill: true },
     { key: 'progress', label: 'Status', w: '140px', pill: true },
@@ -1421,12 +1439,12 @@
     detailViewEl.innerHTML =
       '<div class="detail">' +
         '<button type="button" class="back-btn" id="detail-back-btn">' + icon('back', 22) + '<span>Games</span></button>' +
-        '<div class="detail-hero">' + coverHtml(g) +
+        '<div class="detail-hero">' +
           '<div class="detail-hero-text">' +
             (g.genres.length ? '<div class="detail-genres">' + escHtml(g.genres.slice(0, 3).join(' · ')) + '</div>' : '') +
             '<h1 class="detail-title">' + escHtml(g.name) + '</h1>' +
             (meta ? '<div class="detail-dev">' + escHtml(meta) + '</div>' : '') +
-          '</div></div>' +
+          '</div>' + heroCoverHtml(g) + '</div>' +
         '<div class="detail-section"><span class="mono-label">Your progress</span><div class="card">' +
           '<div class="prog-row"><span>Status</span>' + statusPill(g, true) + '</div>' +
           '<div class="prog-row"><span>Platform</span>' + platPill(g, true) + '</div>' +
@@ -1612,14 +1630,18 @@
       return res;
     });
   }
-  // Same processing the add-game skill applies: flatten onto the placeholder color, cap
-  // width at 200px, JPEG q65 -> data URI (~7KB).
+  // Flatten onto the placeholder color and cap width at 600px, WebP q65 -> data URI
+  // (~55KB). 600 matches the hero files the cover refresh bakes, so a game added here looks
+  // the same on the detail page as one from the master list; it doubles as the row
+  // thumbnail until bake_added_games.py folds it in and gives it a proper two-tier pair.
+  // Safari only learned canvas WebP in 14 -- older browsers silently hand back a PNG, which
+  // would be enormous, so fall back to JPEG when the data URI isn't what was asked for.
   function processCover(url) {
     return proxyFetch('/cover?url=' + encodeURIComponent(url))
       .then(function(res) { return res.blob(); })
       .then(function(blob) { return createImageBitmap(blob); })
       .then(function(bmp) {
-        var w = Math.min(200, bmp.width);
+        var w = Math.min(600, bmp.width);
         var h = Math.round(bmp.height * w / bmp.width);
         var canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
@@ -1628,7 +1650,8 @@
         ctx.fillRect(0, 0, w, h);
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(bmp, 0, 0, w, h);
-        return canvas.toDataURL('image/jpeg', 0.65);
+        var webp = canvas.toDataURL('image/webp', 0.65);
+        return webp.indexOf('data:image/webp') === 0 ? webp : canvas.toDataURL('image/jpeg', 0.8);
       });
   }
 
@@ -1896,7 +1919,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1790021590', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1790023356', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the

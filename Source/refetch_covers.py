@@ -1,25 +1,30 @@
-"""Re-fetch game covers from SteamGridDB at full 600x900 and re-bake them sharp.
+"""Re-fetch game covers from SteamGridDB at full 600x900 and re-bake them in two sizes.
 
-Why: the covers baked into master_games_final.json are 130x195 JPEGs (a leftover from when
-every cover was inlined into the page as base64 and total page weight was the constraint).
-The detail hero shows a cover at 200x267 CSS px on desktop and 120x160 on a phone, which is
-400x533 real pixels on a 2x display and 360x480 on a phone at 3x -- so a 130px-wide source
-got upscaled 3x and looked soft. SteamGridDB serves 600x900 art; this pulls that and
-re-encodes at 400px wide, which covers both of those with room to spare. Raising the hero
-sizes past 200 CSS px means raising --width to match, or the blur comes back.
+Why two: the list shows ~1,950 covers at 64x96 (phone) or 88x132 (table), while the detail
+page shows one at 200x300 (phone) or 300x450 (desktop). One file can't serve both without
+waste -- a hero-sized image is ~55KB, and scrolling the whole list through those would be
+~105MB of phone data for thumbnails nobody looks at closely. So:
 
-Output is 3:4, not the source 2:3: every cover box in the UI is 3:4 and object-fit:cover
-already crops the art to that, so cropping here matches what you see and saves ~11% weight.
+  thumb  240x360  ~14KB   baked into master_games_final.json, used by rows and the table
+  hero   600x900  ~55KB   written straight to docs/games/covers/hero/, detail page only
+
+The hero is SteamGridDB's native size untouched, which is exactly what a 300x450 box needs
+on a 2x display and a 200x300 box needs on a phone at 3x. Heroes are listed in
+Source/cover_heroes.json (game name -> file) so build.py can emit them and clean up stale
+ones; keeping them out of the master JSON keeps that file small enough to commit.
+
+Both sizes are 2:3, the shape the art actually is -- the old bake cropped to 3:4 to match
+the boxes, which is now handled by object-fit: cover on the smaller boxes instead.
 
 Matching mirrors worker/src/index.js `details()`: SteamGridDB autocomplete, keep only
 candidates whose normalized name equals the game's. A game with no exact match keeps its
 existing cover and is listed in the report for review -- guessing silently would swap in art
 for the wrong game. Resolved ids are cached to --ids-file so later runs skip the search.
 
-  # dry run: 30 evenly spaced games, images + report into a preview dir, master untouched
+  # dry run: 30 evenly spaced games, both sizes + a report into a preview dir
   python Source/refetch_covers.py --sample 30 --out <dir>
 
-  # full run, writing new covers back into the master JSON (backs it up first)
+  # full run: thumbs into the master JSON (backed up first), heroes into docs/
   python Source/refetch_covers.py --apply
 
 Needs: Pillow (WebP) and Source/steamgriddb_api_key.txt.
@@ -27,6 +32,7 @@ Needs: Pillow (WebP) and Source/steamgriddb_api_key.txt.
 
 import argparse
 import base64
+import hashlib
 import io
 import json
 import os
@@ -39,9 +45,12 @@ import urllib.parse
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+DOCS = os.path.join(os.path.dirname(HERE), "docs")
 MASTER = os.path.join(HERE, "master_games_final.json")
 KEY_FILE = os.path.join(HERE, "steamgriddb_api_key.txt")
 IDS_FILE = os.path.join(HERE, "cover_sources.json")
+HEROES_FILE = os.path.join(HERE, "cover_heroes.json")
+HERO_DIR = os.path.join(DOCS, "games", "covers", "hero")
 SGDB = "https://www.steamgriddb.com/api/v2"
 UA = "the-backlog-cover-refresh"
 
@@ -101,18 +110,12 @@ def resolve(game, key):
     return None, None, None
 
 
-def encode(raw, width, quality):
-    """600x900 source -> 3:4 center crop -> width x (width*4/3) WebP."""
+def encode(im, width, quality):
+    """2:3 at the given width. No crop -- the art is already 2:3."""
     from PIL import Image
-    im = Image.open(io.BytesIO(raw)).convert("RGB")
-    w, h = im.size
-    target_h = int(round(w * 4 / 3))
-    if h > target_h:
-        top = (h - target_h) // 2
-        im = im.crop((0, top, w, top + target_h))
-    im = im.resize((width, int(round(width * 4 / 3))), Image.LANCZOS)
+    out = im if im.width == width else im.resize((width, int(round(width * 1.5))), Image.LANCZOS)
     buf = io.BytesIO()
-    im.save(buf, "WEBP", quality=quality, method=6)
+    out.save(buf, "WEBP", quality=quality, method=6)
     return buf.getvalue()
 
 
@@ -131,23 +134,31 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sample", type=int, help="N games spread evenly through the list")
     ap.add_argument("--limit", type=int, help="first N games")
-    ap.add_argument("--out", help="directory for the new .webp files (dry run)")
-    ap.add_argument("--width", type=int, default=400)
-    ap.add_argument("--quality", type=int, default=72)
+    ap.add_argument("--out", help="directory for the new files (dry run)")
+    ap.add_argument("--thumb-width", type=int, default=240)
+    ap.add_argument("--hero-width", type=int, default=600)
+    ap.add_argument("--thumb-quality", type=int, default=72)
+    ap.add_argument("--hero-quality", type=int, default=65)
     ap.add_argument("--ids-file", default=IDS_FILE)
-    ap.add_argument("--apply", action="store_true", help="write covers back into master_games_final.json")
+    ap.add_argument("--apply", action="store_true", help="write thumbs into the master JSON and heroes into docs/")
     ap.add_argument("--delay", type=float, default=0.25, help="seconds between SteamGridDB calls")
     args = ap.parse_args()
 
     if not args.apply and not args.out:
-        sys.exit("give --out for a dry run, or --apply to update the master JSON")
+        sys.exit("give --out for a dry run, or --apply to update the master JSON and docs/")
+
+    from PIL import Image
 
     key = open(KEY_FILE, encoding="utf-8").read().strip()
     games = json.load(open(MASTER, encoding="utf-8"))
     ids = json.load(open(args.ids_file, encoding="utf-8")) if os.path.exists(args.ids_file) else {}
+    heroes = json.load(open(HEROES_FILE, encoding="utf-8")) if os.path.exists(HEROES_FILE) else {}
 
     if args.out:
-        os.makedirs(args.out, exist_ok=True)
+        os.makedirs(os.path.join(args.out, "thumb"), exist_ok=True)
+        os.makedirs(os.path.join(args.out, "hero"), exist_ok=True)
+    if args.apply:
+        os.makedirs(HERO_DIR, exist_ok=True)
 
     targets = pick(games, args.sample, args.limit)
     report = []
@@ -157,7 +168,8 @@ def main():
     for n, i in enumerate(targets, 1):
         g = games[i]
         name = g.get("name")
-        row = {"index": i, "name": name, "old_bytes": None, "new_bytes": None, "status": "", "sgdb_id": None}
+        row = {"index": i, "name": name, "old_bytes": None, "thumb_bytes": None,
+               "hero_bytes": None, "status": "", "sgdb_id": None}
         old = g.get("cover") or ""
         if old.startswith("data:"):
             row["old_bytes"] = len(base64.b64decode(old.split(",", 1)[1]))
@@ -170,14 +182,22 @@ def main():
             if not url:
                 row["status"] = "no exact match - kept old cover"
             else:
-                data = encode(http(url), args.width, args.quality)
-                row.update(new_bytes=len(data), sgdb_id=sgdb_id, status="ok (%s)" % how)
+                src = Image.open(io.BytesIO(http(url))).convert("RGB")
+                thumb = encode(src, args.thumb_width, args.thumb_quality)
+                hero = encode(src, args.hero_width, args.hero_quality)
+                hero_name = "hero/" + hashlib.sha1(hero).hexdigest()[:16] + ".webp"
+                row.update(thumb_bytes=len(thumb), hero_bytes=len(hero), sgdb_id=sgdb_id,
+                           status="ok (%s)" % how)
                 ids[name] = {"sgdbId": sgdb_id, "url": url}
                 if args.out:
-                    with open(os.path.join(args.out, "%04d.webp" % i), "wb") as f:
-                        f.write(data)
+                    open(os.path.join(args.out, "thumb", "%04d.webp" % i), "wb").write(thumb)
+                    open(os.path.join(args.out, "hero", "%04d.webp" % i), "wb").write(hero)
                 if args.apply:
-                    g["cover"] = "data:image/webp;base64," + base64.b64encode(data).decode()
+                    g["cover"] = "data:image/webp;base64," + base64.b64encode(thumb).decode()
+                    path = os.path.join(DOCS, "games", "covers", hero_name)
+                    if not os.path.exists(path):
+                        open(path, "wb").write(hero)
+                    heroes[name] = hero_name
                 changed += 1
         except Exception as e:
             row["status"] = "ERROR " + str(e)[:120]
@@ -192,22 +212,25 @@ def main():
             shutil.copy(MASTER, backup)
             print("\nbacked up master -> " + os.path.basename(backup))
         json.dump(games, open(MASTER, "w", encoding="utf-8"), ensure_ascii=False)
-        print("wrote %d covers into master_games_final.json (now run build.py)" % changed)
+        json.dump(heroes, open(HEROES_FILE, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+        print("wrote %d thumbs into master_games_final.json and %d heroes into docs/games/covers/hero/"
+              % (changed, changed))
+        print("now run build.py")
 
     if args.out:
-        json.dump(report, open(os.path.join(args.out, "report.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+        json.dump(report, open(os.path.join(args.out, "report.json"), "w", encoding="utf-8"),
+                  indent=1, ensure_ascii=False)
 
     ok = [r for r in report if r["status"].startswith("ok")]
-    old_kb = sum(r["old_bytes"] or 0 for r in ok) / 1024.0
-    new_kb = sum(r["new_bytes"] or 0 for r in ok) / 1024.0
     print("\n%d/%d refreshed | %d no match | %d errors" % (
         len(ok), len(report),
         sum(1 for r in report if r["status"].startswith("no exact")),
         sum(1 for r in report if r["status"].startswith("ERROR"))))
-    if ok and old_kb:
-        print("avg %.0fKB -> %.0fKB per cover (%.1fx); all %d games would be about %.0fMB" % (
-            old_kb / len(ok), new_kb / len(ok), new_kb / old_kb,
-            len(games), new_kb / len(ok) * len(games) / 1024))
+    if ok:
+        t = sum(r["thumb_bytes"] for r in ok) / len(ok) / 1024.0
+        h = sum(r["hero_bytes"] for r in ok) / len(ok) / 1024.0
+        print("thumb avg %.0fKB (%d games = %.0fMB) | hero avg %.0fKB (%.0fMB)" % (
+            t, len(games), t * len(games) / 1024, h, h * len(games) / 1024))
 
 
 if __name__ == "__main__":

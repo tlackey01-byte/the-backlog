@@ -57,6 +57,8 @@ PULL_TO_REFRESH_PATH = os.path.join(DOCS_DIR, "shared", "pull-to-refresh.js")
 NAV_PATH = os.path.join(DOCS_DIR, "shared", "nav.js")
 SW_PATH = os.path.join(DOCS_DIR, "sw.js")
 COVERS_DIR = os.path.join(DOCS_DIR, "games", "covers")
+HERO_DIR = os.path.join(COVERS_DIR, "hero")
+HEROES_PATH = os.path.join(HERE, "cover_heroes.json")
 
 
 def write_cover(data_uri, written):
@@ -93,6 +95,13 @@ def build_compact():
         games = json.load(f)
 
     os.makedirs(COVERS_DIR, exist_ok=True)
+    # Detail-page covers are full 600x900 files written straight into docs/ by
+    # refetch_covers.py (too big to carry as base64 in the master file). This manifest maps
+    # game name -> file, and a game without one just falls back to its thumbnail.
+    heroes = {}
+    if os.path.exists(HEROES_PATH):
+        with open(HEROES_PATH, encoding="utf-8") as f:
+            heroes = json.load(f)
     written_covers = set()
     compact = []
     for g in games:
@@ -111,6 +120,10 @@ def build_compact():
             rec["ph"] = g["playedHours"]
         if g.get("cover"):
             rec["cv"] = write_cover(g["cover"], written_covers)
+        if heroes.get(g["name"]):
+            # Manifest stores "hero/<hash>.webp"; records carry the page-relative path, the
+            # same shape write_cover() returns for thumbnails.
+            rec["hv"] = "covers/" + heroes[g["name"]]
         if g.get("developer"):
             rec["dv"] = g["developer"]
         compact.append(rec)
@@ -120,10 +133,20 @@ def build_compact():
 
     # Drop cover files no game references anymore (a game deleted from the master file,
     # or its cover replaced -- names are content hashes, so a new image is a new file).
-    stale = [n for n in os.listdir(COVERS_DIR) if n not in written_covers]
+    stale = [n for n in os.listdir(COVERS_DIR)
+             if n not in written_covers and os.path.isfile(os.path.join(COVERS_DIR, n))]
     for n in stale:
         os.remove(os.path.join(COVERS_DIR, n))
-    print(f"Covers: {len(written_covers)} files in docs/games/covers ({len(stale)} stale removed)")
+
+    # Same sweep for the hero files, against the manifest rather than the compact records.
+    kept_heroes = {os.path.basename(v) for v in heroes.values()}
+    stale_heroes = []
+    if os.path.isdir(HERO_DIR):
+        stale_heroes = [n for n in os.listdir(HERO_DIR) if n not in kept_heroes]
+        for n in stale_heroes:
+            os.remove(os.path.join(HERO_DIR, n))
+    print(f"Covers: {len(written_covers)} thumbs ({len(stale)} stale removed), "
+          f"{len(kept_heroes)} heroes ({len(stale_heroes)} stale removed)")
 
     print(f"Compacted {len(compact)} games -> {COMPACT_PATH}")
     return compact
