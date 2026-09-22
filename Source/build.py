@@ -58,23 +58,32 @@ NAV_PATH = os.path.join(DOCS_DIR, "shared", "nav.js")
 SW_PATH = os.path.join(DOCS_DIR, "sw.js")
 COVERS_DIR = os.path.join(DOCS_DIR, "games", "covers")
 HERO_DIR = os.path.join(COVERS_DIR, "hero")
-HEROES_PATH = os.path.join(HERE, "cover_heroes.json")
+
+# Where the page loads cover images from. The ~120MB of covers live in a Cloudflare R2 bucket
+# served by the worker's /img/ route, not in this repo -- git would otherwise keep every
+# version of every cover forever, and a re-bake at a different size could never be reclaimed
+# without rewriting history. docs/games/covers/ is the local staging copy, gitignored, and
+# Source/upload_covers.py pushes it to R2.
+#
+# Set BACKLOG_COVER_BASE=covers/ to build against those local files instead -- useful offline,
+# and the way back if R2 ever needs to be abandoned.
+COVER_BASE = os.environ.get("BACKLOG_COVER_BASE",
+                            "https://backlog-proxy.tlackey01.workers.dev/img/")
 
 
 def write_cover(data_uri, written):
-    """Writes one base64 cover out as docs/games/covers/<content hash>.jpg and returns the
-    page-relative path the compact record points at instead of the inline data URI.
+    """Writes one base64 cover out as docs/games/covers/<content hash>.webp and returns the
+    file name the master file should store in place of the data URI.
 
-    Inlining ~1,950 covers made the games page ~13MB, which was slow to load and laggy on
-    phones. As separate files they load lazily as rows scroll into view and get cached by
-    the service worker (see sw.js's covers cache). Naming by content hash means an
-    unchanged cover keeps its URL forever (cache stays valid across deploys), and a changed
-    one gets a new URL automatically."""
+    Covers normally arrive already on disk -- refetch_covers.py writes the file and records
+    its name -- so this only runs for a cover that came in as base64, which today means a
+    game added through the site and folded in by bake_added_games.py. Naming by content hash
+    means an unchanged cover keeps its URL forever (caches stay valid across deploys) and a
+    changed one gets a new URL automatically."""
     header, b64 = data_uri.split(",", 1)
     raw = base64.b64decode(b64)
-    # Covers refreshed by refetch_covers.py are WebP; the original bake was JPEG, with a
-    # stray PNG or two. Read the type off the data URI so a mixed master file bakes cleanly
-    # -- a .jpg file holding WebP bytes would be served as image/jpeg and may not render.
+    # A .jpg file holding WebP bytes would be served as image/jpeg and may not render, so
+    # take the type from the data URI rather than assuming.
     ext = "jpg"
     for mime, e in (("image/webp", "webp"), ("image/png", "png")):
         if mime in header:
@@ -87,7 +96,7 @@ def write_cover(data_uri, written):
             with open(path, "wb") as f:
                 f.write(raw)
         written.add(name)
-    return "covers/" + name
+    return name
 
 
 def build_compact():
@@ -95,14 +104,8 @@ def build_compact():
         games = json.load(f)
 
     os.makedirs(COVERS_DIR, exist_ok=True)
-    # Detail-page covers are full 600x900 files written straight into docs/ by
-    # refetch_covers.py (too big to carry as base64 in the master file). This manifest maps
-    # game name -> file, and a game without one just falls back to its thumbnail.
-    heroes = {}
-    if os.path.exists(HEROES_PATH):
-        with open(HEROES_PATH, encoding="utf-8") as f:
-            heroes = json.load(f)
     written_covers = set()
+    written_heroes = set()
     compact = []
     for g in games:
         rec = {
@@ -118,12 +121,17 @@ def build_compact():
             rec["pr"] = g["progress"]
         if g.get("playedHours") is not None:
             rec["ph"] = g["playedHours"]
-        if g.get("cover"):
-            rec["cv"] = write_cover(g["cover"], written_covers)
-        if heroes.get(g["name"]):
-            # Manifest stores "hero/<hash>.webp"; records carry the page-relative path, the
-            # same shape write_cover() returns for thumbnails.
-            rec["hv"] = "covers/" + heroes[g["name"]]
+        # The master file stores file names ("<hash>.webp", "hero/<hash>.webp"); records
+        # carry the full URL, so pointing covers at a CDN is a change to COVER_BASE alone.
+        # A base64 cover is still accepted for games folded in by bake_added_games.py.
+        cover = g.get("cover")
+        if cover:
+            name = write_cover(cover, written_covers) if cover.startswith("data:") else cover
+            written_covers.add(name)
+            rec["cv"] = COVER_BASE + name
+        if g.get("coverHero"):
+            written_heroes.add(os.path.basename(g["coverHero"]))
+            rec["hv"] = COVER_BASE + g["coverHero"]
         if g.get("developer"):
             rec["dv"] = g["developer"]
         compact.append(rec)
@@ -138,15 +146,15 @@ def build_compact():
     for n in stale:
         os.remove(os.path.join(COVERS_DIR, n))
 
-    # Same sweep for the hero files, against the manifest rather than the compact records.
-    kept_heroes = {os.path.basename(v) for v in heroes.values()}
+    # Same sweep for the hero files.
     stale_heroes = []
     if os.path.isdir(HERO_DIR):
-        stale_heroes = [n for n in os.listdir(HERO_DIR) if n not in kept_heroes]
+        stale_heroes = [n for n in os.listdir(HERO_DIR) if n not in written_heroes]
         for n in stale_heroes:
             os.remove(os.path.join(HERO_DIR, n))
-    print(f"Covers: {len(written_covers)} thumbs ({len(stale)} stale removed), "
-          f"{len(kept_heroes)} heroes ({len(stale_heroes)} stale removed)")
+    print(f"Covers: {len(written_covers)} list ({len(stale)} stale removed), "
+          f"{len(written_heroes)} heroes ({len(stale_heroes)} stale removed)")
+    print(f"Cover URLs point at: {COVER_BASE or '(page-relative)'}")
 
     print(f"Compacted {len(compact)} games -> {COMPACT_PATH}")
     return compact

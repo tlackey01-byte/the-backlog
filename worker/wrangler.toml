@@ -6,3 +6,9 @@ compatibility_date = "2026-09-01"
 FIREBASE_PROJECT_ID = "the-backlog-34b22"
 
 # Secrets (not in this file): npx wrangler secret put SGDB_KEY / ALLOWED_UID
+
+# Cover images (~120MB). Kept out of the repo so git doesn't carry every version forever;
+# served publicly by the /img/ route in src/index.js.
+[[r2_buckets]]
+binding = "COVERS"
+bucket_name = "the-backlog-covers"

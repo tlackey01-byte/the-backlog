@@ -5,7 +5,7 @@
 // under a different name, so this hash changing is what actually invalidates stale
 // copies after a deploy; if you edit this file directly, build.py will overwrite this
 // line the next time it runs anyway.
-const CACHE_NAME = 'the-backlog-shell-34eb12bcd8e6';
+const CACHE_NAME = 'the-backlog-shell-d24964f89f64';
 
 // Cover images (docs/games/covers/<content hash>.jpg) live in their own cache that
 // survives deploys: their names are content hashes, so a cached file can never go stale,
@@ -87,13 +87,21 @@ self.addEventListener('fetch', function (event) {
     return;
   }
 
-  if (url.pathname.startsWith('/the-backlog/games/covers/')) {
+  // Covers, wherever they're served from: GitHub Pages while they still live in the repo,
+  // or the worker's R2-backed /img/ route once they don't. Cross-origin image requests come
+  // back opaque, which is fine to store and replay for an <img>, but an opaque response is
+  // never `ok`, so it has to be cached on type instead.
+  var isCover = url.pathname.startsWith('/the-backlog/games/covers/') ||
+    (url.hostname === 'backlog-proxy.tlackey01.workers.dev' && url.pathname.startsWith('/img/'));
+  if (isCover) {
     event.respondWith(
       caches.open(COVERS_CACHE).then(function (cache) {
         return cache.match(request).then(function (cached) {
           if (cached) return cached;
           return fetch(request).then(function (response) {
-            if (response && response.ok) cache.put(request, response.clone());
+            if (response && (response.ok || response.type === 'opaque')) {
+              cache.put(request, response.clone());
+            }
             return response;
           });
         });

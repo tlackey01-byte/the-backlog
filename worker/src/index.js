@@ -18,13 +18,19 @@ export default {
       : {};
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
+    const url = new URL(request.url);
+
+    // Cover images out of R2, served publicly and ahead of the token check: an <img> tag
+    // can't send an Authorization header. File names are content hashes of public box art,
+    // so there's nothing to protect, and the bucket is only writable with account creds.
+    if (url.pathname.startsWith('/img/')) return await coverFile(decodeURIComponent(url.pathname.slice(5)), env);
+
     try {
       await verifyFirebaseToken(request, env);
     } catch (e) {
       return json({ error: 'unauthorized' }, 401, cors);
     }
 
-    const url = new URL(request.url);
     try {
       if (url.pathname === '/search') return json(await search(url.searchParams.get('q') || '', env), 200, cors);
       if (url.pathname === '/details') return json(await details(url.searchParams, env), 200, cors);
@@ -35,6 +41,26 @@ export default {
     }
   }
 };
+
+// Serves docs/games/covers/<name> and covers/hero/<name> out of the R2 bucket. Keeping the
+// ~120MB of images here instead of in the repo is the whole point: git would hold every
+// version of every cover forever, while R2 just holds the current one.
+async function coverFile(key, env) {
+  // Only content-hashed names, so this can never be pointed at anything else in the bucket.
+  if (!/^(hero\/)?[0-9a-f]{16}\.(webp|jpg|png)$/.test(key)) return new Response('bad name', { status: 400 });
+  if (!env.COVERS) return new Response('bucket not bound', { status: 503 });
+  const obj = await env.COVERS.get(key);
+  if (!obj) return new Response('not found', { status: 404 });
+  return new Response(obj.body, {
+    headers: {
+      'Content-Type': (obj.httpMetadata && obj.httpMetadata.contentType) || 'image/webp',
+      // The name is a hash of the bytes, so a cached copy can never be wrong.
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Access-Control-Allow-Origin': '*',
+      'ETag': obj.httpEtag
+    }
+  });
+}
 
 function json(obj, status, headers) {
   return new Response(JSON.stringify(obj), { status, headers: Object.assign({ 'Content-Type': 'application/json' }, headers) });

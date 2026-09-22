@@ -5,3 +5,15 @@ backlog.html
 server.log
 worker/.wrangler/
 worker/.dev.vars
+
+# Cloudflare R2 credentials for Source/upload_covers.py
+Source/r2_credentials.json
+
+# Cover images live in the Cloudflare R2 bucket the worker serves from /img/, not in git:
+# ~120MB that git would keep every version of forever. This is the local staging copy that
+# Source/refetch_covers.py writes and Source/upload_covers.py pushes to R2.
+docs/games/covers/
+
+# Local wrangler state (a root-level one appears if wrangler is run outside worker/)
+.wrangler/
+__pycache__/

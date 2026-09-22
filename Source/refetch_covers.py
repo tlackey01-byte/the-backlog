@@ -5,8 +5,8 @@ page shows one at 200x300 (phone) or 300x450 (desktop). One file can't serve bot
 waste -- a hero-sized image is ~55KB, and scrolling the whole list through those would be
 ~105MB of phone data for thumbnails nobody looks at closely. So:
 
-  wide   460x215  ~14KB   baked into master_games_final.json, used by rows and the table
-  hero   600x900  ~55KB   written straight to docs/games/covers/hero/, detail page only
+  wide   460x215  ~14KB   docs/games/covers/<hash>.webp, used by rows and the table
+  hero   600x900  ~55KB   docs/games/covers/hero/<hash>.webp, detail page only
 
 The list image is Steam capsule art, not the portrait grid: rows show it at 152x71, and
 squeezing 2:3 art into that box crops away the top and bottom, which is where box art puts
@@ -15,9 +15,11 @@ titles mostly); those fall back to the portrait cover centered on a blurred blow
 itself, which reads as deliberate rather than as a crop gone wrong.
 
 The hero is SteamGridDB's native size untouched, which is exactly what a 300x450 box needs
-on a 2x display and a 200x300 box needs on a phone at 3x. Heroes are listed in
-Source/cover_heroes.json (game name -> file) so build.py can emit them and clean up stale
-ones; keeping them out of the master JSON keeps that file small enough to commit.
+on a 2x display and a 200x300 box needs on a phone at 3x.
+
+Both are written to disk as content-hashed files; the master file records only their names
+(`cover` and `coverHero`). Carrying the bytes as base64 in that file made it 37MB, and since
+base64 doesn't delta-compress, every commit wrote a near-complete fresh copy.
 
 Matching mirrors worker/src/index.js `details()`: SteamGridDB autocomplete, keep only
 candidates whose normalized name equals the game's. A game with no exact match keeps its
@@ -27,7 +29,7 @@ for the wrong game. Resolved ids are cached to --ids-file so later runs skip the
   # dry run: 30 evenly spaced games, both images + a report into a preview dir
   python Source/refetch_covers.py --sample 30 --out <dir>
 
-  # full run: list images into the master JSON (backed up first), heroes into docs/
+  # full run: both images into docs/games/covers/, names into the master file (backed up first)
   python Source/refetch_covers.py --apply
 
 Needs: Pillow (WebP) and Source/steamgriddb_api_key.txt.
@@ -52,8 +54,8 @@ DOCS = os.path.join(os.path.dirname(HERE), "docs")
 MASTER = os.path.join(HERE, "master_games_final.json")
 KEY_FILE = os.path.join(HERE, "steamgriddb_api_key.txt")
 IDS_FILE = os.path.join(HERE, "cover_sources.json")
-HEROES_FILE = os.path.join(HERE, "cover_heroes.json")
-HERO_DIR = os.path.join(DOCS, "games", "covers", "hero")
+COVERS_DIR = os.path.join(DOCS, "games", "covers")
+HERO_DIR = os.path.join(COVERS_DIR, "hero")
 SGDB = "https://www.steamgriddb.com/api/v2"
 UA = "the-backlog-cover-refresh"
 
@@ -131,7 +133,9 @@ def resolve(game, key):
     for q in queries:
         if not q:
             continue
-        hits = api("/search/autocomplete/" + urllib.parse.quote(q), key).get("data") or []
+        # safe="" matters: quote() leaves "/" alone by default, so a name like "Split/Second"
+        # turns into an extra path segment and the API 404s.
+        hits = api("/search/autocomplete/" + urllib.parse.quote(q, safe=""), key).get("data") or []
         exact = [c for c in hits if norm(c.get("name")) == norm(q)]
         # First exact hit usually wins, but a few games have no 600x900 art on their entry.
         for cand in exact[:3]:
@@ -171,9 +175,18 @@ def main():
     ap.add_argument("--wide-quality", type=int, default=72)
     ap.add_argument("--hero-quality", type=int, default=65)
     ap.add_argument("--ids-file", default=IDS_FILE)
-    ap.add_argument("--apply", action="store_true", help="write list images into the master JSON and heroes into docs/")
+    ap.add_argument("--apply", action="store_true", help="write cover files into docs/ and record their names in the master JSON")
+    ap.add_argument("--force", action="store_true", help="redo games that already have refreshed art")
     ap.add_argument("--delay", type=float, default=0.25, help="seconds between SteamGridDB calls")
     args = ap.parse_args()
+
+    # Windows consoles default to cp1252, which can't print half the library -- Pokemon
+    # Omega Ruby is fine, Shin Megami Tensei's "Ō" is not, and a crash there would throw
+    # away an hour of downloads over a progress line.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
     if not args.apply and not args.out:
         sys.exit("give --out for a dry run, or --apply to update the master JSON and docs/")
@@ -183,7 +196,6 @@ def main():
     key = open(KEY_FILE, encoding="utf-8").read().strip()
     games = json.load(open(MASTER, encoding="utf-8"))
     ids = json.load(open(args.ids_file, encoding="utf-8")) if os.path.exists(args.ids_file) else {}
-    heroes = json.load(open(HEROES_FILE, encoding="utf-8")) if os.path.exists(HEROES_FILE) else {}
 
     if args.out:
         os.makedirs(os.path.join(args.out, "wide"), exist_ok=True)
@@ -196,14 +208,40 @@ def main():
     changed = 0
     print("%d games to refresh (%d in file)\n" % (len(targets), len(games)))
 
+    if args.apply:
+        # Back up before touching anything rather than after: a full run takes a couple of
+        # hours, and surviving that going wrong is the whole point of the backup. Written
+        # once only, so it keeps holding the original covers however often this is re-run.
+        backup = MASTER.replace(".json", ".backup_precover_hires.json")
+        if not os.path.exists(backup):
+            shutil.copy(MASTER, backup)
+            print("backed up master -> %s\n" % os.path.basename(backup))
+
+    def checkpoint():
+        """Flush progress to disk. A ~1,950-game run is long enough that losing it all to one
+        bad request at game 1,800 would be miserable; hero files land as they go, so the
+        master file and both manifests have to keep pace with them."""
+        json.dump(ids, open(args.ids_file, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+        if args.apply:
+            json.dump(games, open(MASTER, "w", encoding="utf-8"), ensure_ascii=False)
+
     for n, i in enumerate(targets, 1):
         g = games[i]
         name = g.get("name")
         row = {"index": i, "name": name, "old_bytes": None, "wide_bytes": None,
                "hero_bytes": None, "status": "", "sgdb_id": None, "wide_src": None}
         old = g.get("cover") or ""
-        if old.startswith("data:"):
-            row["old_bytes"] = len(base64.b64decode(old.split(",", 1)[1]))
+        old_path = os.path.join(COVERS_DIR, old) if old and not old.startswith("data:") else None
+        if old_path and os.path.exists(old_path):
+            row["old_bytes"] = os.path.getsize(old_path)
+        # Resume cheaply: a game that already has both a WebP list image and a hero file was
+        # done on an earlier run, and redoing it would re-download ~1MB to produce the same
+        # bytes. --force redoes them anyway, e.g. after changing a size or quality setting.
+        if args.apply and not args.force and old.endswith(".webp") and g.get("coverHero"):
+            row["status"] = "already refreshed - skipped"
+            report.append(row)
+            print("%3d/%d  %-52.52s %s" % (n, len(targets), name, row["status"]), flush=True)
+            continue
         try:
             cached = ids.get(name) or {}
             sgdb_id, url, how = cached.get("sgdbId"), cached.get("url"), "cache"
@@ -232,27 +270,28 @@ def main():
                     open(os.path.join(args.out, "wide", "%04d.webp" % i), "wb").write(wide)
                     open(os.path.join(args.out, "hero", "%04d.webp" % i), "wb").write(hero)
                 if args.apply:
-                    g["cover"] = "data:image/webp;base64," + base64.b64encode(wide).decode()
-                    path = os.path.join(DOCS, "games", "covers", hero_name)
-                    if not os.path.exists(path):
-                        open(path, "wb").write(hero)
-                    heroes[name] = hero_name
+                    # Both images go to disk as content-hashed files and the master file
+                    # records only their names. Carrying them as base64 instead made that
+                    # file 37MB, and every commit wrote a fresh un-deltaable copy of it.
+                    wide_name = hashlib.sha1(wide).hexdigest()[:16] + ".webp"
+                    for rel, data in ((wide_name, wide), (hero_name, hero)):
+                        path = os.path.join(COVERS_DIR, rel)
+                        if not os.path.exists(path):
+                            open(path, "wb").write(data)
+                    g["cover"] = wide_name
+                    g["coverHero"] = hero_name
                 changed += 1
         except Exception as e:
             row["status"] = "ERROR " + str(e)[:120]
         report.append(row)
-        print("%3d/%d  %-52.52s %s" % (n, len(targets), name, row["status"]))
+        print("%3d/%d  %-52.52s %s" % (n, len(targets), name, row["status"]), flush=True)
+        if n % 50 == 0:
+            checkpoint()
 
-    json.dump(ids, open(args.ids_file, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+    checkpoint()
 
     if args.apply and changed:
-        backup = MASTER.replace(".json", ".backup_precover_hires.json")
-        if not os.path.exists(backup):
-            shutil.copy(MASTER, backup)
-            print("\nbacked up master -> " + os.path.basename(backup))
-        json.dump(games, open(MASTER, "w", encoding="utf-8"), ensure_ascii=False)
-        json.dump(heroes, open(HEROES_FILE, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
-        print("wrote %d list images into master_games_final.json and %d heroes into docs/games/covers/hero/"
+        print("\nwrote %d list images and %d heroes into docs/games/covers/ (names recorded in the master file)"
               % (changed, changed))
         print("now run build.py")
 
@@ -261,8 +300,9 @@ def main():
                   indent=1, ensure_ascii=False)
 
     ok = [r for r in report if r["status"].startswith("ok")]
-    print("\n%d/%d refreshed | %d no match | %d errors" % (
+    print("\n%d/%d refreshed | %d already done | %d no match | %d errors" % (
         len(ok), len(report),
+        sum(1 for r in report if r["status"].startswith("already")),
         sum(1 for r in report if r["status"].startswith("no exact")),
         sum(1 for r in report if r["status"].startswith("ERROR"))))
     if ok:
