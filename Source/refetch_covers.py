@@ -32,6 +32,14 @@ for the wrong game. Resolved ids are cached to --ids-file so later runs skip the
   # full run: both images into docs/games/covers/, names into the master file (backed up first)
   python Source/refetch_covers.py --apply
 
+  # just the named games (one per line), redone even if they were refreshed before -- used
+  # after find_cover_candidates.py pins hand-reviewed sources for the ones this missed
+  python Source/refetch_covers.py --apply --only Source/cover_review/apply_names.txt
+
+A --ids-file entry can pin a game's art by hand: {"sgdbId": N} alone fetches that SteamGridDB
+game's grids instead of searching by name, and {"url": ..., "wideUrl": ...} takes images from
+anywhere (Steam, IGDB, a pasted link) with no SteamGridDB id at all.
+
 Needs: Pillow (WebP) and Source/steamgriddb_api_key.txt.
 """
 
@@ -97,6 +105,22 @@ def first_600x900(payload):
     return None
 
 
+# Portrait sizes SteamGridDB serves, best first. 600x900 is the hero's native size; the other
+# two are near 2:3 (about 0.71) and get a light centre crop in fit_portrait().
+PORTRAIT_DIMS = ((600, 900), (660, 930), (342, 482))
+
+
+def best_portrait(payload):
+    """The first grid in the best available portrait size. Older and console-only games often
+    have only the 660x930 or 342x482 sizes, and insisting on 600x900 left them with no art."""
+    grids = (payload or {}).get("data") or []
+    for w, h in PORTRAIT_DIMS:
+        for g in grids:
+            if g.get("width") == w and g.get("height") == h:
+                return g.get("url")
+    return None
+
+
 def widest(payload):
     """Biggest landscape capsule available -- 920x430 when there is one, else 460x215."""
     grids = sorted((payload or {}).get("data") or [], key=lambda g: -(g.get("width") or 0))
@@ -112,7 +136,9 @@ def make_wide(portrait, capsule, width, quality):
     from PIL import Image, ImageFilter
     height = int(round(width * 215.0 / 460.0))
     if capsule is not None:
-        out = capsule.resize((width, height), Image.LANCZOS)
+        # Steam headers and SteamGridDB capsules are already 460:215, but IGDB artwork is 16:9;
+        # crop that to shape first rather than squash it.
+        out = center_crop(capsule, 460.0 / 215.0).resize((width, height), Image.LANCZOS)
     else:
         tall = portrait.resize((width, int(round(width * 1.5))), Image.LANCZOS)
         top = (tall.height - height) // 2
@@ -125,11 +151,32 @@ def make_wide(portrait, capsule, width, quality):
     return buf.getvalue()
 
 
+YEAR_SUFFIX = re.compile(r"\s*\(((?:19|20)\d\d)\)\s*$")
+
+
+def cand_year(c):
+    try:
+        return time.gmtime(int(c["release_date"])).tm_year if c.get("release_date") else None
+    except (TypeError, ValueError, OSError):
+        return None
+
+
 def resolve(game, key):
-    """game -> (sgdb_id, grid_url, how). Tries the display name, then HLTB's matchedName."""
-    queries = [game.get("name")]
-    if game.get("matchedName") and norm(game["matchedName"]) != norm(game.get("name")):
-        queries.append(game["matchedName"])
+    """game -> (sgdb_id, grid_url, how). Tries the display name, then HLTB's matchedName.
+
+    A name can belong to several games -- the 1993 Doom and the 2016 one -- and this used to
+    take the first exact hit, which is how dozens of games got the other release's art. Now,
+    when the game's year is known (its `year`, from identify_games.py, or a "(1993)" in its
+    name), a candidate from a different year is skipped, and the nearest year is tried first."""
+    year = game.get("year")
+    if not year:
+        m = YEAR_SUFFIX.search(game.get("matchedName") or "") or YEAR_SUFFIX.search(game.get("name") or "")
+        year = int(m.group(1)) if m else None
+    queries = [YEAR_SUFFIX.sub("", game.get("name") or "")]
+    if game.get("matchedName"):
+        mq = YEAR_SUFFIX.sub("", game["matchedName"])
+        if norm(mq) != norm(queries[0]):
+            queries.append(mq)
     for q in queries:
         if not q:
             continue
@@ -137,25 +184,69 @@ def resolve(game, key):
         # turns into an extra path segment and the API 404s.
         hits = api("/search/autocomplete/" + urllib.parse.quote(q, safe=""), key).get("data") or []
         exact = [c for c in hits if norm(c.get("name")) == norm(q)]
+        if year:
+            exact = [c for c in exact if not cand_year(c) or abs(cand_year(c) - year) <= 1]
+            exact.sort(key=lambda c: abs((cand_year(c) or year) - year))
         # First exact hit usually wins, but a few games have no 600x900 art on their entry.
         for cand in exact[:3]:
             url = first_600x900(api("/grids/game/%d?dimensions=600x900" % cand["id"], key))
             if url:
-                return cand["id"], url, ("name" if q == game.get("name") else "matchedName")
+                return cand["id"], url, ("name" if q == queries[0] else "matchedName")
     return None, None, None
 
 
+def center_crop(im, ratio):
+    """Largest centred box of width/height `ratio` -- a no-op when the image already has it."""
+    w, h = im.size
+    if abs(w / float(h) - ratio) < 0.005:
+        return im
+    if w / float(h) > ratio:
+        cw = int(round(h * ratio))
+        return im.crop(((w - cw) // 2, 0, (w - cw) // 2 + cw, h))
+    ch = int(round(w / ratio))
+    return im.crop((0, (h - ch) // 2, w, (h - ch) // 2 + ch))
+
+
+def fit_portrait(im, width):
+    """Any cover as a 2:3 image at the given width.
+
+    SteamGridDB's 600x900 and Steam's library art are exactly 2:3. IGDB covers (528x748) and
+    SteamGridDB's other sizes are about 0.71, a trim of ~6% off top and bottom that loses
+    nothing. Anything further off -- a square or landscape image pasted in by hand -- would lose
+    too much to a crop, so it sits whole on a blurred, darkened blow-up of itself, the same
+    treatment make_wide() gives portrait art in the wide box."""
+    from PIL import Image, ImageFilter
+    height = int(round(width * 1.5))
+    ratio = im.width / float(im.height)
+    if abs(ratio - 2 / 3.0) / (2 / 3.0) <= 0.08:
+        return center_crop(im, 2 / 3.0).resize((width, height), Image.LANCZOS)
+    out = center_crop(im, 2 / 3.0).resize((width, height), Image.LANCZOS)
+    out = out.filter(ImageFilter.GaussianBlur(width // 26)).point(lambda px: int(px * 0.55))
+    fg_h = min(height, int(round(width / ratio)))
+    fg_w = min(width, int(round(fg_h * ratio)))
+    out.paste(im.resize((fg_w, fg_h), Image.LANCZOS), ((width - fg_w) // 2, (height - fg_h) // 2))
+    return out
+
+
 def encode(im, width, quality):
-    """2:3 at the given width. No crop -- the art is already 2:3."""
-    from PIL import Image
-    out = im if im.width == width else im.resize((width, int(round(width * 1.5))), Image.LANCZOS)
+    """2:3 at the given width, as WebP."""
+    out = fit_portrait(im, width)
     buf = io.BytesIO()
     out.save(buf, "WEBP", quality=quality, method=6)
     return buf.getvalue()
 
 
-def pick(games, sample, limit):
-    """Evenly spaced through the file, so a test run isn't all A-titles and repeats exactly."""
+def read_names(path):
+    """One game name per line; blank lines and # / ## comment lines are ignored."""
+    with open(path, encoding="utf-8-sig") as f:
+        return [s.strip() for s in f if s.strip() and not s.lstrip().startswith("#")]
+
+
+def pick(games, sample, limit, only=None):
+    """Evenly spaced through the file, so a test run isn't all A-titles and repeats exactly.
+    With `only`, just those names, in the file's order."""
+    if only is not None:
+        return [i for i, g in enumerate(games) if g.get("name") in only]
     idx = list(range(len(games)))
     if sample:
         step = max(1, len(games) // sample)
@@ -177,6 +268,7 @@ def main():
     ap.add_argument("--ids-file", default=IDS_FILE)
     ap.add_argument("--apply", action="store_true", help="write cover files into docs/ and record their names in the master JSON")
     ap.add_argument("--force", action="store_true", help="redo games that already have refreshed art")
+    ap.add_argument("--only", help="file of game names, one per line: process just these, redoing them even if already refreshed")
     ap.add_argument("--delay", type=float, default=0.25, help="seconds between SteamGridDB calls")
     args = ap.parse_args()
 
@@ -203,7 +295,14 @@ def main():
     if args.apply:
         os.makedirs(HERO_DIR, exist_ok=True)
 
-    targets = pick(games, args.sample, args.limit)
+    only = None
+    if args.only:
+        only = set(read_names(args.only))
+        unknown = sorted(only - {g.get("name") for g in games})
+        if unknown:
+            # A typo'd or renamed game would otherwise just silently not happen.
+            sys.exit("not in the master file: " + "; ".join(unknown))
+    targets = pick(games, args.sample, args.limit, only)
     report = []
     changed = 0
     print("%d games to refresh (%d in file)\n" % (len(targets), len(games)))
@@ -214,6 +313,12 @@ def main():
         # once only, so it keeps holding the original covers however often this is re-run.
         backup = MASTER.replace(".json", ".backup_precover_hires.json")
         if not os.path.exists(backup):
+            shutil.copy(MASTER, backup)
+            print("backed up master -> %s\n" % os.path.basename(backup))
+        # An --only run is a small fix-up after the big one, so it gets its own backup, taken
+        # fresh each time: the one above predates the whole refresh.
+        if only is not None:
+            backup = MASTER.replace(".json", ".backup_pre_only.json")
             shutil.copy(MASTER, backup)
             print("backed up master -> %s\n" % os.path.basename(backup))
 
@@ -236,8 +341,9 @@ def main():
             row["old_bytes"] = os.path.getsize(old_path)
         # Resume cheaply: a game that already has both a WebP list image and a hero file was
         # done on an earlier run, and redoing it would re-download ~1MB to produce the same
-        # bytes. --force redoes them anyway, e.g. after changing a size or quality setting.
-        if args.apply and not args.force and old.endswith(".webp") and g.get("coverHero"):
+        # bytes. --force redoes them anyway, e.g. after changing a size or quality setting, and
+        # --only does too: naming a game there is asking for it to be redone.
+        if args.apply and not args.force and only is None and old.endswith(".webp") and g.get("coverHero"):
             row["status"] = "already refreshed - skipped"
             report.append(row)
             print("%3d/%d  %-52.52s %s" % (n, len(targets), name, row["status"]), flush=True)
@@ -245,7 +351,13 @@ def main():
         try:
             cached = ids.get(name) or {}
             sgdb_id, url, how = cached.get("sgdbId"), cached.get("url"), "cache"
-            if not url:
+            if not url and sgdb_id:
+                # An id pinned by hand: take that game's art rather than searching by name,
+                # which is the search that already failed for it.
+                url = best_portrait(api("/grids/game/%d?types=static&nsfw=false&humor=false" % sgdb_id, key))
+                how = "pinned id"
+                time.sleep(args.delay)
+            elif not url:
                 sgdb_id, url, how = resolve(g, key)
                 time.sleep(args.delay)
             if not url:
@@ -256,8 +368,9 @@ def main():
                 hero_name = "hero/" + hashlib.sha1(hero).hexdigest()[:16] + ".webp"
                 # Landscape capsule for the list. Cached alongside the portrait url so a
                 # re-run doesn't pay for the lookup twice.
+                # A url pinned from Steam, IGDB or a pasted link has no SteamGridDB id to ask.
                 cap_url = cached.get("wideUrl")
-                if not cap_url and "wideUrl" not in cached:
+                if not cap_url and "wideUrl" not in cached and sgdb_id:
                     cap_url = widest(api("/grids/game/%d?dimensions=460x215,920x430" % sgdb_id, key))
                     time.sleep(args.delay)
                 capsule = Image.open(io.BytesIO(http(cap_url))).convert("RGB") if cap_url else None
@@ -265,7 +378,13 @@ def main():
                 row.update(wide_bytes=len(wide), hero_bytes=len(hero), sgdb_id=sgdb_id,
                            wide_src="capsule" if capsule else "fallback",
                            status="ok (%s, %s)" % (how, "capsule" if capsule else "no capsule"))
-                ids[name] = {"sgdbId": sgdb_id, "url": url, "wideUrl": cap_url}
+                # dict(cached, ...) keeps a pinned entry's "source"/"pinned" notes.
+                ids[name] = dict(cached, sgdbId=sgdb_id, url=url, wideUrl=cap_url)
+                # The release year of the entry the art came from, for build.py's check that a
+                # game isn't showing another release's art.
+                if sgdb_id and not ids[name].get("artYear"):
+                    ids[name]["artYear"] = cand_year((api("/games/id/%d" % sgdb_id, key) or {}).get("data") or {})
+                    time.sleep(args.delay)
                 if args.out:
                     open(os.path.join(args.out, "wide", "%04d.webp" % i), "wb").write(wide)
                     open(os.path.join(args.out, "hero", "%04d.webp" % i), "wb").write(hero)

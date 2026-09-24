@@ -120,12 +120,16 @@ async function hltbSearch(q, retried) {
     },
     useCache: true
   };
-  body[auth.hpKey] = auth.hpVal;
-  const res = await fetch(HLTB + '/api/search/site', {
-    method: 'POST', body: JSON.stringify(body),
-    headers: { 'Content-Type': 'application/json', 'User-Agent': UA, 'Referer': HLTB + '/', 'Origin': HLTB,
-      'x-auth-token': auth.token, 'x-hp-key': auth.hpKey, 'x-hp-val': auth.hpVal }
-  });
+  const headers = { 'Content-Type': 'application/json', 'User-Agent': UA, 'Referer': HLTB + '/', 'Origin': HLTB,
+    'x-auth-token': auth.token };
+  // The honeypot pair comes and goes (on 2026-09-23 init started sending only a token), so
+  // echo it back only when it's there -- a Headers value of undefined goes out as "undefined".
+  if (auth.hpKey) {
+    body[auth.hpKey] = auth.hpVal;
+    headers['x-hp-key'] = auth.hpKey;
+    headers['x-hp-val'] = auth.hpVal || '';
+  }
+  const res = await fetch(HLTB + '/api/search/site', { method: 'POST', body: JSON.stringify(body), headers });
   if (res.status === 403 && !retried) { hltbAuth = null; return hltbSearch(q, true); }
   if (!res.ok) throw new Error('hltb search ' + res.status);
   return (await res.json()).data || [];
@@ -199,7 +203,32 @@ async function sgdb(path, env) {
   const d = await res.json();
   return d.success ? d.data : null;
 }
-const first600x900 = grids => ((grids || []).find(g => g.width === 600 && g.height === 900) || {}).url || null;
+// Portrait sizes, best first. Older and console-only games often have only the 660x930 or
+// 342x482 ones (about 0.71); the page centre-crops those to 2:3.
+const PORTRAIT_DIMS = [[600, 900], [660, 930], [342, 482]];
+const bestPortrait = grids => {
+  for (const [w, h] of PORTRAIT_DIMS) {
+    const g = (grids || []).find(x => x.width === w && x.height === h);
+    if (g) return g.url;
+  }
+  return null;
+};
+
+// Name keys for matching SteamGridDB entries, looser at each step -- the same ladder as
+// Source/find_cover_candidates.py. The old exact-only match missed "Alan Wake II" (filed as
+// "Alan Wake 2"), "Ragnarok" ("Ragnarök"), and "Dishonored Definitive Edition" ("Dishonored").
+const ROMAN = { ii: '2', iii: '3', iv: '4', v: '5', vi: '6', vii: '7', viii: '8', ix: '9',
+  xi: '11', xii: '12', xiii: '13', xiv: '14', xv: '15', xvi: '16' };
+const fold = s => String(s || '').toLowerCase().replace(/[™®©]/g, '')
+  .normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/&/g, ' and ')
+  .replace(/[^a-z0-9]+/g, ' ').trim().split(' ').map(w => ROMAN[w] || w).join(' ');
+const EDITION_TAIL = /\s+(?:the\s+)?(?:game of the year|goty|definitive|complete|enhanced|ultimate|deluxe|special|anniversary|gold|platinum|collectors|collector s|directors cut|director s cut|final cut|remastered|remaster|hd|4k|redux|edition|version|collection|complete adventure|pack)$/;
+const core = s => {
+  let k = fold(String(s || '').replace(/\([^)]*\)/g, ' ')), prev;
+  do { prev = k; k = k.replace(EDITION_TAIL, ''); } while (k !== prev);
+  return k.replace(/^the\s+/, '');
+};
+const yearOf = c => (c.release_date ? new Date(c.release_date * 1000).getUTCFullYear() : null);
 
 async function details(params, env) {
   const hltbId = params.get('hltbId');
@@ -215,19 +244,33 @@ async function details(params, env) {
     genres = [...new Set(page.profile_genre.split(',').map(s => HLTB_GENRE_MAP[s.trim()]).filter(Boolean))];
   }
 
-  // Cover: precise Steam lookup first, then SGDB name search picking the exact-name
-  // candidate whose release year is closest to the edition being added.
-  let coverUrl = steamAppId ? first600x900(await sgdb('/grids/steam/' + steamAppId + '?dimensions=600x900', env)) : null;
-  if (!coverUrl && !sgdbId && name) {
-    const norm = s => s.toLowerCase().replace(/[™®©]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-    const cands = (await sgdb('/search/autocomplete/' + encodeURIComponent(name), env) || []).filter(c => norm(c.name) === norm(name));
-    const yr = c => (c.release_date ? new Date(c.release_date * 1000).getUTCFullYear() : null);
-    cands.sort((a, b) => Math.abs((yr(a) || 0) - (year || 0)) - Math.abs((yr(b) || 0) - (year || 0)));
-    if (cands.length) sgdbId = cands[0].id;
+  // Cover: the SteamGridDB entry for this exact Steam app when HLTB links one -- that's the
+  // right release by construction. Its id comes back too, so baking the game later can fetch
+  // its wide capsule art for the list.
+  let coverUrl = null;
+  if (steamAppId) {
+    const sg = await sgdb('/games/steam/' + steamAppId, env).catch(() => null);
+    if (sg && sg.id) sgdbId = sg.id;
+    coverUrl = bestPortrait(await sgdb('/grids/steam/' + steamAppId + '?types=static&nsfw=false&humor=false', env));
   }
-  if (!coverUrl && sgdbId) coverUrl = first600x900(await sgdb('/grids/game/' + sgdbId + '?dimensions=600x900', env));
+  // Otherwise a name search: exact name first, then accents/numerals evened out, then with
+  // edition suffixes dropped; within the best tier, the release year closest to the one
+  // being added (so picking the 1993 Doom doesn't get the 2016 one's art).
+  if (!coverUrl && !sgdbId && name) {
+    const cands = await sgdb('/search/autocomplete/' + encodeURIComponent(name), env) || [];
+    const tiers = [c => fold(c.name) === fold(name), c => fold(c.name).replace(/ /g, '') === fold(name).replace(/ /g, ''),
+      c => core(c.name) === core(name)];
+    for (const inTier of tiers) {
+      const hits = cands.filter(inTier);
+      if (!hits.length) continue;
+      hits.sort((a, b) => Math.abs((yearOf(a) || 0) - (year || 0)) - Math.abs((yearOf(b) || 0) - (year || 0)));
+      sgdbId = hits[0].id;
+      break;
+    }
+  }
+  if (!coverUrl && sgdbId) coverUrl = bestPortrait(await sgdb('/grids/game/' + sgdbId + '?types=static&nsfw=false&humor=false', env));
 
-  return { genres, steamAppId, coverUrl };
+  return { genres, steamAppId, coverUrl, sgdbId: sgdbId ? Number(sgdbId) : null };
 }
 
 // Streams a SteamGridDB CDN image back with CORS headers so the page can draw it onto a

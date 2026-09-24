@@ -5,7 +5,7 @@
 // under a different name, so this hash changing is what actually invalidates stale
 // copies after a deploy; if you edit this file directly, build.py will overwrite this
 // line the next time it runs anyway.
-const CACHE_NAME = 'the-backlog-shell-d24964f89f64';
+const CACHE_NAME = 'the-backlog-shell-8b6c2e995e4a';
 
 // Cover images (docs/games/covers/<content hash>.jpg) live in their own cache that
 // survives deploys: their names are content hashes, so a cached file can never go stale,

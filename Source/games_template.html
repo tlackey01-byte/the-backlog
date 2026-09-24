@@ -614,7 +614,7 @@
   }
 
   // Expand compact records: n,m,e,c,o,p,g,pr(default progress),ph(real played hours),
-  // cv(cover path or data URI),dv(developer). Shared with applyAddedGames() (games added
+  // cv(cover path or data URI),hv(hero),dv(developer),h(HLTB id),y(release year). Shared with applyAddedGames() (games added
   // from the site, which live in Firestore) so both kinds of game come out identical.
   function expandRecord(r, i) {
     var progress = progressOverrides[r.n] || r.pr || 'backlog';
@@ -637,6 +637,11 @@
       cover: r.cv || null,
       coverHero: r.hv || null,
       developer: r.dv || null,
+      // Which release this is: baked games carry h/y (build.py), site-added ones hltbId/y.
+      hltbId: r.h || r.hltbId || null,
+      year: r.y || null,
+      coverSource: r.cs || null,   // site-added only: where its cover came from
+      sgdbId: r.sgdbId || null,
       deleted: !!deletedNames[r.n]
     };
     recomputeOwnership(g);
@@ -1443,7 +1448,8 @@
     }).join('');
     // Blank played = not logged yet; the placeholder hints the imported or HLTB figure.
     var hint = g.playedHoursDefault != null ? fmtHours(g.playedHoursDefault) : (g.extra || g.main ? fmtHours(g.extra || g.main) : '0');
-    var meta = [g.developer].filter(Boolean).join(' · ');
+    // Release year too -- it's what tells "Silent Hill 2" (2024) from "Silent Hill 2 (2001)".
+    var meta = [g.developer, g.year].filter(Boolean).join(' · ');
     detailViewEl.innerHTML =
       '<div class="detail">' +
         '<button type="button" class="back-btn" id="detail-back-btn">' + icon('back', 22) + '<span>Games</span></button>' +
@@ -1553,6 +1559,12 @@
       if (ph != null) rec.ph = ph;
       if (g.cover) rec.cv = g.cover;
       if (g.developer) rec.dv = g.developer;
+      // Which release it is, and where a site-added cover came from -- bake_added_games.py
+      // carries these into the master file so the game's art can be rebuilt properly.
+      if (g.hltbId) rec.h = g.hltbId;
+      if (g.year) rec.y = g.year;
+      if (g.coverSource) rec.cs = g.coverSource;
+      if (g.sgdbId) rec.sgdbId = g.sgdbId;
       return rec;
     });
   }
@@ -1625,10 +1637,28 @@
   function normName(s) {
     return String(s || '').toLowerCase().replace(/[™®©]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
   }
-  function findExistingGame(name) {
-    var key = normName(name);
-    for (var i = 0; i < GAMES.length; i++) if (normName(GAMES[i].name) === key) return GAMES[i];
+  // "Doom (1993)" and "Doom" share a title; the year suffix is how a second release of the
+  // same name is told apart in the list (every per-game setting is keyed by name).
+  function titleKey(s) { return normName(String(s || '').replace(/\s*\((?:19|20)\d\d\)\s*$/, '')); }
+  // The game in the list that IS this search result, or null. Matching by name alone called
+  // the 1993 Doom "In your backlog" when only the 2016 one was, and then refused to add it.
+  // Same HLTB id is the same game; both known and different is a different one; otherwise
+  // the title decides, unless both years are known and differ (another release).
+  function findExistingGame(r) {
+    var key = titleKey(r.name), year = parseInt(r.year, 10) || null;
+    for (var i = 0; i < GAMES.length; i++) {
+      var g = GAMES[i];
+      if (r.hltbId && g.hltbId) { if (String(g.hltbId) === String(r.hltbId)) return g; continue; }
+      if (titleKey(g.name) !== key) continue;
+      if (year && g.year && Math.abs(g.year - year) > 1) continue;
+      return g;
+    }
     return null;
+  }
+  // Another release of the same title already in the list (so the new one needs a year).
+  function hasOtherRelease(r) {
+    var key = titleKey(r.name);
+    return GAMES.some(function(g) { return !g.deleted && titleKey(g.name) === key; });
   }
   function proxyFetch(path) {
     if (!window.__getIdToken) return Promise.reject(new Error('Not signed in yet'));
@@ -1645,20 +1675,30 @@
   // thumbnail until bake_added_games.py folds it in and gives it a proper two-tier pair.
   // Safari only learned canvas WebP in 14 -- older browsers silently hand back a PNG, which
   // would be enormous, so fall back to JPEG when the data URI isn't what was asked for.
+  // Always comes out 2:3. The worker now also accepts SteamGridDB's 660x930 and 342x482 art
+  // (about 0.71) when a game has no 600x900; that gets a light centre crop. Anything further
+  // off sits whole on the placeholder colour rather than being cropped or stretched.
   function processCover(url) {
     return proxyFetch('/cover?url=' + encodeURIComponent(url))
       .then(function(res) { return res.blob(); })
       .then(function(blob) { return createImageBitmap(blob); })
       .then(function(bmp) {
         var w = Math.min(600, bmp.width);
-        var h = Math.round(bmp.height * w / bmp.width);
+        var h = Math.round(w * 1.5);
         var canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
         var ctx = canvas.getContext('2d');
         ctx.fillStyle = 'rgb(24, 26, 33)';
         ctx.fillRect(0, 0, w, h);
         ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(bmp, 0, 0, w, h);
+        var ratio = bmp.width / bmp.height;
+        if (Math.abs(ratio - 2 / 3) / (2 / 3) <= 0.08) {
+          var sw = ratio > 2 / 3 ? bmp.height * 2 / 3 : bmp.width, sh = ratio > 2 / 3 ? bmp.height : bmp.width * 1.5;
+          ctx.drawImage(bmp, (bmp.width - sw) / 2, (bmp.height - sh) / 2, sw, sh, 0, 0, w, h);
+        } else {
+          var s = Math.min(w / bmp.width, h / bmp.height), dw = bmp.width * s, dh = bmp.height * s;
+          ctx.drawImage(bmp, (w - dw) / 2, (h - dh) / 2, dw, dh);
+        }
         var webp = canvas.toDataURL('image/webp', 0.65);
         return webp.indexOf('data:image/webp') === 0 ? webp : canvas.toDataURL('image/jpeg', 0.8);
       });
@@ -1702,7 +1742,7 @@
   function fmtAddHours(n) { return n == null ? '--' : fmtHours(n) + 'h'; }
   function renderAddResults() {
     addResultsEl.innerHTML = addResults.map(function(r, i) {
-      var existing = findExistingGame(r.name);
+      var existing = findExistingGame(r);
       var inBacklog = existing && !existing.deleted;
       var thumb = r.thumb
         ? '<img class="cover" src="' + escHtml(r.thumb) + '" alt="" loading="lazy" referrerpolicy="no-referrer">'
@@ -1760,7 +1800,7 @@
         '<button type="button" class="sheet-close" id="add-game-close-2" aria-label="Close">' + icon('x', 22) + '</button></div>' +
       '<div class="sheet-body">' +
         '<div class="add-preview-top">' + cover + '<div style="min-width:0">' +
-          '<h4 class="add-preview-name">' + escHtml(r.name) + '</h4>' +
+          '<h4 class="add-preview-name">' + escHtml(hasOtherRelease(r) ? r.name + ' (' + (r.year || 'other release') + ')' : r.name) + '</h4>' +
           '<div class="add-game-result-meta">' + escHtml([r.developer, r.year].filter(Boolean).join(' · ')) + '</div>' +
           '<div class="genre-tags">' + genres + '</div></div></div>' +
         hoursHtml +
@@ -1772,7 +1812,7 @@
   }
   function openAddPreview(r) {
     var seq = addSearchSeq;
-    addPreview = { result: r, genres: [], coverData: null, steamAppId: null, loading: true, progress: 'backlog', platforms: ['Wishlist'] };
+    addPreview = { result: r, genres: [], coverData: null, coverUrl: null, sgdbId: null, steamAppId: null, loading: true, progress: 'backlog', platforms: ['Wishlist'] };
     addSearchStepEl.hidden = true;
     addPreviewStepEl.hidden = false;
     renderAddPreview();
@@ -1783,6 +1823,8 @@
         if (seq !== addSearchSeq || !addPreview) return;
         addPreview.genres = d.genres || [];
         addPreview.steamAppId = d.steamAppId || null;
+        addPreview.coverUrl = d.coverUrl || null;
+        addPreview.sgdbId = d.sgdbId || null;
         return d.coverUrl ? processCover(d.coverUrl).catch(function() { return null; }) : null;
       })
       .then(function(coverData) {
@@ -1812,7 +1854,7 @@
     });
     // Re-adding something already in the catalog but deleted: restore it with the chosen
     // settings instead of creating a duplicate.
-    var existing = findExistingGame(r.name);
+    var existing = findExistingGame(r);
     if (existing) {
       if (!existing.deleted) { statusEl.textContent = 'Already in your backlog.'; return; }
       delete deletedNames[existing.name];
@@ -1828,13 +1870,23 @@
       location.hash = 'game-' + existing.id;
       return;
     }
-    var rec = { n: r.name, m: hours.main, e: hours.extra, c: hours.completionist, o: real.length > 0, p: real, g: p.genres };
+    // A second release of a title you already have is saved as "Name (year)", the same way
+    // the catalog names them, so the two never share a name (and so never share settings).
+    var name = r.name;
+    if (hasOtherRelease(r)) name = r.name + ' (' + (r.year || 'other release') + ')';
+    if (gameByName[name]) { statusEl.textContent = 'A game named "' + name + '" is already in your backlog.'; return; }
+    var rec = { n: name, m: hours.main, e: hours.extra, c: hours.completionist, o: real.length > 0, p: real, g: p.genres };
     if (p.progress !== 'backlog') rec.pr = p.progress;
     if (p.coverData) rec.cv = p.coverData;
     if (r.developer) rec.dv = r.developer;
     rec.addedAt = new Date().toISOString();
     if (r.hltbId) rec.hltbId = r.hltbId;
+    if (r.year) rec.y = parseInt(r.year, 10) || null;
     if (p.steamAppId) rec.steamAppId = p.steamAppId;
+    // Where the cover came from, so bake_added_games.py can have refetch_covers.py rebuild it
+    // as the usual two-tier pair (wide list image + hero) from the same source.
+    if (p.coverUrl) rec.cs = p.coverUrl;
+    if (p.sgdbId) rec.sgdbId = p.sgdbId;
     saveBtn.disabled = true;
     statusEl.textContent = 'Adding…';
     window.__addGameDoc(rec)
@@ -1928,7 +1980,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1790104589', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1790203198', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the

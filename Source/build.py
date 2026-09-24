@@ -42,6 +42,7 @@ import hashlib
 import json
 import os
 import re
+import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -134,6 +135,12 @@ def build_compact():
             rec["hv"] = COVER_BASE + g["coverHero"]
         if g.get("developer"):
             rec["dv"] = g["developer"]
+        # Which release this is. The Add Game box matches on these, so searching "Doom" and
+        # picking the 1993 game isn't mistaken for the 2016 one already in the list.
+        if g.get("hltbId"):
+            rec["h"] = g["hltbId"]
+        if g.get("year"):
+            rec["y"] = g["year"]
         compact.append(rec)
 
     with open(COMPACT_PATH, "w", encoding="utf-8") as f:
@@ -158,6 +165,49 @@ def build_compact():
 
     print(f"Compacted {len(compact)} games -> {COMPACT_PATH}")
     return compact
+
+
+IDS_PATH = os.path.join(HERE, "cover_sources.json")
+
+
+def check_art_years():
+    """Warns about games whose cover art comes from a different release than the game.
+
+    The first cover refresh matched art by name, and 30-odd games -- Doom, Prey, Resident
+    Evil 2 and 4, Silent Hill 2 -- quietly showed the other release's art. Each game now
+    records its own year (identify_games.py) and each cover the year
+    of the SteamGridDB entry it came from (artYear), so a mismatch can be caught here, on
+    every build, however the game was added. Warnings only: it never blocks a build.
+
+    Silenced for a game when its art was picked by hand ("pinned", via the cover review) or
+    was checked and is fine ("artYearOk": a PC port or re-release filed under a later year)."""
+    if not os.path.exists(IDS_PATH):
+        return
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")   # game names aren't ASCII
+    except Exception:
+        pass
+    with open(MASTER_PATH, encoding="utf-8") as f:
+        games = json.load(f)
+    with open(IDS_PATH, encoding="utf-8") as f:
+        ids = json.load(f)
+    off, unknown = [], 0
+    for g in games:
+        c = ids.get(g["name"]) or {}
+        if not g.get("year"):
+            unknown += 1
+            continue
+        if c.get("pinned") or c.get("artYearOk") or not c.get("artYear"):
+            continue
+        if abs(c["artYear"] - g["year"]) > 1:
+            off.append("%s (%s, art from %s)" % (g["name"], g["year"], c["artYear"]))
+    if off:
+        print("WARNING: %d game(s) show art from a different release -- check them, then fix "
+              "with the cover review or mark \"artYearOk\": true in cover_sources.json:" % len(off))
+        for line in off:
+            print("  - " + line)
+    if unknown:
+        print("Note: %d game(s) have no release year recorded -- run identify_games.py" % unknown)
 
 
 def build_games_page(compact_json_str):
@@ -217,4 +267,5 @@ if __name__ == "__main__":
         compact_json_str = f.read()
     build_games_page(compact_json_str)
     update_service_worker_cache_name()
+    check_art_years()
     print("Done. Commit + push to deploy via GitHub Pages.")
