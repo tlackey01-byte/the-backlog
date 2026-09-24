@@ -98,7 +98,16 @@
  "Super Spy Hunter": {
   "sgdbId": 34208,
   "url": "https://cdn2.steamgriddb.com/grid/69cc9d313b366d22c5bf1440f6cd9085.jpg",
-  "wideUrl": null
+  "wideUrl": null,
+  "wideCompose": {
+   "logo": "https://images.launchbox-app.com/c48939ff-6edc-44ae-94b0-12c6e9698eeb.png",
+   "logoBox": [
+    0.8,
+    0.6
+   ]
+  },
+  "wideSource": "composed",
+  "artYear": null
  },
  "Zone of the Enders: The 2nd Runner": {
   "sgdbId": 21118,
@@ -2901,7 +2910,20 @@
   "sgdbId": 5252885,
   "url": "https://cdn2.steamgriddb.com/grid/dfd8c9f03b790e6c334485e03e784dfd.png",
   "wideUrl": null,
-  "artYear": 1999
+  "artYear": 1999,
+  "wideCompose": {
+   "art": "https://images.launchbox-app.com/e37489af-0f4d-42de-99ce-b518ba0fb84c.jpg",
+   "focus": [
+    0.5,
+    0.45
+   ],
+   "logo": "https://images.launchbox-app.com/b28d6f1d-3dfd-42ce-a1f2-c35715fd3641.png",
+   "logoBox": [
+    0.62,
+    0.55
+   ]
+  },
+  "wideSource": "composed"
  },
  "Sengoku Blade: Sengoku Ace Episode II": {
   "sgdbId": 5261225,
@@ -3150,10 +3172,26 @@
   "artYear": 2017
  },
  "Jamestown+": {
-  "sgdbId": 31468,
-  "url": "https://cdn2.steamgriddb.com/grid/2719f59c3f9f0eca9a49ecc2c4023e3d.png",
-  "wideUrl": "https://cdn2.steamgriddb.com/grid/977b33ace8251dd9bee913e7ba56eebc.png",
-  "artYear": 2011
+  "sgdbId": 5246450,
+  "url": "https://images.launchbox-app.com/0a78ffea-e6af-4379-958c-2ea04b078d53.jpg",
+  "wideUrl": null,
+  "wideCompose": {
+   "art": "https://images.launchbox-app.com/91694cce-36a0-438f-87bf-d3f893463cdb.jpg",
+   "focus": [
+    0.5,
+    0.45
+   ],
+   "logo": "https://images.launchbox-app.com/1c7d721a-9358-44e2-85e1-929381f6cede.png",
+   "logoBox": [
+    0.72,
+    0.75
+   ],
+   "scrim": 0.3
+  },
+  "source": "launchbox",
+  "wideSource": "composed",
+  "pinned": true,
+  "artYear": 2019
  },
  "Clock Tower": {
   "sgdbId": 38896,
@@ -4216,8 +4254,15 @@
   "url": "https://images.igdb.com/igdb/image/upload/t_1080p/co3zgn.jpg",
   "wideUrl": null,
   "source": "igdb",
-  "wideSource": "fallback",
-  "pinned": true
+  "wideSource": "composed",
+  "pinned": true,
+  "wideCompose": {
+   "logo": "https://images.launchbox-app.com/b81150d1-335b-4afc-937a-74a19a783a11.png",
+   "logoBox": [
+    0.8,
+    0.7
+   ]
+  }
  },
  "Iridion II": {
   "sgdbId": 33654,
@@ -4289,7 +4334,15 @@
   "sgdbId": 35018,
   "url": "https://cdn2.steamgriddb.com/grid/71b4f08b9542b87149051d12fe4d4538.png",
   "wideUrl": null,
-  "artYear": 2004
+  "artYear": 2004,
+  "wideCompose": {
+   "logo": "https://images.launchbox-app.com/r2_075dab27-0975-4d36-a1ba-d336be021005.png",
+   "logoBox": [
+    0.8,
+    0.7
+   ]
+  },
+  "wideSource": "composed"
  },
  "Tactics Ogre": {
   "sgdbId": null,
@@ -7097,7 +7150,22 @@
   "sgdbId": 5331862,
   "url": "https://cdn2.steamgriddb.com/grid/2f380e2e3639a48744160d7c47d4b447.png",
   "wideUrl": null,
-  "artYear": 2008
+  "artYear": 2008,
+  "wideCompose": {
+   "art": "https://images.launchbox-app.com/9ffbcd95-0b4b-4a30-a2a7-d878f1cc88ab.jpg",
+   "focus": [
+    0.62,
+    0.4
+   ],
+   "logo": "https://images.launchbox-app.com/272865db-f329-4de4-9203-d07edfc3a809.png",
+   "logoBox": [
+    0.46,
+    0.8
+   ],
+   "logoAt": "lc",
+   "scrim": 0.35
+  },
+  "wideSource": "composed"
  },
  "Diablo": {
   "sgdbId": 34237,
@@ -8123,8 +8191,21 @@
   "url": "https://images.igdb.com/igdb/image/upload/t_1080p/co24oa.jpg",
   "wideUrl": null,
   "source": "igdb",
-  "wideSource": "fallback",
-  "pinned": true
+  "wideSource": "composed",
+  "pinned": true,
+  "wideCompose": {
+   "art": "https://images.launchbox-app.com/0ddf7e0b-819e-4b03-80e7-100a367b27ff.jpg",
+   "focus": [
+    0.5,
+    0.4
+   ],
+   "logo": "https://images.launchbox-app.com/2081cdee-75eb-4952-9f08-feefbb658f46.png",
+   "logoBox": [
+    0.6,
+    0.55
+   ],
+   "scrim": 0.45
+  }
  },
  "Tokyo Mirage Sessions #FE": {
   "sgdbId": 36833,
@@ -9886,13 +9967,15 @@
   "sgdbId": 2022,
   "url": "https://cdn2.steamgriddb.com/grid/5ad1011144495f9944612cbbc193cb8f.png",
   "wideUrl": "https://cdn2.steamgriddb.com/grid/c1548bc01cb5b7cea6e43bf9fcf1be1a.png",
-  "artYear": 2010
+  "artYear": 2010,
+  "artYearOk": true
  },
  "F.E.A.R.: Perseus Mandate": {
   "sgdbId": 2027,
   "url": "https://cdn2.steamgriddb.com/grid/4c37a6b2cc40bc0005dd2efeaff3d882.png",
   "wideUrl": "https://cdn2.steamgriddb.com/grid/6a6b354cc963414af3802860f1ea4a32.png",
-  "artYear": 2010
+  "artYear": 2010,
+  "artYearOk": true
  },
  "Gothic 3": {
   "sgdbId": 8791,
@@ -11327,8 +11410,21 @@
   "url": "https://images.igdb.com/igdb/image/upload/t_1080p/co522k.jpg",
   "wideUrl": null,
   "source": "igdb",
-  "wideSource": "fallback",
-  "pinned": true
+  "wideSource": "composed",
+  "pinned": true,
+  "wideCompose": {
+   "art": "https://images.launchbox-app.com/r2_cef04f79-e1a0-42b4-8545-497757beb991.jpg",
+   "focus": [
+    0.4,
+    0.5
+   ],
+   "logo": "https://images.launchbox-app.com/d546062c-dad9-4d39-ac25-598a059fd9e2.png",
+   "logoBox": [
+    0.58,
+    0.62
+   ],
+   "logoAt": "rc"
+  }
  },
  "Danganronpa Trilogy": {
   "sgdbId": null,
@@ -11591,9 +11687,9 @@
  "Heroes of Might and Magic 2: Gold": {
   "sgdbId": null,
   "url": "https://images.igdb.com/igdb/image/upload/t_1080p/co3w52.jpg",
-  "wideUrl": null,
+  "wideUrl": "https://images.launchbox-app.com/r2_c62bec62-4ae1-4cce-8023-c70fdbcba8b7.jpg",
   "source": "igdb",
-  "wideSource": "fallback",
+  "wideSource": "launchbox",
   "pinned": true
  },
  "Heroes of Might and Magic V": {
@@ -12149,8 +12245,21 @@
   "url": "https://images.igdb.com/igdb/image/upload/t_1080p/co2646.jpg",
   "wideUrl": null,
   "source": "igdb",
-  "wideSource": "fallback",
-  "pinned": true
+  "wideSource": "composed",
+  "pinned": true,
+  "wideCompose": {
+   "art": "https://images.launchbox-app.com/a02a4e0f-b231-4b58-9dee-beacffa814b2.png",
+   "focus": [
+    0.5,
+    0.62
+   ],
+   "logo": "https://images.launchbox-app.com/25d63163-905e-46ab-b665-cb03ca72c028.png",
+   "logoBox": [
+    0.55,
+    0.42
+   ],
+   "logoAt": "ct"
+  }
  },
  "Ys II": {
   "sgdbId": 2356,
@@ -12175,8 +12284,22 @@
   "url": "https://images.igdb.com/igdb/image/upload/t_1080p/co4hsz.jpg",
   "wideUrl": null,
   "source": "igdb",
-  "wideSource": "fallback",
-  "pinned": true
+  "wideSource": "composed",
+  "pinned": true,
+  "wideCompose": {
+   "art": "https://images.launchbox-app.com/4c4333be-fbdf-4532-abb9-98eeacec3a27.jpg",
+   "focus": [
+    0.5,
+    0.3
+   ],
+   "fade": "white",
+   "logo": "https://images.launchbox-app.com/2030dc80-781d-43c0-a3c5-6d26cb917ddd.png",
+   "logoBox": [
+    0.66,
+    0.4
+   ],
+   "logoAt": "cb"
+  }
  },
  "Crimzon Clover World Ignition": {
   "sgdbId": null,
@@ -12508,7 +12631,58 @@
   "url": "https://images.igdb.com/igdb/image/upload/t_1080p/co3zx5.jpg",
   "wideUrl": null,
   "source": "igdb",
-  "wideSource": "fallback",
-  "pinned": true
+  "wideSource": "composed",
+  "pinned": true,
+  "wideCompose": {
+   "logo": "https://images.launchbox-app.com/e30a05c2-c65f-4a2a-b39d-95d9d5c7f6f8.png",
+   "logoBox": [
+    0.8,
+    0.7
+   ]
+  }
+ },
+ "Battle Mania": {
+  "sgdbId": null,
+  "url": "https://images.launchbox-app.com/8847786f-837d-46a4-9b59-84455b11b6f5.jpg",
+  "wideUrl": null,
+  "source": "launchbox",
+  "wideSource": "composed",
+  "pinned": true,
+  "wideCompose": {
+   "art": "https://images.launchbox-app.com/r2_e1203c2f-2049-40e7-afa0-d19236d5d75d.jpg",
+   "focus": [
+    0.35,
+    0.4
+   ],
+   "logo": "https://images.launchbox-app.com/r2_11219907-550d-4ab5-b2d1-292034e26b06.png",
+   "logoBox": [
+    0.4,
+    0.7
+   ],
+   "logoAt": "rc",
+   "scrim": 0.3
+  }
+ },
+ "Shadowrun Trilogy": {
+  "sgdbId": null,
+  "url": "https://images.igdb.com/igdb/image/upload/t_1080p/co3vnz.jpg",
+  "wideUrl": null,
+  "source": "igdb",
+  "wideSource": "composed",
+  "pinned": true,
+  "wideCompose": {
+   "art": "https://images.launchbox-app.com/1b085c5d-8f94-4ff1-abe2-7def9f689908.jpg",
+   "focus": [
+    0.5,
+    0.35
+   ],
+   "zoom": 1.15,
+   "logo": "https://images.launchbox-app.com/7058457c-40ab-4df7-9db8-a5b15f081673.png",
+   "logoBox": [
+    0.6,
+    0.42
+   ],
+   "logoAt": "cb"
+  }
  }
 }

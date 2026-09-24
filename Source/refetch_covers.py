@@ -38,7 +38,8 @@ for the wrong game. Resolved ids are cached to --ids-file so later runs skip the
 
 A --ids-file entry can pin a game's art by hand: {"sgdbId": N} alone fetches that SteamGridDB
 game's grids instead of searching by name, and {"url": ..., "wideUrl": ...} takes images from
-anywhere (Steam, IGDB, a pasted link) with no SteamGridDB id at all.
+anywhere (Steam, IGDB, a pasted link) with no SteamGridDB id at all. A "wideCompose" recipe
+builds the list image from a piece of wide art and the game's logo instead -- see compose_wide().
 
 Needs: Pillow (WebP) and Source/steamgriddb_api_key.txt.
 """
@@ -127,15 +128,80 @@ def widest(payload):
     return grids[0].get("url") if grids else None
 
 
-def make_wide(portrait, capsule, width, quality):
+def compose_wide(portrait, recipe, width, height):
+    """A list image built from parts, for games with no ready-made capsule anywhere.
+
+    Some games' only wide art is untitled (fanart, a box scan's artwork) and some have none at
+    all, but LaunchBox and SteamGridDB carry a transparent logo for most of them. At the 128x60
+    a phone row shows, the title is what makes the image recognisable, so the logo goes on
+    top. The recipe, from cover_sources.json:
+      art      url of wide art, cropped to shape -- absent: a blurred slice of the portrait
+      focus    [x, y] 0-1, the point of the art the crop centres on (default middle)
+      zoom     >1 crops tighter than the largest box that fits
+      logo     url of a transparent logo
+      logoBox  [w, h], the fraction of the image the logo may fill (default [0.62, 0.5])
+      logoAt   "<l|c|r><t|c|b>", where the logo sits (default "cc")
+      scrim    0-1, a soft dark glow behind the logo for busy art
+      fade     "white", a white fade up from the bottom, for art on a white ground
+    Built at twice the final size so the logo's edges survive the downscale."""
+    from PIL import Image, ImageDraw, ImageFilter
+    W, H = width * 2, height * 2
+    if recipe.get("art"):
+        art = Image.open(io.BytesIO(http(recipe["art"]))).convert("RGB")
+        fx, fy = recipe.get("focus") or (0.5, 0.5)
+        zoom = recipe.get("zoom") or 1.0
+        ratio = W / float(H)
+        cw, ch = (art.height * ratio, art.height) if art.width / float(art.height) > ratio else (art.width, art.width / ratio)
+        cw, ch = cw / zoom, ch / zoom
+        x = min(max(fx * art.width - cw / 2, 0), art.width - cw)
+        y = min(max(fy * art.height - ch / 2, 0), art.height - ch)
+        out = art.crop((int(x), int(y), int(x + cw), int(y + ch))).resize((W, H), Image.LANCZOS)
+    else:
+        tall = portrait.resize((W, int(round(W * 1.5))), Image.LANCZOS)
+        top = (tall.height - H) // 2
+        out = tall.crop((0, top, W, top + H)).filter(ImageFilter.GaussianBlur(W // 35))
+        out = out.point(lambda px: int(px * 0.5))
+    out = out.convert("RGBA")
+    if recipe.get("fade") == "white":
+        mask = Image.new("L", (W, H), 0)
+        draw, start = ImageDraw.Draw(mask), int(H * 0.55)
+        for row in range(start, H):
+            draw.line([(0, row), (W, row)], fill=int(230 * (row - start) / float(H - start)))
+        out = Image.composite(Image.new("RGBA", (W, H), (255, 255, 255, 255)), out, mask)
+    if recipe.get("logo"):
+        logo = Image.open(io.BytesIO(http(recipe["logo"]))).convert("RGBA")
+        logo = logo.crop(logo.getbbox() or (0, 0, logo.width, logo.height))
+        bw, bh = recipe.get("logoBox") or (0.62, 0.5)
+        s = min(W * bw / logo.width, H * bh / logo.height)
+        logo = logo.resize((max(1, int(logo.width * s)), max(1, int(logo.height * s))), Image.LANCZOS)
+        at = recipe.get("logoAt") or "cc"
+        pad_x, pad_y = int(W * 0.05), int(H * 0.07)
+        x = {"l": pad_x, "c": (W - logo.width) // 2, "r": W - logo.width - pad_x}[at[0]]
+        y = {"t": pad_y, "c": (H - logo.height) // 2, "b": H - logo.height - pad_y}[at[1]]
+        if recipe.get("scrim"):
+            glow = Image.new("L", (W, H), 0)
+            ImageDraw.Draw(glow).ellipse((x - 60, y - 40, x + logo.width + 60, y + logo.height + 40),
+                                         fill=int(255 * recipe["scrim"]))
+            out = Image.composite(Image.new("RGBA", (W, H), (0, 0, 0, 255)), out, glow.filter(ImageFilter.GaussianBlur(40)))
+        # A soft drop shadow, so a light logo still separates from light art.
+        shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        shadow.paste((0, 0, 0, 255), (x + 4, y + 5), logo.split()[3].point(lambda a: int(a * 0.7)))
+        out = Image.alpha_composite(out, shadow.filter(ImageFilter.GaussianBlur(6)))
+        out.alpha_composite(logo, (x, y))
+    return out.convert("RGB").resize((width, height), Image.LANCZOS)
+
+
+def make_wide(portrait, capsule, width, quality, recipe=None):
     """Capsule art resized to width x (width*215/460), or a fallback built from the portrait.
 
     The fallback blurs and darkens a blown-up slice of the cover to fill the wide box, then
     drops the sharp cover on top at full height -- nothing is cropped away, and it doesn't
-    read as a mistake next to the real capsules."""
+    read as a mistake next to the real capsules. A wideCompose recipe beats both."""
     from PIL import Image, ImageFilter
     height = int(round(width * 215.0 / 460.0))
-    if capsule is not None:
+    if recipe:
+        out = compose_wide(portrait, recipe, width, height)
+    elif capsule is not None:
         # Steam headers and SteamGridDB capsules are already 460:215, but IGDB artwork is 16:9;
         # crop that to shape first rather than squash it.
         out = center_crop(capsule, 460.0 / 215.0).resize((width, height), Image.LANCZOS)
@@ -373,11 +439,12 @@ def main():
                 if not cap_url and "wideUrl" not in cached and sgdb_id:
                     cap_url = widest(api("/grids/game/%d?dimensions=460x215,920x430" % sgdb_id, key))
                     time.sleep(args.delay)
-                capsule = Image.open(io.BytesIO(http(cap_url))).convert("RGB") if cap_url else None
-                wide = make_wide(src, capsule, args.wide_width, args.wide_quality)
-                row.update(wide_bytes=len(wide), hero_bytes=len(hero), sgdb_id=sgdb_id,
-                           wide_src="capsule" if capsule else "fallback",
-                           status="ok (%s, %s)" % (how, "capsule" if capsule else "no capsule"))
+                recipe = cached.get("wideCompose")
+                capsule = Image.open(io.BytesIO(http(cap_url))).convert("RGB") if cap_url and not recipe else None
+                wide = make_wide(src, capsule, args.wide_width, args.wide_quality, recipe)
+                wide_src = "composed" if recipe else "capsule" if capsule else "fallback"
+                row.update(wide_bytes=len(wide), hero_bytes=len(hero), sgdb_id=sgdb_id, wide_src=wide_src,
+                           status="ok (%s, %s)" % (how, "no capsule" if wide_src == "fallback" else wide_src))
                 # dict(cached, ...) keeps a pinned entry's "source"/"pinned" notes.
                 ids[name] = dict(cached, sgdbId=sgdb_id, url=url, wideUrl=cap_url)
                 # The release year of the entry the art came from, for build.py's check that a
@@ -428,10 +495,11 @@ def main():
         t = sum(r["wide_bytes"] for r in ok) / len(ok) / 1024.0
         h = sum(r["hero_bytes"] for r in ok) / len(ok) / 1024.0
         fb = sum(1 for r in ok if r["wide_src"] == "fallback")
+        comp = sum(1 for r in ok if r["wide_src"] == "composed")
         print("list avg %.0fKB (%d games = %.0fMB) | hero avg %.0fKB (%.0fMB)" % (
             t, len(games), t * len(games) / 1024, h, h * len(games) / 1024))
-        print("%d of %d used real capsule art, %d fell back to the portrait treatment" % (
-            len(ok) - fb, len(ok), fb))
+        print("%d of %d used real capsule art, %d were composed from art + logo, %d fell back to the "
+              "portrait treatment" % (len(ok) - fb - comp, len(ok), comp, fb))
 
 
 if __name__ == "__main__":
