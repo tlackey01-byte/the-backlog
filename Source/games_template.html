@@ -515,25 +515,22 @@
   Array.prototype.forEach.call(document.querySelectorAll('.sheet-close'), function(b) { b.innerHTML = icon('x', 22); });
 
   // ---- Play-progress / ownership / platform / played-hours overrides ----
-  // Legacy localStorage reads from before the Firestore migration; applyRemoteState()
-  // below is what actually populates these in practice once signed in, and saveState()
-  // writes them all to Firestore.
+  // All start empty and are filled from Firestore by applyRemoteState() once signed in;
+  // saveState() writes them back. (They used to be seeded from backlog-*-v1 localStorage
+  // keys. Those were migrated to Firestore in September 2026 and are no longer read:
+  // applyRemoteState() only merges, so a stale copy on an old device would otherwise creep
+  // back into the synced state -- e.g. re-deleting a game restored since.)
   var progressOverrides = {};
-  try { progressOverrides = JSON.parse(localStorage.getItem('backlog-progress-v1')) || {}; } catch (e) { progressOverrides = {}; }
   var playedOverrides = {};
-  try { playedOverrides = JSON.parse(localStorage.getItem('backlog-played-v1')) || {}; } catch (e) { playedOverrides = {}; }
-  // Your own 0-10 rating, half-point steps (Firestore only).
+  // Your own 0-10 rating, half-point steps.
   var ratingOverrides = {};
   // Ownership used to be its own toggle; it is now derived from platforms (see
-  // recomputeOwnership). Still read (older data, older devices) and kept in step on save.
+  // recomputeOwnership). Still read from older synced data and kept in step on save.
   var ownedOverrides = {};
-  try { ownedOverrides = JSON.parse(localStorage.getItem('backlog-owned-v1')) || {}; } catch (e) { ownedOverrides = {}; }
   var platformOverrides = {};
-  try { platformOverrides = JSON.parse(localStorage.getItem('backlog-platforms-v1')) || {}; } catch (e) { platformOverrides = {}; }
   // Removed-from-backlog games. Never spliced out of GAMES (ids stay stable indexes);
   // flagged `deleted` instead, and every stat/filter/render skips flagged games.
   var deletedNames = {};
-  try { (JSON.parse(localStorage.getItem('backlog-deleted-v1')) || []).forEach(function(n) { deletedNames[n] = true; }); } catch (e) { deletedNames = {}; }
   // Per-game journal entries: { "<game name>": [ {date, summary, timestamps, createdAt}, ... ] }.
   var journalOverrides = {};
   function journalEntriesFor(name) { return journalOverrides[name] || []; }
@@ -1980,7 +1977,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1790265833', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1790274591', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the

@@ -9,6 +9,8 @@ Run this from anywhere; paths below are absolute.
 What it does:
 1. Reads master_games_final.json (the source-of-truth dataset -- one object per game).
 2. Compacts it into games_compact.json (short keys, matches what the template's JS expects).
+   That file is only this build's scratch copy and is gitignored: the same data ships inside
+   docs/games/index.html, so committing it too just doubled every data change in history.
 3. Injects the compact JSON in place of games_template.html's __GAME_DATA_JSON__
    placeholder and writes the result to docs/games/index.html.
 4. Hashes every deployed shell file (both pages + the shared CSS/JS) and rewrites
@@ -32,7 +34,7 @@ games_template.html *is* the deployed games page's structure and logic (Firebase
 gate, saveState()/onSnapshot wiring, the deletion banner, etc.) -- edit it, never
 docs/games/index.html directly, since this script overwrites the latter on every run.
 
-After running this: commit master_games_final.json, games_compact.json, docs/games/index.html,
+After running this: commit master_games_final.json, docs/games/index.html, docs/index.html
 and docs/sw.js, then push -- GitHub Pages redeploys within about a minute. There's no
 claude.ai artifact or vault copy to keep in sync anymore; the deployed site is the one true
 copy.
