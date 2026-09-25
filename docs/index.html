@@ -122,7 +122,7 @@
   // shell's CSS/JS cache-first.
   if ('serviceWorker' in navigator && !window.BacklogEnv.local) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('sw.js?v=1790368376', { scope: './' });
+      navigator.serviceWorker.register('sw.js?v=1790370498', { scope: './' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the

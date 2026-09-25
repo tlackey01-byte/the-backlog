@@ -4,8 +4,13 @@
 // secret API key. Every request must carry the site owner's Firebase ID token, except /img/.
 // It also serves every cover image out of R2 (/img/), and stores and deletes the covers of
 // games added on the site (/upload-cover, /delete-cover -- the added/ part of the bucket).
+// /search?src=igdb searches the IGDB catalog instead of HLTB (igdb.js) -- the prototype for
+// moving off HLTB, whose terms forbid scraping.
 //
-// Secrets (wrangler secret put): SGDB_KEY, ALLOWED_UID. Var (wrangler.toml): FIREBASE_PROJECT_ID.
+// Secrets (wrangler secret put): SGDB_KEY, ALLOWED_UID, IGDB_CLIENT_ID, IGDB_CLIENT_SECRET.
+// Var (wrangler.toml): FIREBASE_PROJECT_ID.
+
+import { searchGames, gameInfo } from './igdb.js';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
 const ALLOWED_ORIGINS = ['https://tlackey01-byte.github.io', 'http://localhost:8765'];
@@ -43,7 +48,7 @@ export default {
     }
 
     try {
-      if (url.pathname === '/search') return json(await search(url.searchParams.get('q') || '', env), 200, cors);
+      if (url.pathname === '/search') return json(await searchRoute(url.searchParams, env), 200, cors);
       if (url.pathname === '/details') return json(await details(url.searchParams, env), 200, cors);
       if (url.pathname === '/cover') return await cover(url.searchParams.get('url') || '', cors);
       if (url.pathname === '/upload-cover' && request.method === 'POST') return await uploadCover(request, url, env, cors);
@@ -200,6 +205,19 @@ async function hltbSearch(q, retried) {
 // Seconds -> hours, rounded to the nearest half hour like the rest of the dataset.
 const hrs = s => (s > 0 ? Math.round(s / 1800) / 2 : null);
 
+// ?src=igdb searches IGDB (igdb.js). Pages built before that don't send it and keep getting
+// HLTB, so this Worker can be deployed while the live site still runs the old page. If IGDB
+// fails (secrets not set yet, an outage), HLTB answers instead, so Add Game keeps working.
+async function searchRoute(params, env) {
+  const q = params.get('q') || '';
+  if (params.get('src') !== 'igdb') return search(q, env);
+  try {
+    return { source: 'igdb', results: await searchGames(q, env) };
+  } catch (e) {
+    return Object.assign(await search(q, env), { igdbError: String(e.message || e) });
+  }
+}
+
 async function search(q, env) {
   if (q.trim().length < 2) return { source: 'hltb', results: [] };
   try {
@@ -320,17 +338,21 @@ async function details(params, env) {
   const year = parseInt(params.get('year'), 10) || null;
   let sgdbId = params.get('sgdbId');
 
+  // Which Steam app the game is: IGDB says so directly for a game from its search; for one
+  // from HLTB's, the game's HLTB page does.
+  const info = params.get('igdbId') ? await gameInfo(params.get('igdbId'), env).catch(() => null) : null;
   const page = hltbId ? await hltbGamePage(hltbId) : null;
-  const steamAppId = page && page.profile_steam ? page.profile_steam : null;
+  const steamAppId = (info && info.steamAppId) || (page && page.profile_steam ? page.profile_steam : null);
 
   let genres = steamAppId ? await steamGenres(steamAppId) : [];
+  if (!genres.length && info) genres = info.genres;
   if (!genres.length && page && page.profile_genre) {
     genres = [...new Set(page.profile_genre.split(',').map(s => HLTB_GENRE_MAP[s.trim()]).filter(Boolean))];
   }
 
-  // Cover: the SteamGridDB entry for this exact Steam app when HLTB links one -- that's the
-  // right release by construction. Its id comes back too, so baking the game later can fetch
-  // its wide capsule art for the list.
+  // Cover: the SteamGridDB entry for this exact Steam app when IGDB or HLTB links one --
+  // that's the right release by construction. Its id comes back too, so baking the game later
+  // can fetch its wide capsule art for the list.
   let coverUrl = null;
   if (steamAppId) {
     const sg = await sgdb('/games/steam/' + steamAppId, env).catch(() => null);

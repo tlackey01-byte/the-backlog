@@ -149,6 +149,8 @@ def build_compact():
         # picking the 1993 game isn't mistaken for the 2016 one already in the list.
         if g.get("hltbId"):
             rec["h"] = g["hltbId"]
+        if g.get("igdbId"):             # games added through the IGDB search
+            rec["ig"] = g["igdbId"]
         if g.get("year"):
             rec["y"] = g["year"]
         compact.append(rec)

@@ -323,7 +323,10 @@
   .add-preview-name { font-family: var(--font-display); font-weight: 800; font-size: 28px; line-height: 1; margin: 0 0 6px; overflow-wrap: anywhere; }
   .genre-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
   .genre-tags span { font-size: 12px; padding: 3px 9px; border-radius: 12px; background: var(--surface-2); color: var(--text-muted); }
+  .add-game-credit { font-size: 12px; color: var(--text-faint); padding: 8px 20px 12px; }
+  .add-game-credit a { color: inherit; }
   .add-hours { margin: 0 20px 6px; }
+  .add-hours-note { margin: 0 20px 10px; }
   .add-hours input { width: 100%; height: 36px; margin-top: 4px; font-size: 16px; }
 
   /* ---- Wide screens: the list becomes a table ---- */
@@ -480,7 +483,7 @@
   </div>
 </div>
 
-<!-- Add Game: search HowLongToBeat (via the backlog proxy Worker), preview, then add. -->
+<!-- Add Game: search the IGDB catalog (via the backlog proxy Worker), preview, then add. -->
 <div class="sheet-backdrop" id="add-game-modal" hidden>
   <div class="sheet tall" role="dialog" aria-modal="true" aria-label="Add a game">
     <div class="sheet-grip"></div>
@@ -492,11 +495,13 @@
       <div style="padding:0 20px 10px">
         <label class="search-box">
           <span id="add-search-icon"></span>
-          <input type="search" id="add-game-query" placeholder="Search HowLongToBeat…" autocomplete="off" aria-label="Search HowLongToBeat">
+          <input type="search" id="add-game-query" placeholder="Search games…" autocomplete="off" aria-label="Search games">
         </label>
       </div>
       <div class="add-game-status" id="add-game-status"></div>
       <div class="sheet-body"><ul class="add-game-results" id="add-game-results"></ul></div>
+      <!-- IGDB's terms ask for user-facing credit from products built on its API. -->
+      <div class="add-game-credit">Game data from <a href="https://www.igdb.com" target="_blank" rel="noopener">IGDB.com</a></div>
     </div>
     <div id="add-game-preview-step" hidden style="display:flex;flex-direction:column;min-height:0;flex:1"></div>
   </div>
@@ -634,7 +639,7 @@
   }
 
   // Expand compact records: n,m,e,c,o,p,g,pr(default progress),ph(real played hours),
-  // cv(cover path or data URI),hv(hero),dv(developer),h(HLTB id),y(release year). Shared with applyAddedGames() (games added
+  // cv(cover path or data URI),hv(hero),dv(developer),h(HLTB id),ig(IGDB id),y(release year). Shared with applyAddedGames() (games added
   // from the site, which live in Firestore) so both kinds of game come out identical.
   function expandRecord(r, i) {
     var progress = progressOverrides[r.n] || r.pr || 'backlog';
@@ -657,8 +662,10 @@
       cover: r.cv || null,
       coverHero: r.hv || null,
       developer: r.dv || null,
-      // Which release this is: baked games carry h/y (build.py), site-added ones hltbId/y.
+      // Which release this is: baked games carry h/ig/y (build.py), site-added ones hltbId or
+      // igdbId (from the IGDB search) and y.
       hltbId: r.h || r.hltbId || null,
+      igdbId: r.ig || r.igdbId || null,
       year: r.y || null,
       coverSource: r.cs || null,   // site-added only: where its cover came from
       sgdbId: r.sgdbId || null,
@@ -1575,7 +1582,8 @@
           '<div><span class="num">' + fmtHours(g.main) + 'h</span><span class="lbl">Main story</span></div>' +
           '<div><span class="num">' + fmtHours(g.extra) + 'h</span><span class="lbl">Main + extra</span></div>' +
           '<div><span class="num">' + fmtHours(g.completionist) + 'h</span><span class="lbl">Completionist</span></div>' +
-        '</div><div class="footnote">Estimates from HowLongToBeat. Hours played is Steam playtime where imported, otherwise what you log.</div></div>' +
+        '</div><div class="footnote">' + (g.igdbId && !g.hltbId ? 'Estimates from IGDB players, or your own.' : 'Estimates from HowLongToBeat.') +
+          ' Hours played is Steam playtime where imported, otherwise what you log.</div></div>' +
         journalSectionHtml(g) +
         '<button type="button" class="remove-link" id="detail-delete-btn">Remove from backlog</button>' +
       '</div>';
@@ -1664,6 +1672,7 @@
       // Which release it is, and where a site-added cover came from, so the backup is a
       // complete record of the game.
       if (g.hltbId) rec.h = g.hltbId;
+      if (g.igdbId) rec.ig = g.igdbId;
       if (g.year) rec.y = g.year;
       if (g.coverSource) rec.cs = g.coverSource;
       if (g.sgdbId) rec.sgdbId = g.sgdbId;
@@ -1736,7 +1745,7 @@
   }
   window.__applyAddedGames = applyAddedGames;
 
-  // Worker that proxies HowLongToBeat + SteamGridDB (see worker/src/index.js).
+  // Worker that proxies IGDB, HowLongToBeat and SteamGridDB (see worker/src/index.js, igdb.js).
   var PROXY_URL = window.BacklogEnv.proxyUrl;   // production's, or the dev copy (shared/env.js)
 
   function normName(s) {
@@ -1747,12 +1756,14 @@
   function titleKey(s) { return normName(String(s || '').replace(/\s*\((?:19|20)\d\d\)\s*$/, '')); }
   // The game in the list that IS this search result, or null. Matching by name alone called
   // the 1993 Doom "In your backlog" when only the 2016 one was, and then refused to add it.
-  // Same HLTB id is the same game; both known and different is a different one; otherwise
-  // the title decides, unless both years are known and differ (another release).
+  // Same IGDB (or HLTB) id is the same game; both known and different is a different one;
+  // otherwise the title decides, unless both years are known and differ (another release).
+  // Catalog games only carry HLTB ids so far, so IGDB results mostly match on title + year.
   function findExistingGame(r) {
     var key = titleKey(r.name), year = parseInt(r.year, 10) || null;
     for (var i = 0; i < GAMES.length; i++) {
       var g = GAMES[i];
+      if (r.igdbId && g.igdbId) { if (String(g.igdbId) === String(r.igdbId)) return g; continue; }
       if (r.hltbId && g.hltbId) { if (String(g.hltbId) === String(r.hltbId)) return g; continue; }
       if (titleKey(g.name) !== key) continue;
       if (year && g.year && Math.abs(g.year - year) > 1) continue;
@@ -1943,6 +1954,12 @@
       var meta = [r.year, r.developer].filter(Boolean).join(' · ');
       var hours = [r.main != null ? 'Main ' + fmtAddHours(r.main) : null, r.extra != null ? 'Extra ' + fmtAddHours(r.extra) : null,
         r.completionist != null ? '100% ' + fmtAddHours(r.completionist) : null].filter(Boolean).join(' · ');
+      // IGDB has hours for few games; its platforms fill the line instead and help tell
+      // same-name releases apart (the 1993 Doom on DOS, the 2016 one on PS4/PC/XONE).
+      if (!hours && addSearchSource === 'igdb' && r.platforms) {
+        var plats = r.platforms.split(', ');
+        hours = plats.slice(0, 4).join(', ') + (plats.length > 4 ? ' +' + (plats.length - 4) : '');
+      }
       return '<li><button type="button" class="add-game-result" data-i="' + i + '"' + (inBacklog ? ' disabled' : '') + '>' + thumb +
         '<span class="add-game-result-text"><span class="add-game-result-name">' + escHtml(r.name) + '</span>' +
         (meta ? '<span class="add-game-result-meta">' + escHtml(meta) + '</span>' : '') +
@@ -1953,12 +1970,15 @@
   function runAddSearch() {
     var q = addQueryEl.value.trim();
     var seq = ++addSearchSeq;
-    if (q.length < 3) { addResults = []; renderAddResults(); setAddStatus(''); return; }
+    // Two letters is enough for IGDB (the Ys games); HLTB's search needed three.
+    if (q.length < 2) { addResults = []; renderAddResults(); setAddStatus(''); return; }
     setAddStatus('Searching…');
-    proxyFetch('/search?q=' + encodeURIComponent(q))
+    proxyFetch('/search?src=igdb&q=' + encodeURIComponent(q))
       .then(function(res) { return res.json(); })
       .then(function(data) {
         if (seq !== addSearchSeq) return;
+        // The Worker answers from HLTB when IGDB fails (its secrets not set yet, an outage).
+        if (data.igdbError) console.warn('IGDB search failed, showing HowLongToBeat results:', data.igdbError);
         addResults = data.results || [];
         addSearchSource = data.source;
         renderAddResults();
@@ -1975,14 +1995,19 @@
     var p = addPreview, r = p.result;
     var cover = p.coverData ? '<img class="cover" src="' + p.coverData + '" alt="">'
       : '<span class="cover cover-ph" style="font-size:13px;font-family:var(--font-body);font-weight:500">' + (p.loading ? 'Loading…' : 'No cover') + '</span>';
-    var hoursHtml = addSearchSource === 'sgdb'
-      ? '<div class="card hltb add-hours">' + ['main', 'extra', 'completionist'].map(function(k, i) {
-          return '<div><span class="lbl">' + ['Main', 'Main + extra', 'Completionist'][i] + '</span>' +
-            '<input type="text" inputmode="decimal" data-hours="' + k + '" placeholder="hrs"></div>';
-        }).join('') + '</div>'
-      : '<div class="card hltb add-hours">' + [['Main story', r.main], ['Main + extra', r.extra], ['Completionist', r.completionist]].map(function(s) {
+    // HLTB's hours are shown as they are. IGDB's are thin -- a few players' average, or none --
+    // so they come prefilled but editable; SteamGridDB names come with none to prefill.
+    var hoursHtml = addSearchSource === 'hltb'
+      ? '<div class="card hltb add-hours">' + [['Main story', r.main], ['Main + extra', r.extra], ['Completionist', r.completionist]].map(function(s) {
           return '<div><span class="num">' + fmtAddHours(s[1]) + '</span><span class="lbl">' + s[0] + '</span></div>';
-        }).join('') + '</div>';
+        }).join('') + '</div>'
+      : '<div class="card hltb add-hours">' + ['main', 'extra', 'completionist'].map(function(k, i) {
+          return '<div><span class="lbl">' + ['Main', 'Main + extra', 'Completionist'][i] + '</span>' +
+            '<input type="text" inputmode="decimal" data-hours="' + k + '" placeholder="hrs" value="' + (r[k] != null ? fmtHours(r[k]) : '') + '"></div>';
+        }).join('') + '</div>' +
+        (addSearchSource === 'igdb' ? '<div class="footnote add-hours-note">' + (r.ttbCount
+          ? 'Averages from ' + r.ttbCount + ' IGDB player' + (r.ttbCount === 1 ? '' : 's') + ' -- change them if they look off.'
+          : 'IGDB has no times for this game yet. Add your own estimate, or leave them blank.') + '</div>' : '');
     var genres = p.loading ? '<span>Loading genres…</span>' : (p.genres.length ? p.genres.map(function(t) { return '<span>' + escHtml(t) + '</span>'; }).join('') : '<span>Genre unknown</span>');
     var statusChips = PROGRESS.map(function(s) { return fChip(s.label, p.progress === s.key, 'data-add-progress="' + s.key + '"', s.color); }).join('');
     var wish = p.platforms.indexOf('Wishlist') > -1;
@@ -2009,7 +2034,7 @@
     addSearchStepEl.hidden = true;
     addPreviewStepEl.hidden = false;
     renderAddPreview();
-    var qs = r.hltbId ? 'hltbId=' + r.hltbId : 'sgdbId=' + r.sgdbId;
+    var qs = r.igdbId ? 'igdbId=' + r.igdbId : r.hltbId ? 'hltbId=' + r.hltbId : 'sgdbId=' + r.sgdbId;
     proxyFetch('/details?' + qs + '&name=' + encodeURIComponent(r.name) + '&year=' + encodeURIComponent(r.year || ''))
       .then(function(res) { return res.json(); })
       .then(function(d) {
@@ -2075,6 +2100,7 @@
     if (r.developer) rec.dv = r.developer;
     rec.addedAt = new Date().toISOString();
     if (r.hltbId) rec.hltbId = r.hltbId;
+    if (r.igdbId) rec.igdbId = r.igdbId;
     if (r.year) rec.y = parseInt(r.year, 10) || null;
     if (p.steamAppId) rec.steamAppId = p.steamAppId;
     // Where the art came from, so Source/sync_site.py can pin it and a later cover refresh
@@ -2192,7 +2218,7 @@
   // shell's CSS/JS cache-first.
   if ('serviceWorker' in navigator && !window.BacklogEnv.local) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('../sw.js?v=1790368376', { scope: '../' });
+      navigator.serviceWorker.register('../sw.js?v=1790370498', { scope: '../' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the

@@ -128,6 +128,10 @@ def compact_to_master(r):
     # Which release it is (see identify_games.py) -- the page and build.py's art check rely on it.
     if r.get("h") or r.get("hltbId"):
         rec["hltbId"] = r.get("h") or r.get("hltbId")
+    # Games added through the IGDB search carry its id instead (year and developer came from
+    # IGDB too, so fill_from_hltb() has nothing to do for them).
+    if r.get("ig") or r.get("igdbId"):
+        rec["igdbId"] = r.get("ig") or r.get("igdbId")
     if r.get("y"):
         rec["year"] = r["y"]
     return rec
