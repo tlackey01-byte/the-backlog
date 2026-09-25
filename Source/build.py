@@ -58,6 +58,7 @@ BASE_CSS_PATH = os.path.join(DOCS_DIR, "shared", "base.css")
 FIREBASE_INIT_PATH = os.path.join(DOCS_DIR, "shared", "firebase-init.js")
 PULL_TO_REFRESH_PATH = os.path.join(DOCS_DIR, "shared", "pull-to-refresh.js")
 NAV_PATH = os.path.join(DOCS_DIR, "shared", "nav.js")
+ENV_PATH = os.path.join(DOCS_DIR, "shared", "env.js")
 SW_PATH = os.path.join(DOCS_DIR, "sw.js")
 COVERS_DIR = os.path.join(DOCS_DIR, "games", "covers")
 HERO_DIR = os.path.join(COVERS_DIR, "hero")
@@ -230,16 +231,18 @@ def build_games_page(compact_json_str):
     print(f"Wrote games page -> {GAMES_PAGE_OUT_PATH}")
 
 
-SW_REGISTRATION_PATTERN = re.compile(r"register\('/the-backlog/sw\.js(?:\?v=\d+)?'")
+# Both pages' registration: 'sw.js' on the homepage, '../sw.js' on the games page. Relative, so
+# the same site works under GitHub Pages' /the-backlog/ and at a Cloudflare Pages preview's root.
+SW_REGISTRATION_PATTERN = re.compile(r"register\('((?:\.\./)?sw\.js)(?:\?v=\d+)?'")
 
 
 def bump_sw_registration_version():
     version = str(int(time.time()))
-    replacement = "register('/the-backlog/sw.js?v=%s'" % version
     for path in (TEMPLATE_PATH, HOMEPAGE_PATH):
         with open(path, encoding="utf-8") as f:
             content = f.read()
-        new_content, count = SW_REGISTRATION_PATTERN.subn(replacement, content)
+        new_content, count = SW_REGISTRATION_PATTERN.subn(
+            lambda m: "register('%s?v=%s'" % (m.group(1), version), content)
         if count != 1:
             raise RuntimeError("Could not find service worker registration in " + path)
         with open(path, "w", encoding="utf-8") as f:
@@ -249,7 +252,7 @@ def bump_sw_registration_version():
 
 
 def update_service_worker_cache_name():
-    shell_paths = [GAMES_PAGE_OUT_PATH, HOMEPAGE_PATH, BASE_CSS_PATH, FIREBASE_INIT_PATH, PULL_TO_REFRESH_PATH, NAV_PATH]
+    shell_paths = [GAMES_PAGE_OUT_PATH, HOMEPAGE_PATH, BASE_CSS_PATH, FIREBASE_INIT_PATH, PULL_TO_REFRESH_PATH, NAV_PATH, ENV_PATH]
     h = hashlib.sha256()
     for p in shell_paths:
         with open(p, "rb") as f:

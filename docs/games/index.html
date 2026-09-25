@@ -15,6 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="../shared/base.css">
+<script src="../shared/env.js"></script>
 <style>
   /* Games page styles. Colors, fonts, radii, header, menu and bottom sheets come from
      shared/base.css; everything here is specific to the games list and game page. */
@@ -1745,7 +1746,7 @@
   window.__applyAddedGames = applyAddedGames;
 
   // Worker that proxies IGDB, HowLongToBeat and SteamGridDB (see worker/src/index.js, igdb.js).
-  var PROXY_URL = 'https://backlog-proxy.tlackey01.workers.dev';
+  var PROXY_URL = window.BacklogEnv.proxyUrl;   // production's, or the dev copy (shared/env.js)
 
   function normName(s) {
     return String(s || '').toLowerCase().replace(/[™®©]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
@@ -2212,9 +2213,12 @@
   });
 </script>
 <script>
-  if ('serviceWorker' in navigator) {
+  // Relative, so it's the same worker under GitHub Pages' /the-backlog/ and at a preview's
+  // root. Not on localhost: there every edit should show on reload, and the worker serves the
+  // shell's CSS/JS cache-first.
+  if ('serviceWorker' in navigator && !window.BacklogEnv.local) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1790362582', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('../sw.js?v=1790370498', { scope: '../' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the

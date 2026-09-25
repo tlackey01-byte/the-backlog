@@ -5,7 +5,8 @@ server.log
 # build.py's intermediate; the same data ships inside docs/games/index.html
 Source/games_compact.json
 worker/.wrangler/
-worker/.dev.vars
+# Local Worker secrets for `wrangler dev`, including per-environment ones (.dev.vars.dev)
+worker/.dev.vars*
 
 # Cloudflare R2 credentials for Source/upload_covers.py
 Source/r2_credentials.json

@@ -1,6 +1,11 @@
 name = "backlog-proxy"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
+# The site calls the Worker at its *.workers.dev address, so that stays on. Version preview URLs
+# (an extra public address for every upload) aren't used -- branch testing has its own Worker,
+# the dev copy below -- so they're off. Both are inherited by the dev copy.
+workers_dev = true
+preview_urls = false
 
 [vars]
 FIREBASE_PROJECT_ID = "the-backlog-34b22"
@@ -12,3 +17,17 @@ FIREBASE_PROJECT_ID = "the-backlog-34b22"
 [[r2_buckets]]
 binding = "COVERS"
 bucket_name = "the-backlog-covers"
+
+# Dev copy, for Cloudflare Pages branch previews and local testing (docs/shared/env.js points
+# every page but the live site at it). `npx wrangler deploy --env dev` deploys it as
+# backlog-proxy-dev; production is still plain `npx wrangler deploy` (add --env="" to silence
+# the "multiple environments" warning). The dev copy has its own Firebase project, R2 bucket
+# and secrets (npx wrangler secret put SGDB_KEY --env dev, and likewise ALLOWED_UID), so
+# nothing tested there can touch production data. Vars and bindings aren't inherited from the
+# top level, hence repeated here.
+[env.dev.vars]
+FIREBASE_PROJECT_ID = "the-backlog-dev"
+
+[[env.dev.r2_buckets]]
+binding = "COVERS"
+bucket_name = "the-backlog-covers-dev"
