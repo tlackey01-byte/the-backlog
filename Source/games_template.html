@@ -336,6 +336,23 @@
     .detail-hero-text { flex: 1; padding-top: 6px; }
     .detail-hero .cover { width: 300px; height: 450px; align-self: flex-start; }
   }
+
+  /* Shown for 10 seconds after a game is removed, with Undo. It closes on its own -- unlike
+     the sheets, which close only via X/Cancel -- because it's a status line, not a question.
+     Above the phone tab bar and the desktop sidebar, below the sheets. */
+  .undo-bar {
+    position: fixed; left: 50%; transform: translateX(-50%); z-index: 140;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    display: flex; align-items: center; gap: 4px; width: max-content; max-width: calc(100vw - 32px);
+    padding: 6px 6px 6px 16px; border-radius: var(--radius-m); font-size: 15px;
+    background: var(--surface-3); border: 1px solid var(--border-strong); box-shadow: var(--shadow); color: var(--text);
+  }
+  body.has-tabbar .undo-bar { bottom: calc(78px + env(safe-area-inset-bottom)); }
+  .undo-bar[hidden] { display: none; }
+  .undo-bar-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 6px; }
+  .undo-bar button { font: inherit; background: none; border: 0; cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+  .undo-bar-undo { color: var(--accent); font-weight: 600; padding: 0 12px; }
+  .undo-bar-close { color: var(--text-muted); padding: 0 8px; }
 </style>
 </head>
 <body>
@@ -387,6 +404,11 @@
     <div class="sentinel" id="sentinel"></div>
   </div>
   <div id="detail-view" hidden></div>
+  <div class="undo-bar" id="undo-bar" role="status" aria-live="polite" hidden>
+    <span class="undo-bar-text" id="undo-bar-text"></span>
+    <button type="button" class="undo-bar-undo" id="undo-bar-undo">Undo</button>
+    <button type="button" class="undo-bar-close" id="undo-bar-close" aria-label="Dismiss"></button>
+  </div>
 </div>
 
 <!-- Bottom sheets (shared/base.css). Each closes only through its own controls. -->
@@ -1254,12 +1276,82 @@
     refreshStats();
     applyFilters();
   }
+  // The reverse of applyDeletion, for Undo (here or on another device).
+  function restoreGame(g) {
+    if (!g.deleted) return;
+    g.deleted = false;
+    g.genres.forEach(function(tag) { genreCounts[tag] = (genreCounts[tag] || 0) + 1; });
+    rebuildGenreList();
+    refreshStats();
+    applyFilters();
+  }
+
+  // A delete takes effect at once -- the game disappears and the flag syncs -- and becomes
+  // permanent UNDO_MS later (finalizeDelete), unless Undo is pressed first. One pending delete
+  // at a time: removing another game makes the previous one permanent straight away. If the
+  // tab closes inside the window the flag stays set, and Source/sync_site.py finishes the job.
+  var UNDO_MS = 10000;
+  var pendingDelete = null;   // { name, timer }
+  var undoBarEl = document.getElementById('undo-bar');
+  document.getElementById('undo-bar-close').innerHTML = icon('x', 20);
+
   function deleteGame(name) {
+    if (pendingDelete) finishPendingDelete();
     deletedNames[name] = true;
     var g = gameByName[name];
     if (g) applyDeletion(g);
     location.hash = '';
     saveState();
+    pendingDelete = { name: name, timer: setTimeout(finishPendingDelete, UNDO_MS) };
+    document.getElementById('undo-bar-text').textContent = 'Removed “' + name + '”';
+    undoBarEl.hidden = false;
+  }
+  function finishPendingDelete() {
+    if (!pendingDelete) return;
+    var name = pendingDelete.name;
+    clearTimeout(pendingDelete.timer);
+    pendingDelete = null;
+    undoBarEl.hidden = true;
+    finalizeDelete(name);
+  }
+  function undoDelete() {
+    if (!pendingDelete) return;
+    var name = pendingDelete.name;
+    clearTimeout(pendingDelete.timer);
+    pendingDelete = null;
+    undoBarEl.hidden = true;
+    delete deletedNames[name];
+    if (gameByName[name]) restoreGame(gameByName[name]);
+    saveState();
+  }
+  document.getElementById('undo-bar-undo').addEventListener('click', undoDelete);
+  document.getElementById('undo-bar-close').addEventListener('click', finishPendingDelete);
+
+  // Makes a delete permanent once its Undo window has passed. A site-added game (one still
+  // living in Firestore, not the catalog) goes for good: its covers in R2's added/ folder,
+  // then its record -- in that order, so a failure part-way leaves the record for
+  // Source/sync_site.py to find and finish. A catalog game stays flagged until sync_site.py
+  // drops it from the master file (the site can't edit that). Identical images share one file,
+  // so a cover another game still shows is left alone.
+  function finalizeDelete(name) {
+    var g = gameByName[name];
+    if (!g || !g.addedDocId) return;
+    var base = PROXY_URL + '/img/', inUse = {};
+    GAMES.forEach(function(o) {
+      if (o !== g && !o.deleted) { inUse[o.cover] = true; inUse[o.coverHero] = true; }
+    });
+    var keys = [g.cover, g.coverHero].filter(function(u) {
+      return u && u.indexOf(base + 'added/') === 0 && !inUse[u];
+    }).map(function(u) { return u.slice(base.length); });
+    var dropCovers = !keys.length ? Promise.resolve() : window.__getIdToken().then(function(token) {
+      return fetch(PROXY_URL + '/delete-cover', {
+        method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keys: keys })
+      });
+    }).then(function(res) { if (!res.ok) throw new Error('delete-cover ' + res.status); });
+    dropCovers
+      .then(function() { return window.__deleteAddedGameDoc(g.addedDocId); })
+      .catch(function(err) { console.warn('Delete of "' + name + '" left for sync_site.py to finish:', err); });
   }
 
   // ---- Live cross-device sync ----
@@ -1269,10 +1361,22 @@
   function applyRemoteState(data) {
     if (!data) return;
     var changed = false;
+    var remoteDeleted = {};
     (data.deleted || []).forEach(function(name) {
+      remoteDeleted[name] = true;
       if (deletedNames[name] || !gameByName[name]) return;
       deletedNames[name] = true;
       applyDeletion(gameByName[name]);
+    });
+    // And the other way: a name gone from the synced list was restored elsewhere -- Undo on
+    // another device, or the game re-added. Without this the game stayed hidden here, and
+    // this device's next save (the whole list) wrote the deletion straight back. The list is
+    // always written whole, and snapshots include this device's own pending writes, so a name
+    // missing from it really was taken off.
+    Object.keys(deletedNames).forEach(function(name) {
+      if (remoteDeleted[name]) return;
+      delete deletedNames[name];
+      if (gameByName[name]) restoreGame(gameByName[name]);
     });
     var ownershipTouched = {};
     Object.keys(data.owned || {}).forEach(function(name) {
@@ -1530,7 +1634,7 @@
       return;
     }
     if (e.target.closest('#detail-delete-btn')) {
-      if (window.confirm('Remove "' + g.name + '" from the backlog? This can\'t be undone from here.')) deleteGame(g.name);
+      if (window.confirm('Remove "' + g.name + '" from the backlog? You\'ll have 10 seconds to undo.')) deleteGame(g.name);
     }
   });
 
@@ -1556,8 +1660,8 @@
       if (ph != null) rec.ph = ph;
       if (g.cover) rec.cv = g.cover;
       if (g.developer) rec.dv = g.developer;
-      // Which release it is, and where a site-added cover came from -- bake_added_games.py
-      // carries these into the master file so the game's art can be rebuilt properly.
+      // Which release it is, and where a site-added cover came from, so the backup is a
+      // complete record of the game.
       if (g.hltbId) rec.h = g.hltbId;
       if (g.year) rec.y = g.year;
       if (g.coverSource) rec.cs = g.coverSource;
@@ -1607,13 +1711,16 @@
   // Live in Firestore (users/{uid}/addedGames, one doc per game, compact-record shape)
   // rather than the baked catalog, so they show up everywhere instantly with no rebuild.
   // Fed every snapshot ordered by addedAt, so ids come out the same on every device. A doc
-  // whose name is already known is skipped -- that's what makes baking them into
-  // master_games_final.json later (Source/bake_added_games.py) safe.
+  // whose name is already known is skipped -- that's what lets Source/sync_site.py fold them
+  // into master_games_final.json later without the game showing up twice.
   function applyAddedGames(records) {
     var added = false;
     records.forEach(function(r) {
       if (!r || !r.n || gameByName[r.n]) return;
       var g = expandRecord(r, GAMES.length);
+      // Only games made from an addedGames record have one; finalizeDelete() relies on that
+      // to tell a site-added game from a catalog one.
+      if (r.__id) g.addedDocId = r.__id;
       GAMES.push(g);
       gameByName[g.name] = g;
       if (!g.deleted) g.genres.forEach(function(tag) { genreCounts[tag] = (genreCounts[tag] || 0) + 1; });
@@ -1666,38 +1773,117 @@
       return res;
     });
   }
-  // Flatten onto the placeholder color and cap width at 600px, WebP q65 -> data URI
-  // (~55KB). 600 matches the hero files the cover refresh bakes, so a game added here looks
-  // the same on the detail page as one from the master list; it doubles as the row
-  // thumbnail until bake_added_games.py folds it in and gives it a proper two-tier pair.
-  // Safari only learned canvas WebP in 14 -- older browsers silently hand back a PNG, which
-  // would be enormous, so fall back to JPEG when the data URI isn't what was asked for.
-  // Always comes out 2:3. The worker now also accepts SteamGridDB's 660x930 and 342x482 art
-  // (about 0.71) when a game has no 600x900; that gets a light centre crop. Anything further
-  // off sits whole on the placeholder colour rather than being cropped or stretched.
-  function processCover(url) {
+  // ---- A site-added game's two cover images ----
+  // Built here, in the browser, the same way Source/refetch_covers.py builds a catalog
+  // game's: a 600x900 hero for the detail page and a 460x215 list image. The worker stores
+  // them in R2 when the game is saved (uploadCover), so a game added here looks like any
+  // other straight away. Everything is drawn on canvases from art fetched through the worker's
+  // /cover proxy (SteamGridDB and Steam send no CORS headers, and a canvas needs them).
+  var HERO_W = 600, HERO_H = 900, WIDE_W = 460, WIDE_H = 215;
+
+  function loadArt(url) {
     return proxyFetch('/cover?url=' + encodeURIComponent(url))
       .then(function(res) { return res.blob(); })
-      .then(function(blob) { return createImageBitmap(blob); })
-      .then(function(bmp) {
-        var w = Math.min(600, bmp.width);
-        var h = Math.round(w * 1.5);
-        var canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        var ctx = canvas.getContext('2d');
-        ctx.fillStyle = 'rgb(24, 26, 33)';
-        ctx.fillRect(0, 0, w, h);
-        ctx.imageSmoothingQuality = 'high';
-        var ratio = bmp.width / bmp.height;
-        if (Math.abs(ratio - 2 / 3) / (2 / 3) <= 0.08) {
-          var sw = ratio > 2 / 3 ? bmp.height * 2 / 3 : bmp.width, sh = ratio > 2 / 3 ? bmp.height : bmp.width * 1.5;
-          ctx.drawImage(bmp, (bmp.width - sw) / 2, (bmp.height - sh) / 2, sw, sh, 0, 0, w, h);
-        } else {
-          var s = Math.min(w / bmp.width, h / bmp.height), dw = bmp.width * s, dh = bmp.height * s;
-          ctx.drawImage(bmp, (w - dw) / 2, (h - dh) / 2, dw, dh);
-        }
-        var webp = canvas.toDataURL('image/webp', 0.65);
-        return webp.indexOf('data:image/webp') === 0 ? webp : canvas.toDataURL('image/jpeg', 0.8);
+      .then(function(blob) { return createImageBitmap(blob); });
+  }
+  // The largest box of the given shape from the middle of the image.
+  function centreCrop(src, ratio) {
+    var sw = src.width, sh = src.height;
+    if (sw / sh > ratio) sw = sh * ratio; else sh = sw / ratio;
+    return [(src.width - sw) / 2, (src.height - sh) / 2, sw, sh];
+  }
+  // A blurred, darkened blow-up of the image filling the canvas -- the backdrop behind art
+  // that doesn't fit the box, as in refetch_covers.py. Blurred by drawing it tiny and scaling
+  // it back up rather than with ctx.filter, which Safari doesn't reliably support.
+  function drawBackdrop(ctx, src, w, h) {
+    var tiny = document.createElement('canvas');
+    tiny.width = 12; tiny.height = Math.max(1, Math.round(12 * h / w));
+    var c = centreCrop(src, w / h);
+    tiny.getContext('2d').drawImage(src, c[0], c[1], c[2], c[3], 0, 0, tiny.width, tiny.height);
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(tiny, 0, 0, w, h);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.fillRect(0, 0, w, h);
+  }
+  // Always 2:3. SteamGridDB's 660x930 and 342x482 art (about 0.71) gets a light centre crop;
+  // anything further off sits whole on the blurred backdrop rather than being cut or stretched.
+  function drawHero(bmp) {
+    var canvas = document.createElement('canvas');
+    canvas.width = HERO_W; canvas.height = HERO_H;
+    var ctx = canvas.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    var ratio = bmp.width / bmp.height;
+    if (Math.abs(ratio - 2 / 3) / (2 / 3) <= 0.08) {
+      var c = centreCrop(bmp, 2 / 3);
+      ctx.drawImage(bmp, c[0], c[1], c[2], c[3], 0, 0, HERO_W, HERO_H);
+    } else {
+      drawBackdrop(ctx, bmp, HERO_W, HERO_H);
+      var s = Math.min(HERO_W / bmp.width, HERO_H / bmp.height), dw = bmp.width * s, dh = bmp.height * s;
+      ctx.drawImage(bmp, (HERO_W - dw) / 2, (HERO_H - dh) / 2, dw, dh);
+    }
+    return canvas;
+  }
+  // The list image: the game's wide banner cropped to shape, or -- with none -- the portrait
+  // standing on a blurred copy of itself, the same fallback the build uses.
+  function drawWide(banner, hero) {
+    var canvas = document.createElement('canvas');
+    canvas.width = WIDE_W; canvas.height = WIDE_H;
+    var ctx = canvas.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    if (banner) {
+      var c = centreCrop(banner, WIDE_W / WIDE_H);
+      ctx.drawImage(banner, c[0], c[1], c[2], c[3], 0, 0, WIDE_W, WIDE_H);
+    } else {
+      drawBackdrop(ctx, hero, WIDE_W, WIDE_H);
+      var fw = Math.round(WIDE_H * 2 / 3);
+      ctx.drawImage(hero, (WIDE_W - fw) / 2, 0, fw, WIDE_H);
+    }
+    return canvas;
+  }
+  // WebP, as the build makes. Safari only learned canvas WebP in 14 -- older browsers
+  // silently hand back a PNG, which would be enormous -- so JPEG when WebP isn't what came back.
+  function canvasBlob(canvas, quality) {
+    return new Promise(function(resolve) {
+      canvas.toBlob(function(b) {
+        if (b && b.type === 'image/webp') resolve(b);
+        else canvas.toBlob(resolve, 'image/jpeg', 0.85);
+      }, 'image/webp', quality);
+    });
+  }
+  function blobToDataUrl(blob) {
+    return new Promise(function(resolve, reject) {
+      var fr = new FileReader();
+      fr.onload = function() { resolve(fr.result); };
+      fr.onerror = reject;
+      fr.readAsDataURL(blob);
+    });
+  }
+  // One image to the worker, which stores it under added/ in R2 and names it by a hash of its
+  // bytes; resolves to its public /img/ URL.
+  function uploadCover(blob, kind) {
+    if (!window.__getIdToken) return Promise.reject(new Error('Not signed in yet'));
+    return window.__getIdToken().then(function(token) {
+      return fetch(PROXY_URL + '/upload-cover?kind=' + kind, {
+        method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': blob.type }, body: blob
+      });
+    }).then(function(res) {
+      if (!res.ok) throw new Error('Upload failed (' + res.status + ')');
+      return res.json();
+    }).then(function(d) { return d.url; });
+  }
+  // Both images for a game: { hero, wide } as blobs, plus the hero as a data URI for the
+  // preview (and as the fallback cover if uploading fails). A missing or unreadable banner
+  // just means the fallback list image.
+  function buildCovers(coverUrl, wideUrl) {
+    return Promise.all([loadArt(coverUrl), wideUrl ? loadArt(wideUrl).catch(function() { return null; }) : null])
+      .then(function(art) {
+        var hero = drawHero(art[0]);
+        return Promise.all([canvasBlob(hero, 0.65), canvasBlob(drawWide(art[1], hero), 0.72)]);
+      })
+      .then(function(blobs) {
+        return blobToDataUrl(blobs[0]).then(function(dataUrl) {
+          return { hero: blobs[0], wide: blobs[1], heroData: dataUrl };
+        });
       });
   }
 
@@ -1710,7 +1896,7 @@
   var addSearchSource = 'hltb';
   var addSearchTimer = null;
   var addSearchSeq = 0;
-  var addPreview = null;   // { result, genres, coverData, steamAppId, loading, progress, platforms }
+  var addPreview = null;   // { result, genres, covers, coverData, coverUrl, wideUrl, steamAppId, loading, progress, platforms }
 
   function setAddStatus(text, isError) {
     addStatusEl.textContent = text || '';
@@ -1809,7 +1995,7 @@
   }
   function openAddPreview(r) {
     var seq = addSearchSeq;
-    addPreview = { result: r, genres: [], coverData: null, coverUrl: null, sgdbId: null, steamAppId: null, loading: true, progress: 'backlog', platforms: ['Wishlist'] };
+    addPreview = { result: r, genres: [], covers: null, coverData: null, coverUrl: null, wideUrl: null, sgdbId: null, steamAppId: null, loading: true, progress: 'backlog', platforms: ['Wishlist'] };
     addSearchStepEl.hidden = true;
     addPreviewStepEl.hidden = false;
     renderAddPreview();
@@ -1821,12 +2007,14 @@
         addPreview.genres = d.genres || [];
         addPreview.steamAppId = d.steamAppId || null;
         addPreview.coverUrl = d.coverUrl || null;
+        addPreview.wideUrl = d.wideUrl || null;
         addPreview.sgdbId = d.sgdbId || null;
-        return d.coverUrl ? processCover(d.coverUrl).catch(function() { return null; }) : null;
+        return d.coverUrl ? buildCovers(d.coverUrl, d.wideUrl).catch(function() { return null; }) : null;
       })
-      .then(function(coverData) {
+      .then(function(covers) {
         if (seq !== addSearchSeq || !addPreview) return;
-        addPreview.coverData = coverData || null;
+        addPreview.covers = covers || null;
+        addPreview.coverData = covers ? covers.heroData : null;
         addPreview.loading = false;
         renderAddPreview();
       })
@@ -1874,22 +2062,31 @@
     if (gameByName[name]) { statusEl.textContent = 'A game named "' + name + '" is already in your backlog.'; return; }
     var rec = { n: name, m: hours.main, e: hours.extra, c: hours.completionist, o: real.length > 0, p: real, g: p.genres };
     if (p.progress !== 'backlog') rec.pr = p.progress;
-    if (p.coverData) rec.cv = p.coverData;
     if (r.developer) rec.dv = r.developer;
     rec.addedAt = new Date().toISOString();
     if (r.hltbId) rec.hltbId = r.hltbId;
     if (r.year) rec.y = parseInt(r.year, 10) || null;
     if (p.steamAppId) rec.steamAppId = p.steamAppId;
-    // Where the cover came from, so bake_added_games.py can have refetch_covers.py rebuild it
-    // as the usual two-tier pair (wide list image + hero) from the same source.
+    // Where the art came from, so Source/sync_site.py can pin it and a later cover refresh
+    // rebuilds this game from the same sources.
     if (p.coverUrl) rec.cs = p.coverUrl;
+    if (p.wideUrl) rec.ws = p.wideUrl;
     if (p.sgdbId) rec.sgdbId = p.sgdbId;
     saveBtn.disabled = true;
     statusEl.textContent = 'Adding…';
-    window.__addGameDoc(rec)
-      .then(function() {
+    // Covers go to R2 first, so the record points at real files: cv = list image, hv = hero.
+    // If that fails the game is still added, with the hero embedded as its only cover (how
+    // games were added before), and sync_site.py builds its covers when it folds it in.
+    var covers = p.covers
+      ? Promise.all([uploadCover(p.covers.wide, 'wide'), uploadCover(p.covers.hero, 'hero')])
+          .then(function(urls) { rec.cv = urls[0]; rec.hv = urls[1]; })
+          .catch(function() { rec.cv = p.coverData; })
+      : Promise.resolve();
+    covers.then(function() { return window.__addGameDoc(rec); })
+      .then(function(ref) {
         // The snapshot listener usually beats this; applying locally too guarantees the
-        // redirect below has the game to land on.
+        // redirect below has the game to land on (with its record id, for a later delete).
+        rec.__id = ref.id;
         applyAddedGames([rec]);
         closeAddGameModal();
         var g = gameByName[rec.n];
@@ -1935,7 +2132,7 @@
 </script>
 
 <script type="module">
-  import { requireLogin, db, doc, setDoc, onSnapshot, collection, addDoc, query, orderBy, signOutUser } from "../shared/firebase-init.js";
+  import { requireLogin, db, doc, setDoc, onSnapshot, collection, addDoc, deleteDoc, query, orderBy, signOutUser } from "../shared/firebase-init.js";
   document.getElementById("menu-signout").addEventListener("click", function () {
     signOutUser().then(function () { location.reload(); });
   });
@@ -1953,10 +2150,15 @@
     // game so covers never bloat the state doc above, which is fully rewritten on every edit.
     var addedGamesCol = collection(db, "users", user.uid, "addedGames");
     window.__addGameDoc = function (rec) { return addDoc(addedGamesCol, rec); };
+    // For making a site-added game's delete permanent (finalizeDelete).
+    window.__deleteAddedGameDoc = function (id) { return deleteDoc(doc(addedGamesCol, id)); };
     // Firebase ID token for the backlog proxy Worker, which only answers this one user.
     window.__getIdToken = function () { return user.getIdToken(); };
     onSnapshot(query(addedGamesCol, orderBy("addedAt")), function (snap) {
-      if (window.__applyAddedGames) window.__applyAddedGames(snap.docs.map(function (d) { return d.data(); }));
+      // Each record carries its document id (__id) so it can be deleted later.
+      if (window.__applyAddedGames) window.__applyAddedGames(snap.docs.map(function (d) {
+        return Object.assign({ __id: d.id }, d.data());
+      }));
     });
 
     // Live cross-device sync: every snapshot (this device's own writes echoing back
@@ -1977,7 +2179,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1790274591', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1790282115', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the

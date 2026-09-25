@@ -17,6 +17,7 @@ import {
   onSnapshot,
   collection,
   addDoc,
+  deleteDoc,
   query,
   orderBy,
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
@@ -34,7 +35,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export function signOutUser() { return signOut(auth); }
-export { doc, setDoc, onSnapshot, collection, addDoc, query, orderBy };
+export { doc, setDoc, onSnapshot, collection, addDoc, deleteDoc, query, orderBy };
 
 /**
  * Gates a page behind Firebase email/password sign-in.

@@ -74,15 +74,9 @@ COVER_BASE = os.environ.get("BACKLOG_COVER_BASE",
                             "https://backlog-proxy.tlackey01.workers.dev/img/")
 
 
-def write_cover(data_uri, written):
-    """Writes one base64 cover out as docs/games/covers/<content hash>.webp and returns the
-    file name the master file should store in place of the data URI.
-
-    Covers normally arrive already on disk -- refetch_covers.py writes the file and records
-    its name -- so this only runs for a cover that came in as base64, which today means a
-    game added through the site and folded in by bake_added_games.py. Naming by content hash
-    means an unchanged cover keeps its URL forever (caches stay valid across deploys) and a
-    changed one gets a new URL automatically."""
+def cover_name(data_uri):
+    """(file name, decoded bytes) for a base64 cover -- the name write_cover() gives it.
+    Separate so sync_site.py can tell that file is in use without writing anything."""
     header, b64 = data_uri.split(",", 1)
     raw = base64.b64decode(b64)
     # A .jpg file holding WebP bytes would be served as image/jpeg and may not render, so
@@ -92,7 +86,19 @@ def write_cover(data_uri, written):
         if mime in header:
             ext = e
             break
-    name = hashlib.sha1(raw).hexdigest()[:16] + "." + ext
+    return hashlib.sha1(raw).hexdigest()[:16] + "." + ext, raw
+
+
+def write_cover(data_uri, written):
+    """Writes one base64 cover out as docs/games/covers/<content hash>.webp and returns the
+    file name the master file should store in place of the data URI.
+
+    Covers normally arrive already on disk -- refetch_covers.py writes the file and records
+    its name -- so this only runs for a cover that came in as base64, which today means a
+    game added through the site before it uploaded covers, folded in by sync_site.py. Naming by content hash
+    means an unchanged cover keeps its URL forever (caches stay valid across deploys) and a
+    changed one gets a new URL automatically."""
+    name, raw = cover_name(data_uri)
     if name not in written:
         path = os.path.join(COVERS_DIR, name)
         if not os.path.exists(path):
@@ -126,7 +132,8 @@ def build_compact():
             rec["ph"] = g["playedHours"]
         # The master file stores file names ("<hash>.webp", "hero/<hash>.webp"); records
         # carry the full URL, so pointing covers at a CDN is a change to COVER_BASE alone.
-        # A base64 cover is still accepted for games folded in by bake_added_games.py.
+        # A base64 cover is still accepted: an older site-added game keeps its embedded
+        # portrait if refetch_covers.py finds nothing better when sync_site.py folds it in.
         cover = g.get("cover")
         if cover:
             name = write_cover(cover, written_covers) if cover.startswith("data:") else cover

@@ -1,7 +1,9 @@
 // Backlog proxy -- lets the games page search HowLongToBeat and pull SteamGridDB cover art.
 // Neither can be called from the browser directly: HLTB sends no CORS headers and binds its
 // search token to the caller's IP + User-Agent, and SteamGridDB has no CORS and needs a
-// secret API key. Every request must carry the site owner's Firebase ID token.
+// secret API key. Every request must carry the site owner's Firebase ID token, except /img/.
+// It also serves every cover image out of R2 (/img/), and stores and deletes the covers of
+// games added on the site (/upload-cover, /delete-cover -- the added/ part of the bucket).
 //
 // Secrets (wrangler secret put): SGDB_KEY, ALLOWED_UID. Var (wrangler.toml): FIREBASE_PROJECT_ID.
 
@@ -9,12 +11,16 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 const ALLOWED_ORIGINS = ['https://tlackey01-byte.github.io', 'http://localhost:8765'];
 const HLTB = 'https://howlongtobeat.com';
 const SGDB = 'https://www.steamgriddb.com/api/v2';
+const STEAM_ASSETS = 'https://shared.cloudflare.steamstatic.com/store_item_assets/';
 
 export default {
   async fetch(request, env) {
     const origin = request.headers.get('Origin') || '';
+    // POST + Content-Type are for the page uploading a site-added game's cover images (a
+    // binary body) and asking for them to be deleted (JSON); everything else is a GET.
     const cors = ALLOWED_ORIGINS.includes(origin)
-      ? { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Headers': 'Authorization', 'Vary': 'Origin' }
+      ? { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Vary': 'Origin' }
       : {};
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
@@ -35,6 +41,8 @@ export default {
       if (url.pathname === '/search') return json(await search(url.searchParams.get('q') || '', env), 200, cors);
       if (url.pathname === '/details') return json(await details(url.searchParams, env), 200, cors);
       if (url.pathname === '/cover') return await cover(url.searchParams.get('url') || '', cors);
+      if (url.pathname === '/upload-cover' && request.method === 'POST') return await uploadCover(request, url, env, cors);
+      if (url.pathname === '/delete-cover' && request.method === 'POST') return await deleteCover(request, env, cors);
       return json({ error: 'not found' }, 404, cors);
     } catch (e) {
       return json({ error: String(e && e.message || e) }, 502, cors);
@@ -44,10 +52,11 @@ export default {
 
 // Serves docs/games/covers/<name> and covers/hero/<name> out of the R2 bucket. Keeping the
 // ~120MB of images here instead of in the repo is the whole point: git would hold every
-// version of every cover forever, while R2 just holds the current one.
+// version of every cover forever, while R2 just holds the current one. Covers the site
+// uploads for games added there live under added/ (same naming), until baking moves them.
 async function coverFile(key, env) {
   // Only content-hashed names, so this can never be pointed at anything else in the bucket.
-  if (!/^(hero\/)?[0-9a-f]{16}\.(webp|jpg|png)$/.test(key)) return new Response('bad name', { status: 400 });
+  if (!/^(added\/)?(hero\/)?[0-9a-f]{16}\.(webp|jpg|png)$/.test(key)) return new Response('bad name', { status: 400 });
   if (!env.COVERS) return new Response('bucket not bound', { status: 503 });
   const obj = await env.COVERS.get(key);
   if (!obj) return new Response('not found', { status: 404 });
@@ -60,6 +69,55 @@ async function coverFile(key, env) {
       'ETag': obj.httpEtag
     }
   });
+}
+
+// ---- Cover images for games added on the site ----
+// The page builds a game's two images itself (it already has the art on a canvas) and sends
+// them here one at a time as the raw request body: POST /upload-cover?kind=wide|hero. They go
+// under added/ -- the part of the bucket the site owns -- so git-side cleanup (sync_site.py)
+// never mistakes them for unused just because the master file doesn't list them yet.
+const MAX_UPLOAD = 1024 * 1024;  // a 600x900 hero is ~60-200KB; anything near this is wrong
+
+async function uploadCover(request, url, env, cors) {
+  if (!env.COVERS) return json({ error: 'bucket not bound' }, 503, cors);
+  const kind = url.searchParams.get('kind');
+  if (kind !== 'wide' && kind !== 'hero') return json({ error: 'kind must be wide or hero' }, 400, cors);
+  if (Number(request.headers.get('Content-Length') || 0) > MAX_UPLOAD) return json({ error: 'too large' }, 413, cors);
+  const buf = await request.arrayBuffer();
+  if (!buf.byteLength || buf.byteLength > MAX_UPLOAD) return json({ error: 'empty or too large' }, 413, cors);
+
+  // Only WebP or JPEG, by their actual signature rather than a header the caller sets.
+  const b = new Uint8Array(buf);
+  const ascii = (from, to) => String.fromCharCode(...b.subarray(from, to));
+  let ext, type;
+  if (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WEBP') { ext = 'webp'; type = 'image/webp'; }
+  else if (b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) { ext = 'jpg'; type = 'image/jpeg'; }
+  else return json({ error: 'not a WebP or JPEG image' }, 415, cors);
+
+  // Named by a hash of the bytes -- the same scheme as Source/refetch_covers.py -- so the
+  // caller can't choose (or overwrite) a name, and identical images share one object.
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-1', buf));
+  const hash = Array.from(digest.subarray(0, 8), x => x.toString(16).padStart(2, '0')).join('');
+  const key = 'added/' + (kind === 'hero' ? 'hero/' : '') + hash + '.' + ext;
+  await env.COVERS.put(key, buf, { httpMetadata: { contentType: type } });
+  return json({ key, url: new URL('/img/' + key, url).toString() }, 200, cors);
+}
+
+// POST /delete-cover {"keys": [...]} -- when a site-added game is deleted for good. Only
+// added/ names are accepted: everything else in the bucket belongs to the master file and is
+// cleaned up by sync_site.py, so a bug in the page can never delete a catalog game's cover.
+// All-or-nothing: one bad key rejects the whole request rather than deleting the rest.
+const ADDED_KEY = /^added\/(hero\/)?[0-9a-f]{16}\.(webp|jpg)$/;
+
+async function deleteCover(request, env, cors) {
+  if (!env.COVERS) return json({ error: 'bucket not bound' }, 503, cors);
+  let keys;
+  try { keys = (await request.json()).keys; } catch (e) { return json({ error: 'bad json' }, 400, cors); }
+  if (!Array.isArray(keys) || !keys.length || keys.length > 10) return json({ error: 'keys must be a list of 1-10 names' }, 400, cors);
+  const bad = keys.filter(k => typeof k !== 'string' || !ADDED_KEY.test(k));
+  if (bad.length) return json({ error: 'only added/ cover names can be deleted', bad }, 400, cors);
+  await env.COVERS.delete(keys);
+  return json({ deleted: keys.length }, 200, cors);
 }
 
 function json(obj, status, headers) {
@@ -213,6 +271,27 @@ const bestPortrait = grids => {
   }
   return null;
 };
+// Wide list art: the biggest landscape capsule, 920x430 when there is one, else 460x215 --
+// the same pick as Source/refetch_covers.py's widest().
+const bestWide = grids => {
+  const wides = (grids || []).filter(g => (g.width === 920 && g.height === 430) || (g.width === 460 && g.height === 215));
+  wides.sort((a, b) => b.width - a.width);
+  return wides.length ? wides[0].url : null;
+};
+
+// Steam's own store header (460x215) for an app. Asked for by name from the store API rather
+// than guessing /apps/<id>/header.jpg: apps from 2025 on keep each asset under a hashed
+// folder, and the guessed path 404s (or serves a stale image) for them.
+async function steamHeader(appid) {
+  const q = { ids: [{ appid: Number(appid) }], context: { language: 'english', country_code: 'US' },
+    data_request: { include_assets: true } };
+  const res = await fetch('https://api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json=' +
+    encodeURIComponent(JSON.stringify(q)), { headers: { 'User-Agent': UA } });
+  if (!res.ok) return null;
+  const items = ((await res.json()).response || {}).store_items || [];
+  const a = (items[0] && items[0].assets) || {};
+  return a.asset_url_format && a.header ? STEAM_ASSETS + a.asset_url_format.replace('${FILENAME}', a.header) : null;
+}
 
 // Name keys for matching SteamGridDB entries, looser at each step -- the same ladder as
 // Source/find_cover_candidates.py. The old exact-only match missed "Alan Wake II" (filed as
@@ -270,15 +349,24 @@ async function details(params, env) {
   }
   if (!coverUrl && sgdbId) coverUrl = bestPortrait(await sgdb('/grids/game/' + sgdbId + '?types=static&nsfw=false&humor=false', env));
 
-  return { genres, steamAppId, coverUrl, sgdbId: sgdbId ? Number(sgdbId) : null };
+  // Wide art for the list, from the same SteamGridDB entry (so the same release), else Steam's
+  // own header for the linked app. The page crops it to 460x215; with neither, it builds the
+  // same blurred-portrait fallback Source/refetch_covers.py does.
+  let wideUrl = null;
+  if (sgdbId) wideUrl = bestWide(await sgdb('/grids/game/' + sgdbId + '?dimensions=460x215,920x430&types=static&nsfw=false&humor=false', env));
+  if (!wideUrl && steamAppId) wideUrl = await steamHeader(steamAppId).catch(() => null);
+
+  return { genres, steamAppId, coverUrl, wideUrl, sgdbId: sgdbId ? Number(sgdbId) : null };
 }
 
-// Streams a SteamGridDB CDN image back with CORS headers so the page can draw it onto a
-// canvas and re-encode it. Locked to SGDB's CDN so this can't be used as an open proxy.
+// Streams a SteamGridDB or Steam CDN image back with CORS headers so the page can draw it onto
+// a canvas and re-encode it. Locked to those CDNs so this can't be used as an open proxy.
 async function cover(target, cors) {
   let u;
   try { u = new URL(target); } catch (e) { return json({ error: 'bad url' }, 400, cors); }
-  if (u.protocol !== 'https:' || !/^cdn\d*\.steamgriddb\.com$/.test(u.hostname)) return json({ error: 'host not allowed' }, 400, cors);
+  if (u.protocol !== 'https:' || !/^(cdn\d*\.steamgriddb\.com|[a-z0-9-]+(\.[a-z0-9-]+)*\.steamstatic\.com)$/.test(u.hostname)) {
+    return json({ error: 'host not allowed' }, 400, cors);
+  }
   const res = await fetch(u.toString(), { headers: { 'User-Agent': UA } });
   if (!res.ok) return json({ error: 'cover ' + res.status }, 502, cors);
   return new Response(res.body, { headers: Object.assign({ 'Content-Type': res.headers.get('Content-Type') || 'image/png' }, cors) });

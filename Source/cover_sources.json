@@ -10142,12 +10142,6 @@
   "wideUrl": "https://cdn2.steamgriddb.com/grid/4128cce2e826b295de9f55392b4b0d08.jpg",
   "artYear": 2017
  },
- "Alan Wake 2": {
-  "sgdbId": 5309266,
-  "url": "https://cdn2.steamgriddb.com/grid/a7147fd59ab64d16e49e819733ad2187.png",
-  "wideUrl": "https://cdn2.steamgriddb.com/grid/b803d6d724c2136e8b36139dc81a40a3.png",
-  "artYear": 2023
- },
  "Alone in the Dark": {
   "sgdbId": 5346300,
   "url": "https://cdn2.steamgriddb.com/grid/18b08ceefb70e731bf040f64ddd5ecee.png",
@@ -12678,5 +12672,23 @@
    ],
    "logoAt": "cb"
   }
+ },
+ "Clustertruck": {
+  "sgdbId": 8944,
+  "url": "https://cdn2.steamgriddb.com/grid/c323843290235f0adc1a5f9f7c012812.png",
+  "wideUrl": "https://cdn2.steamgriddb.com/grid/b87528de63d154961a80c013f49eb525.jpg",
+  "artYear": 2016
+ },
+ "Freedom Fighters": {
+  "sgdbId": 37277,
+  "url": "https://cdn2.steamgriddb.com/grid/35eab188657a81304e2ea8ca8c8c5ad8.png",
+  "wideUrl": "https://cdn2.steamgriddb.com/grid/0817f2fbd8db3766c2db9e5eb2a46309.jpg",
+  "artYear": 2003
+ },
+ "Marvel Super Heroes": {
+  "sgdbId": 35794,
+  "url": "https://cdn2.steamgriddb.com/grid/05db487b4d1d2849860fcec28ba9cca0.png",
+  "wideUrl": "https://cdn2.steamgriddb.com/grid/5dda8aaa54da2f5f5496d93c2ffb6472.png",
+  "artYear": 1995
  }
 }

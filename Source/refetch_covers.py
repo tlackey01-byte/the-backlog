@@ -41,6 +41,10 @@ game's grids instead of searching by name, and {"url": ..., "wideUrl": ...} take
 anywhere (Steam, IGDB, a pasted link) with no SteamGridDB id at all. A "wideCompose" recipe
 builds the list image from a piece of wide art and the game's logo instead -- see compose_wide().
 
+With --apply, each game's two images are also uploaded to the R2 bucket the site serves
+covers from, right after they're written (via upload_covers.py's helpers). Without R2
+credentials, or offline, it still builds everything and says to run upload_covers.py later.
+
 Needs: Pillow (WebP) and Source/steamgriddb_api_key.txt.
 """
 
@@ -57,6 +61,8 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+
+from upload_covers import r2_client, upload
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOCS = os.path.join(os.path.dirname(HERE), "docs")
@@ -388,6 +394,18 @@ def main():
             shutil.copy(MASTER, backup)
             print("backed up master -> %s\n" % os.path.basename(backup))
 
+    # Each game's images go to R2 as soon as they're written. The page loads covers from
+    # there, so an image that only exists on disk is a broken cover the moment it's pushed --
+    # and a separate upload step was easy to forget. No credentials or no connection doesn't
+    # stop the run: whatever didn't go up is counted, and upload_covers.py catches it up.
+    s3 = bucket = None
+    unsent = []
+    if args.apply:
+        try:
+            s3, bucket = r2_client()
+        except RuntimeError as e:
+            print("NOT uploading to R2 (%s) -- run upload_covers.py after this\n" % e)
+
     def checkpoint():
         """Flush progress to disk. A ~1,950-game run is long enough that losing it all to one
         bad request at game 1,800 would be miserable; hero files land as they go, so the
@@ -460,12 +478,25 @@ def main():
                     # records only their names. Carrying them as base64 instead made that
                     # file 37MB, and every commit wrote a fresh un-deltaable copy of it.
                     wide_name = hashlib.sha1(wide).hexdigest()[:16] + ".webp"
+                    written = []
                     for rel, data in ((wide_name, wide), (hero_name, hero)):
                         path = os.path.join(COVERS_DIR, rel)
                         if not os.path.exists(path):
                             open(path, "wb").write(data)
+                        # rel is already the bucket key ("<hash>.webp", "hero/<hash>.webp").
+                        written.append((rel, path))
                     g["cover"] = wide_name
                     g["coverHero"] = hero_name
+                    # Caught here rather than by the handler below: the game's new art is
+                    # built and recorded either way, and only the upload needs redoing.
+                    if s3 is None:
+                        unsent.extend(written)
+                    else:
+                        try:
+                            upload(s3, bucket, written, workers=2, progress=False)
+                        except Exception as e:
+                            unsent.extend(written)
+                            row["status"] += " -- NOT uploaded: " + str(e)[:80]
                 changed += 1
         except Exception as e:
             row["status"] = "ERROR " + str(e)[:120]
@@ -479,6 +510,11 @@ def main():
     if args.apply and changed:
         print("\nwrote %d list images and %d heroes into docs/games/covers/ (names recorded in the master file)"
               % (changed, changed))
+        if unsent:
+            print("%d image(s) did NOT reach R2 -- run python Source/upload_covers.py before pushing,"
+                  " or they'll be broken covers on the live site" % len(unsent))
+        else:
+            print("all uploaded to R2")
         print("now run build.py")
 
     if args.out:

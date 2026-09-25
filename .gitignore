@@ -13,6 +13,11 @@ Source/r2_credentials.json
 # IGDB (Twitch app) credentials for Source/find_cover_candidates.py
 Source/igdb_credentials.json
 
+# Firebase service-account key for Source/sync_site.py -- full admin access to the project.
+# The second pattern catches a fresh download still under Firebase's own file name.
+Source/firebase_service_account.json
+*firebase-adminsdk*.json
+
 # Scratch output of Source/find_cover_candidates.py: the gap list, candidates, and review page
 Source/cover_review/
 
