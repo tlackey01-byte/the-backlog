@@ -1,8 +1,9 @@
 // Firebase setup shared by every page on this site (homepage, games section, and any
-// future media-type sections). This config object is NOT a secret -- Firebase's access
-// control lives entirely in Firestore Security Rules + Authentication, not in hiding this
-// object, so it's safe to ship in the public bundle. See docs/../Source (rules published
-// via the Firebase console) for the actual access boundary.
+// future media-type sections). Which project it connects to comes from shared/env.js:
+// production on the live site, the dev project everywhere else. That config is NOT a
+// secret -- Firebase's access control lives entirely in Firestore Security Rules +
+// Authentication, not in hiding it, so it's safe to ship in the public bundle. See
+// docs/../Source (rules published via the Firebase console) for the actual access boundary.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import {
   getAuth,
@@ -22,18 +23,12 @@ import {
   orderBy,
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyD6xJX12ovVZ7Hi8Xtwu0L3CHmgKB3-BzY",
-  authDomain: "the-backlog-34b22.firebaseapp.com",
-  projectId: "the-backlog-34b22",
-  storageBucket: "the-backlog-34b22.firebasestorage.app",
-  messagingSenderId: "306665266277",
-  appId: "1:306665266277:web:129933a71722256ba9ba8c",
-};
-
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+const env = window.BacklogEnv || {};
+// No config means the dev project isn't set up yet: requireLogin() says so instead of
+// offering a sign-in that can't work.
+const app = env.firebase ? initializeApp(env.firebase) : null;
+export const auth = app ? getAuth(app) : null;
+export const db = app ? getFirestore(app) : null;
 export function signOutUser() { return signOut(auth); }
 export { doc, setDoc, onSnapshot, collection, addDoc, deleteDoc, query, orderBy };
 
@@ -50,6 +45,17 @@ export { doc, setDoc, onSnapshot, collection, addDoc, deleteDoc, query, orderBy 
  * form itself, so every page's markup stays free to differ.
  */
 export function requireLogin(mountEl, onSignedIn) {
+  if (!app) {
+    mountEl.insertAdjacentHTML("beforeend",
+      '<div class="login-gate"><div class="login-form">' +
+        '<div class="login-eyebrow">The Backlog · ' + (env.name || "dev") + '</div>' +
+        '<h1 class="login-title">Not set up yet</h1>' +
+        '<p style="margin:0;color:var(--text-muted);line-height:1.5">This copy of the site uses the dev ' +
+          "backend, and docs/shared/env.js doesn't have the dev Firebase project's config yet." +
+          (env.local ? " To use production data here instead, open this page with ?env=prod." : "") + "</p>" +
+      "</div></div>");
+    return;
+  }
   let formEl = null;
 
   function showForm(errorMessage) {

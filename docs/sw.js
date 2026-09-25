@@ -5,26 +5,34 @@
 // under a different name, so this hash changing is what actually invalidates stale
 // copies after a deploy; if you edit this file directly, build.py will overwrite this
 // line the next time it runs anyway.
-const CACHE_NAME = 'the-backlog-shell-80cda42a7027';
+const CACHE_NAME = 'the-backlog-shell-e1a04a2fb60f';
 
 // Cover images (docs/games/covers/<content hash>.jpg) live in their own cache that
 // survives deploys: their names are content hashes, so a cached file can never go stale,
 // and re-downloading ~2,000 covers on every CACHE_NAME bump would waste phone data.
 const COVERS_CACHE = 'the-backlog-covers-v1';
 
+// Every path is relative to this file, so the same worker runs under GitHub Pages'
+// /the-backlog/ and at the root of a Cloudflare Pages branch preview.
+const BASE = new URL('./', self.location).href;
+function at(path) { return new URL(path, BASE).href; }
+const GAMES_PATH = new URL(at('games/')).pathname;
+const COVERS_PATH = new URL(at('games/covers/')).pathname;
+
 const SHELL_ASSETS = [
-  '/the-backlog/',
-  '/the-backlog/index.html',
-  '/the-backlog/games/',
-  '/the-backlog/games/index.html',
-  '/the-backlog/shared/base.css',
-  '/the-backlog/shared/firebase-init.js',
-  '/the-backlog/shared/pull-to-refresh.js',
-  '/the-backlog/shared/nav.js',
-  '/the-backlog/manifest.json',
-  '/the-backlog/icons/icon-192.png',
-  '/the-backlog/icons/icon-512.png',
-];
+  '',
+  'index.html',
+  'games/',
+  'games/index.html',
+  'shared/base.css',
+  'shared/env.js',
+  'shared/firebase-init.js',
+  'shared/pull-to-refresh.js',
+  'shared/nav.js',
+  'manifest.json',
+  'icons/icon-192.png',
+  'icons/icon-512.png',
+].map(at);
 
 self.addEventListener('install', function (event) {
   event.waitUntil(
@@ -77,11 +85,7 @@ self.addEventListener('fetch', function (event) {
         }
         return response;
       }).catch(function () {
-        return caches.match(
-          url.pathname.startsWith('/the-backlog/games/')
-            ? '/the-backlog/games/index.html'
-            : '/the-backlog/index.html'
-        );
+        return caches.match(url.pathname.startsWith(GAMES_PATH) ? at('games/index.html') : at('index.html'));
       })
     );
     return;
@@ -91,7 +95,7 @@ self.addEventListener('fetch', function (event) {
   // or the worker's R2-backed /img/ route once they don't. Cross-origin image requests come
   // back opaque, which is fine to store and replay for an <img>, but an opaque response is
   // never `ok`, so it has to be cached on type instead.
-  var isCover = url.pathname.startsWith('/the-backlog/games/covers/') ||
+  var isCover = url.pathname.startsWith(COVERS_PATH) ||
     (url.hostname === 'backlog-proxy.tlackey01.workers.dev' && url.pathname.startsWith('/img/'));
   if (isCover) {
     event.respondWith(

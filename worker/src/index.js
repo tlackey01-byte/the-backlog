@@ -9,6 +9,11 @@
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
 const ALLOWED_ORIGINS = ['https://tlackey01-byte.github.io', 'http://localhost:8765'];
+// Cloudflare Pages: the project's own address and its branch/commit previews
+// (igdb-search.the-backlog.pages.dev). If Cloudflare gave the project another name, change it
+// here. Allowed in production too: CORS isn't the lock -- every request still needs a Firebase
+// token from this Worker's own project and user, which a dev preview doesn't have.
+const PREVIEW_ORIGIN = /^https:\/\/([a-z0-9-]+\.)?the-backlog\.pages\.dev$/;
 const HLTB = 'https://howlongtobeat.com';
 const SGDB = 'https://www.steamgriddb.com/api/v2';
 const STEAM_ASSETS = 'https://shared.cloudflare.steamstatic.com/store_item_assets/';
@@ -18,7 +23,7 @@ export default {
     const origin = request.headers.get('Origin') || '';
     // POST + Content-Type are for the page uploading a site-added game's cover images (a
     // binary body) and asking for them to be deleted (JSON); everything else is a GET.
-    const cors = ALLOWED_ORIGINS.includes(origin)
+    const cors = ALLOWED_ORIGINS.includes(origin) || PREVIEW_ORIGIN.test(origin)
       ? { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
           'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Vary': 'Origin' }
       : {};
