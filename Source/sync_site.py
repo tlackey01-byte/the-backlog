@@ -8,7 +8,8 @@ reads Firestore directly (no exported backup needed) and folds both into the mas
   - adds each site-added game that isn't in the master file yet. Its covers are already in
     the bucket's added/ folder (the site uploads them when the game is added); they're copied
     to the normal location inside R2. Games added before that existed carry only an embedded
-    portrait, and get their covers built by refetch_covers.py instead.
+    portrait, and get their covers built by refetch_covers.py instead -- as do games added
+    from Safari, whose JPEG covers are rebuilt as WebP from the original art.
   - once a baked game's push is live, deletes its Firestore record and its added/ originals.
     Not in the same run as the bake: until the push is live, the live page still draws the
     game from that record, covers and all.
@@ -158,7 +159,8 @@ def fill_from_hltb(rec):
 
 def add_games(adds, master, ids, s3, bucket):
     """Append each site-added game to the master file. Returns the names whose covers still
-    need building by refetch_covers.py (games added before the site uploaded covers).
+    need building by refetch_covers.py: games added before the site uploaded covers, and
+    games whose uploaded covers are JPEG (added from Safari) and get rebuilt as WebP.
 
     Status, hours and platforms changed on the site since adding stay in Firestore's state
     document, keyed by name, and keep applying on top of these defaults -- nothing to merge."""
@@ -179,6 +181,12 @@ def add_games(adds, master, ids, s3, bucket):
                 s3.download_file(bucket, dest, local)
             rec["cover"] = wide[len("added/"):]
             rec["coverHero"] = hero[len("added/"):]
+            # Safari can't encode WebP from a canvas, so a game added from an iPhone arrives
+            # with JPEG covers -- a busy hero ~130KB+ against ~60-90KB of WebP. Rebuilt here
+            # from the original art (pinned below) so the catalog's copies match the build's;
+            # the copies above stay as the cover if that fails, and are pruned once replaced.
+            if wide.endswith(".jpg") or hero.endswith(".jpg"):
+                legacy.append(rec["name"])
         else:
             # Only an embedded portrait. It stays as the cover (build.py writes it out as a
             # file) in case refetch_covers.py finds nothing better.
@@ -331,9 +339,14 @@ def report(p, sha, fetched):
             print("   " + fmt(row))
         print()
 
-    section("Add to the master file", p["adds"], lambda d: "+ %s  [%s]" % (
-        d[1]["n"], "covers in added/, copied inside R2" if added_keys(d[1])
-        else "older kind: covers built by refetch_covers.py"))
+    def how(r):
+        keys = added_keys(r)
+        if not keys:
+            return "older kind: covers built by refetch_covers.py"
+        if any(k.endswith(".jpg") for k in keys):
+            return "covers in added/ are JPEG (Safari): copied, then rebuilt as WebP from the original art"
+        return "covers in added/, copied inside R2"
+    section("Add to the master file", p["adds"], lambda d: "+ %s  [%s]" % (d[1]["n"], how(d[1])))
     section("Finish handoff: baked and live, so delete the Firestore record + added/ covers",
             p["handoffs"], lambda d: "~ " + d[1]["n"])
     section("Baked but not live yet (handoff finishes on a later run, after the push)",

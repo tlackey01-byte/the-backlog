@@ -1846,13 +1846,16 @@
     }
     return canvas;
   }
-  // WebP, as the build makes. Safari only learned canvas WebP in 14 -- older browsers
-  // silently hand back a PNG, which would be enormous -- so JPEG when WebP isn't what came back.
+  // WebP, as the build makes. Safari can't encode WebP from a canvas -- it silently hands back
+  // a PNG, which would be enormous -- so JPEG when WebP isn't what came back. At 0.75 that's
+  // about half the size of 0.85 (a busy 600x900 hero: ~130KB against ~290KB) and still clean,
+  // and it's only interim: Source/sync_site.py rebuilds JPEG covers as WebP from the original
+  // art when it folds the game into the catalog.
   function canvasBlob(canvas, quality) {
     return new Promise(function(resolve) {
       canvas.toBlob(function(b) {
         if (b && b.type === 'image/webp') resolve(b);
-        else canvas.toBlob(resolve, 'image/jpeg', 0.85);
+        else canvas.toBlob(resolve, 'image/jpeg', 0.75);
       }, 'image/webp', quality);
     });
   }
@@ -2185,7 +2188,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1790346588', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1790349708', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
