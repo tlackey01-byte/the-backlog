@@ -1786,10 +1786,16 @@
       .then(function(res) { return res.blob(); })
       .then(function(blob) { return createImageBitmap(blob); });
   }
-  // The largest box of the given shape from the middle of the image.
+  // The largest box of the given shape from the middle of the image. Clamped to the image:
+  // floating point can overshoot it by a hair (a 920x430 banner gives a height of
+  // 430.00000000000006 at y -0.00000000000003), and while Chrome quietly clips that, Safari
+  // draws nothing at all for a source box that leaves the image -- which saved an iPhone-added
+  // game's list image as solid black.
   function centreCrop(src, ratio) {
     var sw = src.width, sh = src.height;
     if (sw / sh > ratio) sw = sh * ratio; else sh = sw / ratio;
+    sw = Math.min(sw, src.width);
+    sh = Math.min(sh, src.height);
     return [(src.width - sw) / 2, (src.height - sh) / 2, sw, sh];
   }
   // A blurred, darkened blow-up of the image filling the canvas -- the backdrop behind art
@@ -2179,7 +2185,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1790282115', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('/the-backlog/sw.js?v=1790346588', { scope: '/the-backlog/' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
