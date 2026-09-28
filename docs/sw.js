@@ -5,7 +5,7 @@
 // under a different name, so this hash changing is what actually invalidates stale
 // copies after a deploy; if you edit this file directly, build.py will overwrite this
 // line the next time it runs anyway.
-const CACHE_NAME = 'the-backlog-shell-3156aed0ce5f';
+const CACHE_NAME = 'the-backlog-shell-15f5d1f74d98';
 
 // Cover images (docs/games/covers/<content hash>.jpg) live in their own cache that
 // survives deploys: their names are content hashes, so a cached file can never go stale,
@@ -16,14 +16,21 @@ const COVERS_CACHE = 'the-backlog-covers-v1';
 // /the-backlog/ and at the root of a Cloudflare Pages branch preview.
 const BASE = new URL('./', self.location).href;
 function at(path) { return new URL(path, BASE).href; }
+// A page served from a redirected response is refused (ERR_FAILED), so any that reaches the
+// offline fallback -- say a cached copy from before the change below -- is re-wrapped first.
+function unredirected(response) {
+  if (!response || !response.redirected) return response;
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers: response.headers });
+}
 const GAMES_PATH = new URL(at('games/')).pathname;
 const COVERS_PATH = new URL(at('games/covers/')).pathname;
 
+// The two pages are cached by folder URL only. Cloudflare Pages answers .../index.html with a
+// redirect to the folder, and Chrome won't show a page from a redirected response -- the
+// offline fallback below used index.html and failed to load on every preview.
 const SHELL_ASSETS = [
   '',
-  'index.html',
   'games/',
-  'games/index.html',
   'shared/base.css',
   'shared/env.js',
   'shared/firebase-init.js',
@@ -85,7 +92,11 @@ self.addEventListener('fetch', function (event) {
         }
         return response;
       }).catch(function () {
-        return caches.match(url.pathname.startsWith(GAMES_PATH) ? at('games/index.html') : at('index.html'));
+        // Offline: this exact page if it's been loaded before, else its section's page as
+        // cached at install.
+        return caches.match(request).then(function (hit) {
+          return hit || caches.match(at(url.pathname.startsWith(GAMES_PATH) ? 'games/' : ''));
+        }).then(unredirected);
       })
     );
     return;

@@ -13,6 +13,9 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import {
   getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   doc,
   setDoc,
   onSnapshot,
@@ -28,7 +31,23 @@ const env = window.BacklogEnv || {};
 // offering a sign-in that can't work.
 const app = env.firebase ? initializeApp(env.firebase) : null;
 export const auth = app ? getAuth(app) : null;
-export const db = app ? getFirestore(app) : null;
+export const db = app ? openFirestore(app) : null;
+
+// Firestore keeps a copy of the saved state on this device (IndexedDB), so a page opened
+// offline shows your statuses, hours and journal; with the default in-memory cache it showed
+// only the catalog's defaults until the connection came back. It also makes them appear
+// before the network answers. Saving still waits for the server's copy (stateReady on the
+// games page), so a stale cached copy is never written back. Multi-tab, so two open tabs
+// share the cache. A browser without IndexedDB (some private modes) gets the in-memory
+// cache, as before -- the SDK falls back by itself; the catch covers anything thrown here.
+function openFirestore(app) {
+  try {
+    return initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+  } catch (e) {
+    console.warn("Offline copy unavailable, using the in-memory cache:", e);
+    return getFirestore(app);
+  }
+}
 export function signOutUser() { return signOut(auth); }
 export { doc, setDoc, onSnapshot, collection, addDoc, deleteDoc, query, orderBy };
 

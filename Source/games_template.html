@@ -357,6 +357,10 @@
   .undo-bar button { font: inherit; background: none; border: 0; cursor: pointer; min-height: 44px; display: flex; align-items: center; }
   .undo-bar-undo { color: var(--accent); font-weight: 600; padding: 0 12px; }
   .undo-bar-close { color: var(--text-muted); padding: 0 8px; }
+  /* The refused-edit notice (canEdit) sits at the top and above the sheets: the refused
+     action is often a sheet's own (a platform pick, a journal entry's Save), and at the bottom
+     it would cover the sheet's buttons on phones. Below the pull-to-refresh bar (200). */
+  #sync-notice { top: calc(12px + env(safe-area-inset-top)); bottom: auto; z-index: 160; }
 </style>
 </head>
 <body>
@@ -412,6 +416,12 @@
     <span class="undo-bar-text" id="undo-bar-text"></span>
     <button type="button" class="undo-bar-undo" id="undo-bar-undo">Undo</button>
     <button type="button" class="undo-bar-close" id="undo-bar-close" aria-label="Dismiss"></button>
+  </div>
+  <!-- Why an edit didn't go through: the saved state hasn't loaded yet (see canEdit). A status
+       line like the Undo bar, so it also closes on its own. -->
+  <div class="undo-bar" id="sync-notice" role="status" aria-live="polite" hidden>
+    <span class="undo-bar-text" id="sync-notice-text"></span>
+    <button type="button" class="undo-bar-close" id="sync-notice-close" aria-label="Dismiss"></button>
   </div>
 </div>
 
@@ -569,6 +579,17 @@
   // Every change writes the *whole* state object back via setDoc -- never updateDoc()
   // with dotted field paths, since game names can contain '.', which updateDoc would treat
   // as a nested-map path separator and silently corrupt the write.
+  //
+  // So nothing may be written until this page holds the server's copy: a whole-document write
+  // made from the defaults replaces everything saved. `stateReady` turns true when the state
+  // snapshot comes from the server (the module script calls __markStateReady); until then
+  // saves are refused and edits are turned away with a notice. The case this closes: opened on
+  // a bad connection, Firestore reported the document missing from its (then in-memory, so
+  // empty) cache, and the once-per-load save sent an empty document the moment the connection
+  // came back -- wiping every status, hour, rating and journal entry on every device. The
+  // device's cached copy (shared/firebase-init.js) is shown offline but never saved from: it
+  // can be out of date.
+  var stateReady = false;
   function buildStateObject() {
     return {
       owned: ownedOverrides,
@@ -582,10 +603,35 @@
     };
   }
   function saveState() {
+    if (!stateReady) {
+      console.warn('Not saving: the saved state has not loaded from the server yet.');
+      return Promise.resolve();
+    }
     return window.__cloudSaveState ? window.__cloudSaveState(buildStateObject()) : Promise.resolve();
   }
   // Exposed so the login-gate module script can trigger a save (to seed `totals`).
   window.saveState = saveState;
+  window.__markStateReady = function () {
+    stateReady = true;
+    syncNoticeEl.hidden = true;
+  };
+
+  // Every edit asks this first. Before the saved state is in, a change could only be kept by
+  // a save that isn't safe yet -- and the incoming snapshot would overwrite it anyway -- so it's
+  // turned away with a notice instead of being applied and lost.
+  var syncNoticeEl = document.getElementById('sync-notice');
+  var syncNoticeTimer = null;
+  document.getElementById('sync-notice-close').innerHTML = icon('x', 20);
+  document.getElementById('sync-notice-close').addEventListener('click', function() { syncNoticeEl.hidden = true; });
+  function canEdit() {
+    if (stateReady) return true;
+    document.getElementById('sync-notice-text').textContent = navigator.onLine === false
+      ? 'Offline — changes can’t be saved yet.' : 'Your data is still loading — try again.';
+    syncNoticeEl.hidden = false;
+    clearTimeout(syncNoticeTimer);
+    syncNoticeTimer = setTimeout(function() { syncNoticeEl.hidden = true; }, 4000);
+    return false;
+  }
 
   function has(obj, key) { return Object.prototype.hasOwnProperty.call(obj, key); }
 
@@ -1166,6 +1212,7 @@
 
   // ---- Editing: status ----
   function setProgress(g, val) {
+    if (!canEdit()) return;
     g.progress = val;
     progressOverrides[g.name] = val;
     // Backlog always reads as 0h played (unless manually overridden); leaving backlog
@@ -1199,6 +1246,7 @@
 
   // ---- Editing: platforms (ownership) ----
   function setPlatforms(g, list) {
+    if (!canEdit()) return;
     var real = list.filter(function(p) { return p !== 'Wishlist'; });
     platformOverrides[g.name] = real.length ? real : ['Wishlist'];
     ownedOverrides[g.name] = real.length > 0;   // kept in step for older data readers
@@ -1242,6 +1290,7 @@
 
   // ---- Editing: rating + hours played (game page) ----
   function setRating(g, val) {
+    if (!canEdit()) { patchDetailFields(g); return; }   // puts the dropdown back
     if (val == null) delete ratingOverrides[g.name]; else ratingOverrides[g.name] = val;
     g.rating = val;
     saveState();
@@ -1249,6 +1298,7 @@
     if (state.sortKey === 'rating' || state.ratingFilter != null || wideMq.matches) applyFilters();
   }
   function setPlayed(g, val) {
+    if (!canEdit()) { patchDetailFields(g); return; }   // puts the hours field back
     if (val == null) {
       delete playedOverrides[g.name];
       g.playedHours = g.progress === 'backlog' ? 0 : g.playedHoursDefault;
@@ -1304,6 +1354,7 @@
   document.getElementById('undo-bar-close').innerHTML = icon('x', 20);
 
   function deleteGame(name) {
+    if (!canEdit()) return;
     if (pendingDelete) finishPendingDelete();
     deletedNames[name] = true;
     var g = gameByName[name];
@@ -1366,15 +1417,22 @@
   // Called by the login-gate module script's onSnapshot listener for every snapshot,
   // this device's own writes echoing back included -- each branch only touches local
   // state/DOM when a value actually differs, so echoes are no-ops.
+  //
+  // Entries for games this page doesn't know (yet) are kept, not skipped: saves write the whole
+  // document, so anything left out here is deleted from Firestore by the next save. A game
+  // added on the site arrives in its own snapshot, sometimes after this one -- skipping its
+  // entries meant its hours, rating and journal were lost at the next save. expandRecord()
+  // picks the kept entries up when the game arrives, and names the page never shows cost
+  // nothing.
   function applyRemoteState(data) {
     if (!data) return;
     var changed = false;
     var remoteDeleted = {};
     (data.deleted || []).forEach(function(name) {
       remoteDeleted[name] = true;
-      if (deletedNames[name] || !gameByName[name]) return;
+      if (deletedNames[name]) return;
       deletedNames[name] = true;
-      applyDeletion(gameByName[name]);
+      if (gameByName[name]) applyDeletion(gameByName[name]);
     });
     // And the other way: a name gone from the synced list was restored elsewhere -- Undo on
     // another device, or the game re-added. Without this the game stayed hidden here, and
@@ -1388,15 +1446,15 @@
     });
     var ownershipTouched = {};
     Object.keys(data.owned || {}).forEach(function(name) {
-      if (!gameByName[name] || ownedOverrides[name] === data.owned[name]) return;
+      if (ownedOverrides[name] === data.owned[name]) return;
       ownedOverrides[name] = data.owned[name];
-      ownershipTouched[name] = true;
+      if (gameByName[name]) ownershipTouched[name] = true;
     });
     Object.keys(data.platforms || {}).forEach(function(name) {
       var incoming = data.platforms[name] || [];
-      if (!gameByName[name] || JSON.stringify(platformOverrides[name] || []) === JSON.stringify(incoming)) return;
+      if (JSON.stringify(platformOverrides[name] || []) === JSON.stringify(incoming)) return;
       platformOverrides[name] = incoming.slice();
-      ownershipTouched[name] = true;
+      if (gameByName[name]) ownershipTouched[name] = true;
     });
     Object.keys(ownershipTouched).forEach(function(name) {
       var g = gameByName[name];
@@ -1405,35 +1463,62 @@
       changed = true;
     });
     Object.keys(data.progress || {}).forEach(function(name) {
+      if (progressOverrides[name] === data.progress[name]) return;
+      progressOverrides[name] = data.progress[name];
       var g = gameByName[name];
-      if (!g || progressOverrides[name] === data.progress[name]) return;
-      progressOverrides[name] = g.progress = data.progress[name];
+      if (!g) return;
+      g.progress = data.progress[name];
       g.playedHours = effectivePlayed(g.progress, g.playedHoursDefault, g.name);
       patchPills(g);
       patchDetailFields(g);
       changed = true;
     });
     Object.keys(data.played || {}).forEach(function(name) {
+      if (playedOverrides[name] === data.played[name]) return;
+      playedOverrides[name] = data.played[name];
       var g = gameByName[name];
-      if (!g || playedOverrides[name] === data.played[name]) return;
-      playedOverrides[name] = g.playedHours = data.played[name];
+      if (!g) return;
+      g.playedHours = data.played[name];
       patchDetailFields(g);
       changed = true;
     });
     Object.keys(data.rating || {}).forEach(function(name) {
+      if (ratingOverrides[name] === data.rating[name]) return;
+      ratingOverrides[name] = data.rating[name];
       var g = gameByName[name];
-      if (!g || ratingOverrides[name] === data.rating[name]) return;
-      ratingOverrides[name] = g.rating = data.rating[name];
+      if (!g) return;
+      g.rating = data.rating[name];
+      patchDetailFields(g);
+      changed = true;
+    });
+    // Ratings and hours played are the two things cleared by deleting their entry, so one
+    // missing from the synced document was cleared elsewhere -- on another device, or since
+    // the copy this device cached. Kept here, the next save (the whole document) wrote it
+    // straight back. Same reasoning as the deleted list above.
+    Object.keys(ratingOverrides).forEach(function(name) {
+      if (has(data.rating || {}, name)) return;
+      delete ratingOverrides[name];
+      var g = gameByName[name];
+      if (!g) return;
+      g.rating = null;
+      patchDetailFields(g);
+      changed = true;
+    });
+    Object.keys(playedOverrides).forEach(function(name) {
+      if (has(data.played || {}, name)) return;
+      delete playedOverrides[name];
+      var g = gameByName[name];
+      if (!g) return;
+      g.playedHours = effectivePlayed(g.progress, g.playedHoursDefault, g.name);
       patchDetailFields(g);
       changed = true;
     });
     // Journal entries only show on their own game's page, so just refresh that section.
     Object.keys(data.journal || {}).forEach(function(name) {
-      var g = gameByName[name];
       var incoming = data.journal[name] || [];
-      if (!g || JSON.stringify(journalOverrides[name] || []) === JSON.stringify(incoming)) return;
+      if (JSON.stringify(journalOverrides[name] || []) === JSON.stringify(incoming)) return;
       journalOverrides[name] = incoming;
-      refreshJournalSectionIfOpen(g);
+      if (gameByName[name]) refreshJournalSectionIfOpen(gameByName[name]);
     });
     if (changed) {
       refreshStats();
@@ -1493,14 +1578,17 @@
     if (container) container.outerHTML = journalSectionHtml(g);
   }
   function addJournalEntry(g, dateStr, summaryText, timestamps) {
+    if (!canEdit()) return false;
     var list = journalOverrides[g.name] ? journalOverrides[g.name].slice() : [];
     list.push({ date: dateStr, summary: summaryText, timestamps: (timestamps || []).slice(), createdAt: new Date().toISOString() });
     journalOverrides[g.name] = list;
     saveState();
     refreshJournalSectionIfOpen(g);
+    return true;
   }
   // createdAt (full ISO, ms precision) identifies an entry; there's no separate id.
   function removeJournalEntry(g, createdAt) {
+    if (!canEdit()) return;
     journalOverrides[g.name] = (journalOverrides[g.name] || []).filter(function(e) { return e.createdAt !== createdAt; });
     saveState();
     refreshJournalSectionIfOpen(g);
@@ -1545,8 +1633,10 @@
       var summary = summaryEl.value.trim();
       if (!g) return;
       if (!summary) { summaryEl.focus(); return; }
-      addJournalEntry(g, document.getElementById('journal-date-input').value || todayDateInputValue(), summary, pendingTimestamps);
-      closeJournalModal();
+      // Not saved yet (the data hasn't loaded): the form stays open so nothing typed is lost.
+      if (addJournalEntry(g, document.getElementById('journal-date-input').value || todayDateInputValue(), summary, pendingTimestamps)) {
+        closeJournalModal();
+      }
     }
   });
 
@@ -1636,14 +1726,16 @@
       setPlayed(g, next);
       return;
     }
-    if (e.target.closest('#journal-add-btn')) { openJournalModal(g); return; }
+    // Checked before the form opens, so an entry can't be typed out only to be refused on Save.
+    if (e.target.closest('#journal-add-btn')) { if (canEdit()) openJournalModal(g); return; }
     var jDel = e.target.closest('.journal-entry-delete');
+    // canEdit() before the confirmation, so it never asks about something that can't happen yet.
     if (jDel) {
-      if (window.confirm('Delete this journal entry? This can\'t be undone from here.')) removeJournalEntry(g, jDel.getAttribute('data-created'));
+      if (canEdit() && window.confirm('Delete this journal entry? This can\'t be undone from here.')) removeJournalEntry(g, jDel.getAttribute('data-created'));
       return;
     }
     if (e.target.closest('#detail-delete-btn')) {
-      if (window.confirm('Remove "' + g.name + '" from the backlog? You\'ll have 10 seconds to undo.')) deleteGame(g.name);
+      if (canEdit() && window.confirm('Remove "' + g.name + '" from the backlog? You\'ll have 10 seconds to undo.')) deleteGame(g.name);
     }
   });
 
@@ -2077,6 +2169,7 @@
     var existing = findExistingGame(r);
     if (existing) {
       if (!existing.deleted) { statusEl.textContent = 'Already in your backlog.'; return; }
+      if (!canEdit()) return;   // restoring is an edit to the saved state
       delete deletedNames[existing.name];
       existing.deleted = false;
       existing.genres.forEach(function(tag) { genreCounts[tag] = (genreCounts[tag] || 0) + 1; });
@@ -2199,16 +2292,19 @@
 
     // Live cross-device sync: every snapshot (this device's own writes echoing back
     // included) is diffed and patched into the page by applyRemoteState(), never a full
-    // reload. Also re-saves `totals` once per page load so the homepage card self-heals
+    // reload. Saving waits for the first snapshot from the server: one from this device's cache
+    // is shown (so the page works offline) but says nothing certain about what's saved -- it can
+    // be out of date, or empty (see stateReady in the classic script). Metadata changes are included so
+    // the switch from cache to server always arrives, even when the data doesn't change (a
+    // brand-new account). Then `totals` is re-saved once, so the homepage card self-heals
     // after anything writes this doc without recomputing them.
-    var seededTotals = false;
-    onSnapshot(stateRef, function (snap) {
-      var data = snap.data();
-      if (window.__applyRemoteState) window.__applyRemoteState(data);
-      if (!seededTotals) {
-        seededTotals = true;
-        if (window.saveState) window.saveState();
-      }
+    var serverStateLoaded = false;
+    onSnapshot(stateRef, { includeMetadataChanges: true }, function (snap) {
+      if (window.__applyRemoteState) window.__applyRemoteState(snap.data());
+      if (serverStateLoaded || snap.metadata.fromCache) return;
+      serverStateLoaded = true;
+      if (window.__markStateReady) window.__markStateReady();
+      if (window.saveState) window.saveState();
     });
   });
 </script>
@@ -2218,7 +2314,7 @@
   // shell's CSS/JS cache-first.
   if ('serviceWorker' in navigator && !window.BacklogEnv.local) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('../sw.js?v=1790370498', { scope: '../' });
+      navigator.serviceWorker.register('../sw.js?v=1790617508', { scope: '../' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
