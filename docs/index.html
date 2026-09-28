@@ -13,6 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="The Backlog">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="shared/base.css">
+<script src="shared/env.js"></script>
 <style>
   .home { max-width: 1280px; margin: 0 auto; padding: 20px max(16px, env(safe-area-inset-right)) 40px max(16px, env(safe-area-inset-left)); }
   .home-label {
@@ -116,9 +117,12 @@
   });
 </script>
 <script>
-  if ('serviceWorker' in navigator) {
+  // Relative, so it's the same worker under GitHub Pages' /the-backlog/ and at a preview's
+  // root. Not on localhost: there every edit should show on reload, and the worker serves the
+  // shell's CSS/JS cache-first.
+  if ('serviceWorker' in navigator && !window.BacklogEnv.local) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/the-backlog/sw.js?v=1790362582', { scope: '/the-backlog/' });
+      navigator.serviceWorker.register('sw.js?v=1790370498', { scope: './' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
