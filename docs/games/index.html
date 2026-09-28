@@ -357,6 +357,10 @@
   .undo-bar button { font: inherit; background: none; border: 0; cursor: pointer; min-height: 44px; display: flex; align-items: center; }
   .undo-bar-undo { color: var(--accent); font-weight: 600; padding: 0 12px; }
   .undo-bar-close { color: var(--text-muted); padding: 0 8px; }
+  /* The refused-edit notice (canEdit) sits at the top and above the sheets: the refused
+     action is often a sheet's own (a platform pick, a journal entry's Save), and at the bottom
+     it would cover the sheet's buttons on phones. Below the pull-to-refresh bar (200). */
+  #sync-notice { top: calc(12px + env(safe-area-inset-top)); bottom: auto; z-index: 160; }
 </style>
 </head>
 <body>
@@ -1722,7 +1726,8 @@
       setPlayed(g, next);
       return;
     }
-    if (e.target.closest('#journal-add-btn')) { openJournalModal(g); return; }
+    // Checked before the form opens, so an entry can't be typed out only to be refused on Save.
+    if (e.target.closest('#journal-add-btn')) { if (canEdit()) openJournalModal(g); return; }
     var jDel = e.target.closest('.journal-entry-delete');
     // canEdit() before the confirmation, so it never asks about something that can't happen yet.
     if (jDel) {
@@ -2309,7 +2314,7 @@
   // shell's CSS/JS cache-first.
   if ('serviceWorker' in navigator && !window.BacklogEnv.local) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('../sw.js?v=1790617015', { scope: '../' });
+      navigator.serviceWorker.register('../sw.js?v=1790617508', { scope: '../' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
