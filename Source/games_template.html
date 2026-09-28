@@ -580,9 +580,11 @@
   // made from the defaults replaces everything saved. `stateReady` turns true when the state
   // snapshot comes from the server (the module script calls __markStateReady); until then
   // saves are refused and edits are turned away with a notice. The case this closes: opened on
-  // a bad connection, Firestore reports the document missing from its (empty) cache, and the
-  // once-per-load save sent an empty document the moment the connection came back -- wiping
-  // every status, hour, rating and journal entry on every device.
+  // a bad connection, Firestore reported the document missing from its (then in-memory, so
+  // empty) cache, and the once-per-load save sent an empty document the moment the connection
+  // came back -- wiping every status, hour, rating and journal entry on every device. The
+  // device's cached copy (shared/firebase-init.js) is shown offline but never saved from: it
+  // can be out of date.
   var stateReady = false;
   function buildStateObject() {
     return {
@@ -1485,6 +1487,28 @@
       patchDetailFields(g);
       changed = true;
     });
+    // Ratings and hours played are the two things cleared by deleting their entry, so one
+    // missing from the synced document was cleared elsewhere -- on another device, or since
+    // the copy this device cached. Kept here, the next save (the whole document) wrote it
+    // straight back. Same reasoning as the deleted list above.
+    Object.keys(ratingOverrides).forEach(function(name) {
+      if (has(data.rating || {}, name)) return;
+      delete ratingOverrides[name];
+      var g = gameByName[name];
+      if (!g) return;
+      g.rating = null;
+      patchDetailFields(g);
+      changed = true;
+    });
+    Object.keys(playedOverrides).forEach(function(name) {
+      if (has(data.played || {}, name)) return;
+      delete playedOverrides[name];
+      var g = gameByName[name];
+      if (!g) return;
+      g.playedHours = effectivePlayed(g.progress, g.playedHoursDefault, g.name);
+      patchDetailFields(g);
+      changed = true;
+    });
     // Journal entries only show on their own game's page, so just refresh that section.
     Object.keys(data.journal || {}).forEach(function(name) {
       var incoming = data.journal[name] || [];
@@ -2263,9 +2287,9 @@
 
     // Live cross-device sync: every snapshot (this device's own writes echoing back
     // included) is diffed and patched into the page by applyRemoteState(), never a full
-    // reload. Saving waits for the first snapshot from the server: one from the local cache --
-    // which, on a fresh load with a bad connection, is simply empty -- says nothing about
-    // what's saved (see stateReady in the classic script). Metadata changes are included so
+    // reload. Saving waits for the first snapshot from the server: one from this device's cache
+    // is shown (so the page works offline) but says nothing certain about what's saved -- it can
+    // be out of date, or empty (see stateReady in the classic script). Metadata changes are included so
     // the switch from cache to server always arrives, even when the data doesn't change (a
     // brand-new account). Then `totals` is re-saved once, so the homepage card self-heals
     // after anything writes this doc without recomputing them.
@@ -2285,7 +2309,7 @@
   // shell's CSS/JS cache-first.
   if ('serviceWorker' in navigator && !window.BacklogEnv.local) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('../sw.js?v=1790612066', { scope: '../' });
+      navigator.serviceWorker.register('../sw.js?v=1790617015', { scope: '../' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
