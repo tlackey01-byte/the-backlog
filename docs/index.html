@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>The Backlog</title>
-<link rel="manifest" href="manifest.json">
+<!-- use-credentials: the site sits behind a Cloudflare Access login, and browsers fetch a
+     manifest without cookies unless told to, so it would get the login page instead. -->
+<link rel="manifest" href="manifest.json" crossorigin="use-credentials">
 <meta name="theme-color" content="#14161c">
 <!-- iOS ignores the web manifest for "Add to Home Screen" styling, so these are needed
      alongside it for a standalone (no Safari chrome) launch with a matching icon. -->
@@ -122,7 +124,7 @@
   // shell's CSS/JS cache-first.
   if ('serviceWorker' in navigator && !window.BacklogEnv.local) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('sw.js?v=1790617508', { scope: './' });
+      navigator.serviceWorker.register('sw.js?v=1790790298', { scope: './' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
