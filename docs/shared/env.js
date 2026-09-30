@@ -2,17 +2,20 @@
 // the backlog proxy Worker. Loaded as a plain script in every page's <head>, before the page's
 // own scripts, which read window.BacklogEnv.
 //
-// The live site (GitHub Pages) uses production. Any other address -- localhost, or a Cloudflare
-// Pages branch preview such as igdb-search.the-backlog.pages.dev -- uses the dev backend, so
-// testing a branch can never touch real data (deletes and syncs there are permanent).
+// The live site uses production: the-backlog.pages.dev (Cloudflare Pages' copy of main, behind a
+// Cloudflare Access login). Any other address -- localhost, or a Cloudflare Pages branch or
+// commit preview such as igdb-search.the-backlog.pages.dev -- uses the dev backend, so testing a
+// branch can never touch real data (deletes and syncs there are permanent).
 //
 // To test locally against production on purpose (the old local setup), open the page with
 // ?env=prod once; this browser remembers it for localhost until ?env=dev. Previews can't switch:
-// anyone with a preview's link can open it, so it never gets production.
+// they run unmerged code, so they never get production.
 (function () {
   "use strict";
 
-  var PROD_HOSTS = ["tlackey01-byte.github.io"];
+  // The old GitHub Pages address stays production until it's unpublished, so the home-screen
+  // app installed from it keeps working while it moves to the new address.
+  var PROD_HOSTS = ["the-backlog.pages.dev", "tlackey01-byte.github.io"];
   var ENVS = {
     prod: {
       // Not a secret: Firebase's access control is Firestore Security Rules + Authentication.
