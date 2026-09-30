@@ -618,17 +618,29 @@
     syncNoticeEl.hidden = true;
   };
 
-  // Every edit asks this first. Before the saved state is in, a change could only be kept by
-  // a save that isn't safe yet -- and the incoming snapshot would overwrite it anyway -- so it's
-  // turned away with a notice instead of being applied and lost.
+  // Edits also need a live connection, not just a copy that was current once: Firestore queues
+  // an edit made offline and saves it on reconnect as a whole document, overwriting anything
+  // changed on another device in the meantime. The module script reports whether the latest
+  // snapshot came from the server; navigator.onLine catches a dropped connection before
+  // Firestore notices it.
+  var serverSynced = false;
+  window.__setServerSynced = function (synced) {
+    serverSynced = synced;
+    if (synced && stateReady) syncNoticeEl.hidden = true;
+  };
+
+  // Every edit asks this first. Before the saved state is in, or while offline, a change could
+  // only be kept by a save that isn't safe -- so it's turned away with a notice instead of being
+  // applied and lost.
   var syncNoticeEl = document.getElementById('sync-notice');
   var syncNoticeTimer = null;
   document.getElementById('sync-notice-close').innerHTML = icon('x', 20);
   document.getElementById('sync-notice-close').addEventListener('click', function() { syncNoticeEl.hidden = true; });
   function canEdit() {
-    if (stateReady) return true;
-    document.getElementById('sync-notice-text').textContent = navigator.onLine === false
-      ? 'Offline — changes can’t be saved yet.' : 'Your data is still loading — try again.';
+    var offline = navigator.onLine === false;
+    if (stateReady && serverSynced && !offline) return true;
+    document.getElementById('sync-notice-text').textContent = offline ? 'Offline — changes can’t be saved yet.'
+      : stateReady ? 'Reconnecting — try again in a moment.' : 'Your data is still loading — try again.';
     syncNoticeEl.hidden = false;
     clearTimeout(syncNoticeTimer);
     syncNoticeTimer = setTimeout(function() { syncNoticeEl.hidden = true; }, 4000);
@@ -2298,11 +2310,14 @@
     // is shown (so the page works offline) but says nothing certain about what's saved -- it can
     // be out of date, or empty (see stateReady in the classic script). Metadata changes are included so
     // the switch from cache to server always arrives, even when the data doesn't change (a
-    // brand-new account). Then `totals` is re-saved once, so the homepage card self-heals
-    // after anything writes this doc without recomputing them.
+    // brand-new account), and so does every switch back when the connection drops, which
+    // closes editing again (__setServerSynced). After the first server snapshot, `totals` is
+    // re-saved once, so the homepage card self-heals after anything writes this doc without
+    // recomputing them.
     var serverStateLoaded = false;
     onSnapshot(stateRef, { includeMetadataChanges: true }, function (snap) {
       if (window.__applyRemoteState) window.__applyRemoteState(snap.data());
+      if (window.__setServerSynced) window.__setServerSynced(!snap.metadata.fromCache);
       if (serverStateLoaded || snap.metadata.fromCache) return;
       serverStateLoaded = true;
       if (window.__markStateReady) window.__markStateReady();
@@ -2316,7 +2331,7 @@
   // shell's CSS/JS cache-first.
   if ('serviceWorker' in navigator && !window.BacklogEnv.local) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('../sw.js?v=1790790298', { scope: '../' });
+      navigator.serviceWorker.register('../sw.js?v=1790796277', { scope: '../' });
     });
     // A service worker update normally needs two reloads to actually become visible: the
     // first is still served by the outgoing worker while the new one installs in the
