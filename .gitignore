@@ -30,3 +30,6 @@ docs/games/covers/
 # Local wrangler state (a root-level one appears if wrangler is run outside worker/)
 .wrangler/
 __pycache__/
+
+# Steam Web API key + SteamID64 for Source/import_steam.py
+Source/steam_api.json
