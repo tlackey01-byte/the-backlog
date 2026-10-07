@@ -1166,12 +1166,6 @@
   "wideUrl": "https://cdn2.steamgriddb.com/grid/880cf692c3d9221dedc598e4188b5944.png",
   "artYear": 2024
  },
- "Geometry Wars: Retro Evolved 2": {
-  "sgdbId": 5254320,
-  "url": "https://cdn2.steamgriddb.com/grid/fee75b05309b665fb5a6ec3b56dda5e1.jpg",
-  "wideUrl": "https://cdn2.steamgriddb.com/grid/7d1355230b9a88ba2730edd6e12f8311.jpg",
-  "artYear": 2008
- },
  "Spelunky": {
   "sgdbId": 2721,
   "url": "https://cdn2.steamgriddb.com/grid/3fd0ed7241311e3c7f4d708e8f9b23e9.png",
@@ -9413,12 +9407,6 @@
   "artYear": 2015,
   "artYearOk": true
  },
- "Half-Life: Alyx": {
-  "sgdbId": 5252649,
-  "url": "https://cdn2.steamgriddb.com/grid/980c9d1c2752a29a8cdc5669b9e22e6f.png",
-  "wideUrl": "https://cdn2.steamgriddb.com/grid/d565a87f07ca4b6eaed5ce48fcf9a6b1.png",
-  "artYear": 2020
- },
  "Metal: Hellsinger": {
   "sgdbId": 5261958,
   "url": "https://cdn2.steamgriddb.com/grid/e991a7a03a1ce276aaf8a8f148344589.png",
@@ -12698,5 +12686,18 @@
   "source": "site",
   "pinned": true,
   "artYear": 2000
+ },
+ "Half-Life": {
+  "sgdbId": 21207,
+  "url": "https://cdn2.steamgriddb.com/grid/10f16ffcd88e1cf00e43178442437763.png",
+  "wideUrl": "https://cdn2.steamgriddb.com/grid/9938a12a3ce53430f4a76b42c61ec14d.png",
+  "artYear": 1998
+ },
+ "Geometry Wars: Retro Evolved": {
+  "sgdbId": 27260,
+  "url": "https://cdn2.steamgriddb.com/grid/7e358686c3643badb832fb359fced0c9.png",
+  "wideUrl": "https://cdn2.steamgriddb.com/grid/a26398dca6f47b49876cbaffbc9954f9.png",
+  "artYear": 2007,
+  "artYearOk": true
  }
 }
